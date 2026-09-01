@@ -1,0 +1,23 @@
+{
+  "name": "marble-madness-3d",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Marble Madness (1984) remade as a playable WebGL/three.js isometric marble run using the bundled arcade/Master System reference art.",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "serve": "node tools/serve.mjs",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "start": "npm run build && npm run serve"
+  },
+  "dependencies": {
+    "three": "^0.185.0",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.0",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.0.0"
+  }
+}

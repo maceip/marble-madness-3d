@@ -1,0 +1,937 @@
+import * as THREE from 'three';
+import { STEP_H, type BuiltLevel } from '../data/build.js';
+import type { HazardInstance } from './hazards.js';
+import type { MarbleState } from './physics.js';
+import type { RemotePlayer } from './multiplayer.js';
+import { CAM_BACK, CAM_TILT, CAM_YAW, FOV, MABLE_R } from '../lib/constants.js';
+
+interface Particle {
+  mesh: THREE.Mesh;
+  vx: number;
+  vy: number;
+  vz: number;
+  life: number;
+  maxLife: number;
+}
+
+interface RemotePlayerMesh {
+  mesh: THREE.Mesh;
+  shadow: THREE.Mesh;
+  label: THREE.Sprite;
+}
+
+export class GameRenderer {
+  private canvas: HTMLCanvasElement;
+  private renderer: THREE.WebGLRenderer;
+  private scene: THREE.Scene;
+  private camera: THREE.PerspectiveCamera;
+
+  private environmentGroup = new THREE.Group();
+  private terrainGroup = new THREE.Group();
+  private hazardsGroup = new THREE.Group();
+  private remotePlayersGroup = new THREE.Group();
+  private particlesGroup = new THREE.Group();
+
+  private marbleMesh: THREE.Mesh;
+  private marbleShadow: THREE.Mesh;
+  private localLabelSprite: THREE.Sprite;
+
+  private hazardMeshes = new Map<HazardInstance, THREE.Object3D>();
+  private remotePlayerMeshes = new Map<string, RemotePlayerMesh>();
+  private particles: Particle[] = [];
+
+  private sunLight: THREE.DirectionalLight;
+  private hemiLight: THREE.HemisphereLight;
+  private goalPointLight: THREE.PointLight;
+
+  private waterMeshes: THREE.Mesh[] = [];
+  private animatedProps: THREE.Object3D[] = [];
+  private totalTime = 0;
+
+  constructor() {
+    this.canvas = document.getElementById('gl') as HTMLCanvasElement;
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance',
+    });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x0b0d14);
+    this.scene.fog = new THREE.FogExp2(0x0b0d14, 0.012);
+
+    this.camera = new THREE.PerspectiveCamera(
+      FOV,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      600,
+    );
+
+    // Lights
+    const ambient = new THREE.AmbientLight(0xffffff, 0.75);
+    this.scene.add(ambient);
+
+    this.hemiLight = new THREE.HemisphereLight(0xddeeff, 0x111122, 0.6);
+    this.scene.add(this.hemiLight);
+
+    this.sunLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    this.sunLight.position.set(35, 75, 45);
+    this.sunLight.castShadow = true;
+    this.sunLight.shadow.mapSize.width = 2048;
+    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.camera.near = 10;
+    this.sunLight.shadow.camera.far = 200;
+    this.sunLight.shadow.camera.left = -50;
+    this.sunLight.shadow.camera.right = 50;
+    this.sunLight.shadow.camera.top = 50;
+    this.sunLight.shadow.camera.bottom = -50;
+    this.scene.add(this.sunLight);
+
+    this.goalPointLight = new THREE.PointLight(0x33e0ff, 2.5, 18);
+    this.scene.add(this.goalPointLight);
+
+    // Groups
+    this.scene.add(this.environmentGroup);
+    this.scene.add(this.terrainGroup);
+    this.scene.add(this.hazardsGroup);
+    this.scene.add(this.remotePlayersGroup);
+    this.scene.add(this.particlesGroup);
+
+    // Local Marble
+    this.marbleMesh = this.createMarbleMesh('#ff3b5c', '#33e0ff');
+    this.marbleShadow = this.createShadowMesh();
+    this.localLabelSprite = this.createPlayerLabel('YOU (P1)', '#ffd23f');
+    this.localLabelSprite.position.set(0, 0.75, 0);
+
+    this.scene.add(this.marbleMesh);
+    this.scene.add(this.marbleShadow);
+    this.scene.add(this.localLabelSprite);
+
+    window.addEventListener('resize', () => this.onResize());
+  }
+
+  public setLocalPlayerInfo(name: string, color: string): void {
+    this.scene.remove(this.marbleMesh);
+    this.scene.remove(this.localLabelSprite);
+
+    this.marbleMesh = this.createMarbleMesh(color, '#ffffff');
+    this.localLabelSprite = this.createPlayerLabel(`${name} (YOU)`, '#ffd23f');
+
+    this.scene.add(this.marbleMesh);
+    this.scene.add(this.localLabelSprite);
+  }
+
+  private createMarbleTexture(primaryColor: string, accentColor: string): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+
+    // Base surface with subtle pearlescent gloss
+    const grad = ctx.createLinearGradient(0, 0, 256, 128);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.5, '#e6ecf8');
+    grad.addColorStop(1, '#d0d8ea');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 128);
+
+    // Classic arcade colored bands & chevrons
+    ctx.fillStyle = primaryColor;
+    ctx.fillRect(0, 24, 256, 36);
+    ctx.fillRect(0, 84, 256, 24);
+
+    ctx.fillStyle = accentColor;
+    for (let x = 0; x < 256; x += 32) {
+      ctx.fillRect(x, 0, 16, 128);
+    }
+
+    // Grid details
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.lineWidth = 2;
+    for (let x = 0; x < 256; x += 16) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 128);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  }
+
+  private createMarbleMesh(primaryColor = '#ff3b5c', accentColor = '#33e0ff'): THREE.Mesh {
+    const geom = new THREE.SphereGeometry(MABLE_R, 32, 24);
+    const mat = new THREE.MeshStandardMaterial({
+      map: this.createMarbleTexture(primaryColor, accentColor),
+      roughness: 0.12,
+      metalness: 0.45,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.castShadow = true;
+    return mesh;
+  }
+
+  private createShadowMesh(): THREE.Mesh {
+    const geom = new THREE.PlaneGeometry(MABLE_R * 2.2, MABLE_R * 2.2);
+    geom.rotateX(-Math.PI / 2);
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d')!;
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(0,0,0,0.65)');
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      depthWrite: false,
+    });
+    return new THREE.Mesh(geom, mat);
+  }
+
+  private createPlayerLabel(text: string, color = '#33e0ff'): THREE.Sprite {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d')!;
+
+    // Rounded tag background
+    ctx.fillStyle = 'rgba(11, 14, 24, 0.82)';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(8, 8, 240, 48, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    // Text
+    ctx.font = 'bold 22px ui-monospace, SFMono-Regular, monospace';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 128, 32);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(1.4, 0.35, 1.0);
+    return sprite;
+  }
+
+  // =========================================================================
+  // 3D ENVIRONMENT, SKYBOX & THEMATIC LEVEL SCENERY
+  // =========================================================================
+
+  public buildLevelMesh(level: BuiltLevel): void {
+    // Clear old terrain and environment
+    while (this.terrainGroup.children.length > 0) {
+      this.terrainGroup.remove(this.terrainGroup.children[0]);
+    }
+    while (this.environmentGroup.children.length > 0) {
+      this.environmentGroup.remove(this.environmentGroup.children[0]);
+    }
+    this.waterMeshes = [];
+    this.animatedProps = [];
+
+    const stageId = level.def.id;
+    this.setupThemedEnvironment(stageId, level.def.name);
+
+    // Material palette for surfaces
+    const materials = this.createSurfaceMaterials(stageId);
+
+    const { W, H, cells } = level.layout;
+    const boxGeom = new THREE.BoxGeometry(1, 1, 1);
+
+    for (let r = 0; r < H; r++) {
+      for (let c = 0; c < W; c++) {
+        const cell = cells[r * W + c];
+        if (!cell || cell.surf === 'void') continue;
+
+        const mat = materials[cell.surf] || materials.path;
+        const columnHeight = cell.H * STEP_H;
+
+        if (columnHeight > 0) {
+          if (cell.fall !== 'none') {
+            // Render smooth sloped wedge ramp for sloped tiles
+            const wedge = this.createRampMesh(cell.fall, columnHeight, mat);
+            wedge.position.set(c + 0.5, 0, r + 0.5);
+            wedge.receiveShadow = true;
+            this.terrainGroup.add(wedge);
+          } else {
+            // Standard column block with beveled appearance
+            const block = new THREE.Mesh(boxGeom, mat);
+            block.position.set(c + 0.5, columnHeight / 2, r + 0.5);
+            block.scale.set(0.98, columnHeight, 0.98);
+            block.receiveShadow = true;
+            this.terrainGroup.add(block);
+          }
+        }
+
+        // Add 3D scenery props per surface
+        if (cell.surf === 'tree') {
+          const treeGroup = this.createTreeProp();
+          treeGroup.position.set(c + 0.5, columnHeight, r + 0.5);
+          this.terrainGroup.add(treeGroup);
+        } else if (cell.surf === 'rock') {
+          const rock = this.createRockProp();
+          rock.position.set(c + 0.5, columnHeight, r + 0.5);
+          this.terrainGroup.add(rock);
+        } else if (cell.surf === 'water') {
+          const waterGeom = new THREE.PlaneGeometry(1, 1, 4, 4);
+          waterGeom.rotateX(-Math.PI / 2);
+          const waterMesh = new THREE.Mesh(waterGeom, materials.water);
+          waterMesh.position.set(c + 0.5, columnHeight + 0.05, r + 0.5);
+          this.waterMeshes.push(waterMesh);
+          this.terrainGroup.add(waterMesh);
+        }
+      }
+    }
+  }
+
+  private createRampMesh(fall: string, height: number, mat: THREE.Material): THREE.Mesh {
+    // Custom wedge geometry for sloped ramps
+    const geom = new THREE.BufferGeometry();
+    const h1 = height;
+    const h0 = Math.max(0.1, height - STEP_H);
+
+    // Positions for a 1x1 cell wedge
+    // Corners: 0:(-0.5, -0.5), 1:(0.5, -0.5), 2:(0.5, 0.5), 3:(-0.5, 0.5)
+    let y00 = h1, y10 = h1, y11 = h1, y01 = h1;
+
+    switch (fall) {
+      case 'E':
+        y10 = h0; y11 = h0;
+        break;
+      case 'W':
+        y00 = h0; y01 = h0;
+        break;
+      case 'S':
+        y01 = h0; y11 = h0;
+        break;
+      case 'N':
+        y00 = h0; y10 = h0;
+        break;
+      case 'SE':
+        y11 = h0;
+        break;
+      case 'SW':
+        y01 = h0;
+        break;
+      default:
+        break;
+    }
+
+    const vertices = new Float32Array([
+      // Top sloped quad (2 triangles)
+      -0.49, y00, -0.49,
+       0.49, y10, -0.49,
+       0.49, y11,  0.49,
+
+      -0.49, y00, -0.49,
+       0.49, y11,  0.49,
+      -0.49, y01,  0.49,
+
+      // Base & sides (down to ground 0)
+      -0.49, 0, -0.49,   0.49, 0, -0.49,   0.49, y10, -0.49,
+      -0.49, 0, -0.49,   0.49, y10, -0.49,  -0.49, y00, -0.49,
+
+       0.49, 0, -0.49,   0.49, 0,  0.49,   0.49, y11,  0.49,
+       0.49, 0, -0.49,   0.49, y11,  0.49,   0.49, y10, -0.49,
+
+       0.49, 0,  0.49,  -0.49, 0,  0.49,  -0.49, y01,  0.49,
+       0.49, 0,  0.49,  -0.49, y01,  0.49,   0.49, y11,  0.49,
+
+      -0.49, 0,  0.49,  -0.49, 0, -0.49,  -0.49, y00, -0.49,
+      -0.49, 0,  0.49,  -0.49, y00, -0.49,  -0.49, y01,  0.49,
+    ]);
+
+    geom.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    geom.computeVertexNormals();
+
+    return new THREE.Mesh(geom, mat);
+  }
+
+  private setupThemedEnvironment(stageId: number, stageName: string): void {
+    // Thematic sky, fog and 3D background props
+    let fogColor = 0x0b0d14;
+    let skyColorTop = 0x142036;
+    let skyColorBottom = 0x060810;
+
+    switch (stageId) {
+      case 1: // Wild Woods
+        fogColor = 0x0c1c14;
+        skyColorTop = 0x224838;
+        skyColorBottom = 0x0a1610;
+        this.sunLight.color.setHex(0xfff4dd);
+        this.hemiLight.color.setHex(0x88eebb);
+        this.hemiLight.groundColor.setHex(0x112211);
+        this.buildForestBackdrop();
+        break;
+
+      case 2: // Arctic Adventure
+        fogColor = 0x0c182a;
+        skyColorTop = 0x284878;
+        skyColorBottom = 0x0c1828;
+        this.sunLight.color.setHex(0xddeeff);
+        this.hemiLight.color.setHex(0xccf0ff);
+        this.hemiLight.groundColor.setHex(0x102030);
+        this.buildArcticBackdrop();
+        break;
+
+      case 3: // Edgy Maze
+        fogColor = 0x140a24;
+        skyColorTop = 0x3b1566;
+        skyColorBottom = 0x0d0618;
+        this.sunLight.color.setHex(0xff55aa);
+        this.hemiLight.color.setHex(0x33e0ff);
+        this.hemiLight.groundColor.setHex(0x220044);
+        this.buildCyberGridBackdrop();
+        break;
+
+      case 4: // Dusty Trail
+        fogColor = 0x24140a;
+        skyColorTop = 0x5a2d12;
+        skyColorBottom = 0x180c04;
+        this.sunLight.color.setHex(0xffdd99);
+        this.hemiLight.color.setHex(0xffbb77);
+        this.hemiLight.groundColor.setHex(0x331100);
+        this.buildDesertBackdrop();
+        break;
+
+      case 5: // Drillin' Rye
+        fogColor = 0x180c10;
+        skyColorTop = 0x3d141e;
+        skyColorBottom = 0x10080a;
+        this.sunLight.color.setHex(0xff8844);
+        this.hemiLight.color.setHex(0xff5533);
+        this.hemiLight.groundColor.setHex(0x220808);
+        this.buildMineCavernBackdrop();
+        break;
+
+      case 6: // Space Dementia
+        fogColor = 0x040614;
+        skyColorTop = 0x121438;
+        skyColorBottom = 0x020308;
+        this.sunLight.color.setHex(0xbbddff);
+        this.hemiLight.color.setHex(0x88aaff);
+        this.hemiLight.groundColor.setHex(0x080a1c);
+        this.buildCosmicSpaceBackdrop();
+        break;
+    }
+
+    this.scene.background = new THREE.Color(skyColorBottom);
+    this.scene.fog = new THREE.FogExp2(fogColor, 0.011);
+
+    // Large panoramic curved backdrop sky dome
+    const skyDomeGeom = new THREE.SphereGeometry(260, 32, 24);
+    const skyCanvas = document.createElement('canvas');
+    skyCanvas.width = 512;
+    skyCanvas.height = 256;
+    const sctx = skyCanvas.getContext('2d')!;
+    const skyGrad = sctx.createLinearGradient(0, 0, 0, 256);
+    skyGrad.addColorStop(0, `#${skyColorTop.toString(16).padStart(6, '0')}`);
+    skyGrad.addColorStop(0.65, `#${fogColor.toString(16).padStart(6, '0')}`);
+    skyGrad.addColorStop(1, `#${skyColorBottom.toString(16).padStart(6, '0')}`);
+    sctx.fillStyle = skyGrad;
+    sctx.fillRect(0, 0, 512, 256);
+
+    const skyTex = new THREE.CanvasTexture(skyCanvas);
+    const skyMat = new THREE.MeshBasicMaterial({
+      map: skyTex,
+      side: THREE.BackSide,
+      depthWrite: false,
+    });
+    const skyDome = new THREE.Mesh(skyDomeGeom, skyMat);
+    this.environmentGroup.add(skyDome);
+  }
+
+  private buildForestBackdrop(): void {
+    // Distant mountain ranges and pine forests
+    const mtnMat = new THREE.MeshStandardMaterial({ color: 0x14281c, roughness: 0.9 });
+    for (let i = 0; i < 16; i++) {
+      const radius = 6 + Math.random() * 8;
+      const height = 15 + Math.random() * 20;
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 6), mtnMat);
+      const angle = (i / 16) * Math.PI * 2;
+      cone.position.set(Math.cos(angle) * 75, height / 2 - 10, Math.sin(angle) * 75);
+      this.environmentGroup.add(cone);
+    }
+  }
+
+  private buildArcticBackdrop(): void {
+    // Glacial icebergs
+    const iceMat = new THREE.MeshStandardMaterial({
+      color: 0x88ccee,
+      roughness: 0.1,
+      metalness: 0.2,
+    });
+    for (let i = 0; i < 14; i++) {
+      const w = 8 + Math.random() * 12;
+      const h = 16 + Math.random() * 22;
+      const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(w, 0), iceMat);
+      mesh.scale.set(1, h / w, 1);
+      const angle = (i / 14) * Math.PI * 2;
+      mesh.position.set(Math.cos(angle) * 80, h / 2 - 8, Math.sin(angle) * 80);
+      this.environmentGroup.add(mesh);
+    }
+  }
+
+  private buildCyberGridBackdrop(): void {
+    // Neon wireframe grid floor
+    const grid = new THREE.GridHelper(160, 40, 0x33e0ff, 0xff3b5c);
+    grid.position.set(10, -5, 10);
+    this.environmentGroup.add(grid);
+
+    // Floating neon polyhedra
+    const polyMat = new THREE.MeshBasicMaterial({
+      color: 0xff3b5c,
+      wireframe: true,
+    });
+    for (let i = 0; i < 8; i++) {
+      const octa = new THREE.Mesh(new THREE.IcosahedronGeometry(4 + Math.random() * 4, 0), polyMat);
+      octa.position.set(-30 + i * 10, 15 + Math.random() * 15, -40 + Math.random() * 20);
+      this.animatedProps.push(octa);
+      this.environmentGroup.add(octa);
+    }
+  }
+
+  private buildDesertBackdrop(): void {
+    // Sandstone mesa pillars
+    const mesaMat = new THREE.MeshStandardMaterial({ color: 0x884422, roughness: 0.95 });
+    for (let i = 0; i < 12; i++) {
+      const r = 5 + Math.random() * 7;
+      const h = 20 + Math.random() * 30;
+      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.8, r, h, 7), mesaMat);
+      const angle = (i / 12) * Math.PI * 2;
+      cyl.position.set(Math.cos(angle) * 70, h / 2 - 10, Math.sin(angle) * 70);
+      this.environmentGroup.add(cyl);
+    }
+  }
+
+  private buildMineCavernBackdrop(): void {
+    // Cavern rocky stalactites
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x2a1a1f, roughness: 0.9 });
+    for (let i = 0; i < 15; i++) {
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(4, 25, 6), rockMat);
+      cone.rotateX(Math.PI);
+      cone.position.set(-40 + i * 6, 28, -30 + Math.random() * 60);
+      this.environmentGroup.add(cone);
+    }
+  }
+
+  private buildCosmicSpaceBackdrop(): void {
+    // 3D Starfield
+    const starGeom = new THREE.BufferGeometry();
+    const starCount = 1500;
+    const starPositions = new Float32Array(starCount * 3);
+
+    for (let i = 0; i < starCount * 3; i += 3) {
+      starPositions[i] = (Math.random() - 0.5) * 400;
+      starPositions[i + 1] = (Math.random() - 0.5) * 400;
+      starPositions[i + 2] = (Math.random() - 0.5) * 400;
+    }
+
+    starGeom.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.8, transparent: true });
+    const stars = new THREE.Points(starGeom, starMat);
+    this.environmentGroup.add(stars);
+
+    // Planetary rings in background
+    const ringGeom = new THREE.RingGeometry(50, 75, 48);
+    ringGeom.rotateX(Math.PI / 2.8);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x6688cc,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.45,
+    });
+    const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+    ringMesh.position.set(30, 20, -100);
+    this.environmentGroup.add(ringMesh);
+  }
+
+  private createSurfaceMaterials(stageId: number): Record<string, THREE.Material> {
+    return {
+      path: new THREE.MeshStandardMaterial({ color: 0x4d5b7a, roughness: 0.35 }),
+      wall: new THREE.MeshStandardMaterial({ color: 0x202636, roughness: 0.6 }),
+      sand: new THREE.MeshStandardMaterial({ color: 0xcca854, roughness: 0.95 }),
+      water: new THREE.MeshStandardMaterial({
+        color: 0x2288dd,
+        roughness: 0.05,
+        metalness: 0.1,
+        transparent: true,
+        opacity: 0.82,
+      }),
+      snow: new THREE.MeshStandardMaterial({ color: 0xe6f2ff, roughness: 0.12, metalness: 0.1 }),
+      glass: new THREE.MeshStandardMaterial({
+        color: 0x44ffee,
+        transparent: true,
+        opacity: 0.72,
+        roughness: 0.08,
+      }),
+      holo: new THREE.MeshStandardMaterial({ color: 0xff3b99, wireframe: true }),
+      metal: new THREE.MeshStandardMaterial({ color: 0x99aab8, metalness: 0.8, roughness: 0.2 }),
+      tree: new THREE.MeshStandardMaterial({ color: 0x288448, roughness: 0.75 }),
+      rock: new THREE.MeshStandardMaterial({ color: 0x545860, roughness: 0.85 }),
+      cloud: new THREE.MeshStandardMaterial({
+        color: 0xeffcff,
+        roughness: 0.4,
+        transparent: true,
+        opacity: 0.88,
+      }),
+    };
+  }
+
+  private createTreeProp(): THREE.Group {
+    const group = new THREE.Group();
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.15, 0.5, 6),
+      new THREE.MeshStandardMaterial({ color: 0x5a3d28 }),
+    );
+    trunk.position.y = 0.25;
+    group.add(trunk);
+
+    const foliage = new THREE.Mesh(
+      new THREE.ConeGeometry(0.48, 1.1, 7),
+      new THREE.MeshStandardMaterial({ color: 0x247c42, roughness: 0.8 }),
+    );
+    foliage.position.y = 0.8;
+    foliage.castShadow = true;
+    group.add(foliage);
+    return group;
+  }
+
+  private createRockProp(): THREE.Mesh {
+    const geom = new THREE.DodecahedronGeometry(0.35, 1);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x585c66, roughness: 0.85 });
+    const rock = new THREE.Mesh(geom, mat);
+    rock.position.y = 0.35;
+    rock.castShadow = true;
+    return rock;
+  }
+
+  // =========================================================================
+  // HAZARDS & ENTITIES
+  // =========================================================================
+
+  public syncHazards(hazards: HazardInstance[]): void {
+    while (this.hazardsGroup.children.length > 0) {
+      this.hazardsGroup.remove(this.hazardsGroup.children[0]);
+    }
+    this.hazardMeshes.clear();
+
+    for (const h of hazards) {
+      const obj = this.createHazardObject(h);
+      this.hazardsGroup.add(obj);
+      this.hazardMeshes.set(h, obj);
+    }
+  }
+
+  private createHazardObject(h: HazardInstance): THREE.Object3D {
+    const group = new THREE.Group();
+
+    switch (h.def.kind) {
+      case 'blade': {
+        const discGeom = new THREE.CylinderGeometry(0.45, 0.45, 0.05, 16);
+        const discMat = new THREE.MeshStandardMaterial({
+          color: 0xdd2233,
+          metalness: 0.9,
+          roughness: 0.1,
+        });
+        const disc = new THREE.Mesh(discGeom, discMat);
+        disc.rotateZ(Math.PI / 2);
+        group.add(disc);
+        break;
+      }
+
+      case 'bat': {
+        const bodyGeom = new THREE.SphereGeometry(0.2, 8, 8);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x221133 });
+        const body = new THREE.Mesh(bodyGeom, bodyMat);
+        group.add(body);
+
+        const wingGeom = new THREE.PlaneGeometry(0.5, 0.25);
+        const wingMat = new THREE.MeshStandardMaterial({ color: 0x442255, side: THREE.DoubleSide });
+        const leftWing = new THREE.Mesh(wingGeom, wingMat);
+        leftWing.position.set(-0.3, 0, 0);
+        leftWing.name = 'wingL';
+        const rightWing = new THREE.Mesh(wingGeom, wingMat);
+        rightWing.position.set(0.3, 0, 0);
+        rightWing.name = 'wingR';
+        group.add(leftWing, rightWing);
+        break;
+      }
+
+      case 'bomber': {
+        const bodyGeom = new THREE.ConeGeometry(0.35, 0.9, 8);
+        bodyGeom.rotateX(Math.PI / 2);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1188bb, metalness: 0.5 });
+        const ship = new THREE.Mesh(bodyGeom, bodyMat);
+        group.add(ship);
+        break;
+      }
+
+      case 'snake': {
+        for (let i = 0; i < 4; i++) {
+          const segGeom = new THREE.SphereGeometry(0.22 - i * 0.03, 8, 8);
+          const segMat = new THREE.MeshStandardMaterial({ color: i === 0 ? 0x22cc44 : 0x118822 });
+          const seg = new THREE.Mesh(segGeom, segMat);
+          seg.position.set(0, 0, i * 0.25);
+          group.add(seg);
+        }
+        break;
+      }
+
+      case 'item': {
+        const octaGeom = new THREE.OctahedronGeometry(0.24);
+        const octaMat = new THREE.MeshStandardMaterial({
+          color: 0xffd23f,
+          emissive: 0x886600,
+          metalness: 0.6,
+          roughness: 0.2,
+        });
+        const crystal = new THREE.Mesh(octaGeom, octaMat);
+        group.add(crystal);
+        break;
+      }
+
+      case 'checkpoint': {
+        const ringGeom = new THREE.TorusGeometry(0.4, 0.06, 8, 16);
+        const ringMat = new THREE.MeshStandardMaterial({
+          color: 0x33e0ff,
+          emissive: 0x117799,
+        });
+        const ring = new THREE.Mesh(ringGeom, ringMat);
+        ring.rotateX(Math.PI / 2);
+        group.add(ring);
+        break;
+      }
+
+      case 'goal': {
+        const archGeom = new THREE.TorusGeometry(0.65, 0.08, 12, 24);
+        const archMat = new THREE.MeshStandardMaterial({
+          color: 0xff3b5c,
+          emissive: 0x881122,
+        });
+        const arch = new THREE.Mesh(archGeom, archMat);
+        arch.rotateX(Math.PI / 2);
+        group.add(arch);
+        this.goalPointLight.position.set(h.x, h.y + 0.5, h.z);
+        break;
+      }
+
+      case 'springboard': {
+        const padGeom = new THREE.BoxGeometry(0.7, 0.1, 0.7);
+        const padMat = new THREE.MeshStandardMaterial({ color: 0xff8800 });
+        const pad = new THREE.Mesh(padGeom, padMat);
+        group.add(pad);
+        break;
+      }
+    }
+
+    return group;
+  }
+
+  // =========================================================================
+  // MULTIPLAYER REMOTE PLAYERS
+  // =========================================================================
+
+  public syncRemotePlayers(players: RemotePlayer[], currentStage: number): void {
+    const activeIds = new Set<string>();
+
+    for (const p of players) {
+      if (p.stage !== currentStage) continue;
+      activeIds.add(p.id);
+
+      let rpm = this.remotePlayerMeshes.get(p.id);
+      if (!rpm) {
+        const mesh = this.createMarbleMesh(p.color, '#ffffff');
+        const shadow = this.createShadowMesh();
+        const label = this.createPlayerLabel(`${p.name} [${p.score}]`, p.color);
+
+        this.remotePlayersGroup.add(mesh);
+        this.remotePlayersGroup.add(shadow);
+        this.remotePlayersGroup.add(label);
+
+        rpm = { mesh, shadow, label };
+        this.remotePlayerMeshes.set(p.id, rpm);
+      }
+
+      // Update position
+      rpm.mesh.position.set(p.x, p.y, p.z);
+      rpm.mesh.rotation.x = p.rotX;
+      rpm.mesh.rotation.z = p.rotZ;
+
+      rpm.shadow.position.set(p.x, Math.max(0, p.y - MABLE_R + 0.01), p.z);
+      rpm.label.position.set(p.x, p.y + 0.65, p.z);
+    }
+
+    // Clean up disconnected or different stage players
+    for (const [id, rpm] of this.remotePlayerMeshes.entries()) {
+      if (!activeIds.has(id)) {
+        this.remotePlayersGroup.remove(rpm.mesh);
+        this.remotePlayersGroup.remove(rpm.shadow);
+        this.remotePlayersGroup.remove(rpm.label);
+        this.remotePlayerMeshes.delete(id);
+      }
+    }
+  }
+
+  // =========================================================================
+  // PARTICLES & SPECIAL EFFECTS
+  // =========================================================================
+
+  public emitShatterParticles(pos: [number, number, number]): void {
+    const shardGeom = new THREE.TetrahedronGeometry(0.08);
+    const shardMat = new THREE.MeshStandardMaterial({ color: 0xff3b5c, roughness: 0.2 });
+
+    for (let i = 0; i < 22; i++) {
+      const mesh = new THREE.Mesh(shardGeom, shardMat);
+      mesh.position.set(pos[0], pos[1], pos[2]);
+      this.particlesGroup.add(mesh);
+
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.06 + Math.random() * 0.16;
+      this.particles.push({
+        mesh,
+        vx: Math.cos(angle) * speed,
+        vy: 0.09 + Math.random() * 0.16,
+        vz: Math.sin(angle) * speed,
+        life: 0,
+        maxLife: 0.9 + Math.random() * 0.4,
+      });
+    }
+  }
+
+  public emitBumpSparks(pos: [number, number, number]): void {
+    const sparkGeom = new THREE.OctahedronGeometry(0.06);
+    const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffd23f });
+
+    for (let i = 0; i < 16; i++) {
+      const mesh = new THREE.Mesh(sparkGeom, sparkMat);
+      mesh.position.set(pos[0], pos[1], pos[2]);
+      this.particlesGroup.add(mesh);
+
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.08 + Math.random() * 0.18;
+      this.particles.push({
+        mesh,
+        vx: Math.cos(angle) * speed,
+        vy: 0.05 + Math.random() * 0.14,
+        vz: Math.sin(angle) * speed,
+        life: 0,
+        maxLife: 0.5 + Math.random() * 0.3,
+      });
+    }
+  }
+
+  // =========================================================================
+  // MAIN RENDER LOOP
+  // =========================================================================
+
+  public render(
+    marble: MarbleState,
+    hazards: HazardInstance[],
+    remotePlayers: RemotePlayer[],
+    stageId: number,
+    dt: number,
+  ): void {
+    this.totalTime += dt;
+
+    // Update local marble position & rolling orientation
+    this.marbleMesh.position.set(marble.x, marble.y, marble.z);
+    this.marbleMesh.rotation.x = marble.rotX;
+    this.marbleMesh.rotation.z = marble.rotZ;
+
+    this.marbleShadow.position.set(marble.x, Math.max(0, marble.y - MABLE_R + 0.01), marble.z);
+    this.localLabelSprite.position.set(marble.x, marble.y + 0.65, marble.z);
+
+    // Sync multiplayer remote players
+    this.syncRemotePlayers(remotePlayers, stageId);
+
+    // Update hazards animations
+    for (const h of hazards) {
+      const obj = this.hazardMeshes.get(h);
+      if (!obj) continue;
+
+      obj.visible = h.active;
+      obj.position.set(h.x, h.y, h.z);
+
+      if (h.def.kind === 'blade') {
+        obj.rotation.y = h.rotation * 4;
+      } else if (h.def.kind === 'item') {
+        obj.rotation.y = h.rotation * 2;
+        obj.position.y += Math.sin(h.animTime * 4) * 0.08;
+      } else if (h.def.kind === 'bat') {
+        const wingL = obj.getObjectByName('wingL');
+        const wingR = obj.getObjectByName('wingR');
+        if (wingL) wingL.rotation.z = Math.sin(h.animTime * 18) * 0.6;
+        if (wingR) wingR.rotation.z = -Math.sin(h.animTime * 18) * 0.6;
+      }
+    }
+
+    // Animate background props
+    for (const prop of this.animatedProps) {
+      prop.rotation.y += dt * 0.5;
+      prop.rotation.x += dt * 0.3;
+    }
+
+    // Animate water waves
+    for (const w of this.waterMeshes) {
+      w.position.y += Math.sin(this.totalTime * 4) * 0.002;
+    }
+
+    // Update particles
+    for (const p of this.particles) {
+      p.life += dt;
+      p.vy -= 0.007;
+      p.mesh.position.x += p.vx;
+      p.mesh.position.y += p.vy;
+      p.mesh.position.z += p.vz;
+      p.mesh.rotation.x += 0.1;
+      p.mesh.rotation.y += 0.1;
+      const scale = Math.max(0.01, 1 - p.life / p.maxLife);
+      p.mesh.scale.set(scale, scale, scale);
+    }
+    this.particles = this.particles.filter((p) => {
+      if (p.life >= p.maxLife) {
+        this.particlesGroup.remove(p.mesh);
+        return false;
+      }
+      return true;
+    });
+
+    // Isometric follow camera
+    const radTilt = (CAM_TILT * Math.PI) / 180;
+    const radYaw = (CAM_YAW * Math.PI) / 180;
+
+    const camDist = CAM_BACK * 0.38;
+    const camX = marble.x + Math.sin(radYaw) * Math.cos(radTilt) * camDist;
+    const camY = marble.y + Math.sin(radTilt) * camDist + 3.8;
+    const camZ = marble.z + Math.cos(radYaw) * Math.cos(radTilt) * camDist;
+
+    this.camera.position.set(camX, camY, camZ);
+    this.camera.lookAt(marble.x + 1.2, marble.y + 0.5, marble.z + 1.2);
+
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  private onResize(): void {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height);
+  }
+}
