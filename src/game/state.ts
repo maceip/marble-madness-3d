@@ -56,7 +56,9 @@ export class GameManager {
     this.loadHiscore();
     this.bindEvents();
     this.bindMultiplayer();
-    this.setupStage(0);
+    this.setupStage(0, false);
+    this.state = 'TITLE';
+    this.hud.showMenu(LEVELS.length, 1);
   }
 
   private loadHiscore(): void {
@@ -94,7 +96,7 @@ export class GameManager {
       this.startAudio();
       if (this.state === 'TITLE') {
         this.state = 'PLAYING';
-        this.hud.showBanner(`STAGE 1`, this.currentLevel.def.name, 2000);
+        this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2000);
       }
     };
     this.hud.onRestartGame = () => {
@@ -210,12 +212,14 @@ export class GameManager {
     if (!this.isAudioStarted) {
       this.isAudioStarted = true;
       soundManager.init();
-      void this.input.requestDeviceOrientationPermission();
+      void this.input.requestDeviceOrientationPermission().then((ok) => {
+        if (ok) this.input.calibrateNow();
+      });
       soundManager.playBgm(this.currentStageIndex + 1);
     }
   }
 
-  public setupStage(index: number): void {
+  public setupStage(index: number, autoPlay = true): void {
     this.currentStageIndex = Math.max(0, Math.min(LEVELS.length - 1, index));
     this.currentLevel = LEVELS[this.currentStageIndex];
     this.timeLeft = this.currentLevel.def.time || COURSE_TIME;
@@ -231,8 +235,10 @@ export class GameManager {
       soundManager.playBgm(this.currentStageIndex + 1);
     }
 
-    this.state = 'PLAYING';
-    this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2200);
+    if (autoPlay) {
+      this.state = 'PLAYING';
+      this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2200);
+    }
   }
 
   private restartCurrentStage(): void {

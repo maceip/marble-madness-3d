@@ -61,13 +61,13 @@ export function buildLevel(def: LevelDef): BuiltLevel {
   const idx = (c: number, r: number) => r * W + c;
 
   // ---- pass 1: collect author overrides ---------------------------------
-  const overrides = new Map<string, CellDef>();
+  const overrides = new Map<string, Partial<CellDef>>();
   for (const [spec, patch] of Object.entries(def.patches?.cells ?? {})) {
     for (const [c, r, c2, r2] of parseKeys(spec)) {
       for (let rr = r; rr <= r2; rr++) {
         for (let cc = c; cc <= c2; cc++) {
           const k = `${cc},${rr}`;
-          const prev = overrides.get(k) ?? { surf: 'void', h: 2, fall: 'none' };
+          const prev = overrides.get(k) ?? {};
           overrides.set(k, { ...prev, ...patch });
         }
       }

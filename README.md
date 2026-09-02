@@ -13,7 +13,7 @@ A high-performance modern WebGL & Three.js 3D isometric remake of the 1984 arcad
   - Custom continuous-slope wedge geometry and collision mesh generation from ASCII course definitions.
   - Interactive stage props: Buzzsaws, bats, bombers, acid snakes, springboards, item crystals, and checkpoints.
 - **6 Thematic High-Resolution Stages**:
-  1. **Wild Woods** — Mountain ridges, pine forests, and sawmill chutes.
+  1. **Pink Gardens** — Practice race: magenta waves, chicane, isometric cube.
   2. **Arctic Adventure** — Glacial crevasses, ice slides, and igloos.
   3. **Edgy Maze** — Cyberpunk wireframe grid abyss and synthwave geometry.
   4. **Dusty Trail** — Sandstone mesas, desert canyons, and geysers.

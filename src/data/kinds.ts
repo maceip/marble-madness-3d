@@ -95,6 +95,10 @@ export const GLYPHS: Record<string, CellDef> = {
   c: d({ surf: 'cloud', h: 5 }),
   C: d({ surf: 'cloud', h: 3 }),
   '#': d({ surf: 'wall', h: 3, solid: true }),
+  // ice / snow — Beginner race
+  i: d({ surf: 'snow', h: 2 }),
+  I: d({ surf: 'snow', h: 4 }),
+  o: d({ surf: 'snow', h: 6 }),
 
   // props
   '^': d({ surf: 'path', h: 2, prop: 'spike' }),

@@ -5,6 +5,76 @@ import type { MarbleState } from './physics.js';
 import type { RemotePlayer } from './multiplayer.js';
 import { CAM_BACK, CAM_TILT, CAM_YAW, FOV, MABLE_R } from '../lib/constants.js';
 
+/** top, side, dark — per-course surface colours matching the arcade maps */
+type FaceTriple = [number, number, number];
+type StagePalette = Record<string, FaceTriple>;
+
+const PALETTE_BASE: StagePalette = {
+  path: [0x5a6a88, 0x2a3448, 0x1a2030],
+  wall: [0x3a4460, 0x222838, 0x141820],
+  sand: [0xcca854, 0x8a6a30, 0x5a4418],
+  water: [0x2288dd, 0x186090, 0x0e3048],
+  snow: [0xe6f2ff, 0xa8c4d8, 0x6a8498],
+  glass: [0x44ffee, 0x2aa090, 0x185860],
+  holo: [0xff3b99, 0x882050, 0x4a1028],
+  metal: [0x99aab8, 0x5a6874, 0x3a444c],
+  tree: [0x288448, 0x1a5a30, 0x0e3018],
+  rock: [0x545860, 0x3a3c42, 0x222428],
+  cloud: [0xeffcff, 0xb8c8d8, 0x788898],
+};
+
+const STAGE_PALETTES: Record<number, StagePalette> = {
+  1: {
+    ...PALETTE_BASE,
+    path: [0xd4568a, 0x7a2450, 0x4a1830],
+    wall: [0x5a3040, 0x3a1c28, 0x241018],
+    tree: [0x2f8a48, 0x1a5a30, 0x0e3018],
+    rock: [0x6a6e78, 0x444850, 0x2a2c32],
+  },
+  2: {
+    ...PALETTE_BASE,
+    path: [0xc8e4f8, 0x6a98b8, 0x3a6080],
+    snow: [0xeef6ff, 0xa8c8e0, 0x6888a0],
+    metal: [0xb8d0e0, 0x6a88a0, 0x3a5060],
+    wall: [0xd8eef8, 0x88b0c8, 0x486878],
+    water: [0x3aa0dd, 0x186890, 0x0c3048],
+  },
+  3: {
+    ...PALETTE_BASE,
+    path: [0x7a48a8, 0x3a2060, 0x1a1030],
+    wall: [0x2a1438, 0x180a24, 0x0c0614],
+    glass: [0x66ffe8, 0x2aa090, 0x185860],
+    holo: [0xff55cc, 0x882050, 0x4a1028],
+    water: [0x33ee66, 0x148838, 0x0a4020],
+  },
+  4: {
+    ...PALETTE_BASE,
+    path: [0xd4a05a, 0x8a6030, 0x4a3018],
+    sand: [0xe8c878, 0xa08040, 0x604818],
+    metal: [0xc4a070, 0x7a6038, 0x3a2c18],
+    wall: [0x8a5a30, 0x5a3818, 0x2a1c0c],
+  },
+  5: {
+    ...PALETTE_BASE,
+    path: [0x8a6a58, 0x5a4030, 0x2a2018],
+    metal: [0xb8c0c8, 0x5a6068, 0x2a3038],
+    wall: [0x3a2a28, 0x241818, 0x140c0c],
+    sand: [0x6a5040, 0x443028, 0x241818],
+  },
+  6: {
+    ...PALETTE_BASE,
+    path: [0x4a5aa8, 0x243068, 0x101838],
+    cloud: [0xd0e8ff, 0x88a8c8, 0x486888],
+    glass: [0x88ffff, 0x2aa0c0, 0x145060],
+    holo: [0xff66ee, 0x882060, 0x401030],
+    sand: [0x8898c8, 0x4a5878, 0x283048],
+  },
+};
+
+function stagePalette(stageId: number): StagePalette {
+  return STAGE_PALETTES[stageId] ?? PALETTE_BASE;
+}
+
 interface Particle {
   mesh: THREE.Mesh;
   vx: number;
@@ -369,7 +439,7 @@ export class GameRenderer {
     let skyColorBottom = 0x060810;
 
     switch (stageId) {
-      case 1: // Wild Woods
+      case 1: // Pink Gardens
         fogColor = 0x0c1c14;
         skyColorTop = 0x224838;
         skyColorBottom = 0x0a1610;
@@ -562,34 +632,27 @@ export class GameRenderer {
   }
 
   private createSurfaceMaterials(stageId: number): Record<string, THREE.Material> {
+    const pal = stagePalette(stageId);
+    const mk = (top: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) =>
+      new THREE.MeshStandardMaterial({ color: top, roughness: 0.4, ...extra });
+
     return {
-      path: new THREE.MeshStandardMaterial({ color: 0x4d5b7a, roughness: 0.35 }),
-      wall: new THREE.MeshStandardMaterial({ color: 0x202636, roughness: 0.6 }),
-      sand: new THREE.MeshStandardMaterial({ color: 0xcca854, roughness: 0.95 }),
-      water: new THREE.MeshStandardMaterial({
-        color: 0x2288dd,
+      path: mk(pal.path[0], { roughness: 0.35 }),
+      wall: mk(pal.wall[0], { roughness: 0.6 }),
+      sand: mk(pal.sand[0], { roughness: 0.95 }),
+      water: mk(pal.water[0], {
         roughness: 0.05,
         metalness: 0.1,
         transparent: true,
         opacity: 0.82,
       }),
-      snow: new THREE.MeshStandardMaterial({ color: 0xe6f2ff, roughness: 0.12, metalness: 0.1 }),
-      glass: new THREE.MeshStandardMaterial({
-        color: 0x44ffee,
-        transparent: true,
-        opacity: 0.72,
-        roughness: 0.08,
-      }),
-      holo: new THREE.MeshStandardMaterial({ color: 0xff3b99, wireframe: true }),
-      metal: new THREE.MeshStandardMaterial({ color: 0x99aab8, metalness: 0.8, roughness: 0.2 }),
-      tree: new THREE.MeshStandardMaterial({ color: 0x288448, roughness: 0.75 }),
-      rock: new THREE.MeshStandardMaterial({ color: 0x545860, roughness: 0.85 }),
-      cloud: new THREE.MeshStandardMaterial({
-        color: 0xeffcff,
-        roughness: 0.4,
-        transparent: true,
-        opacity: 0.88,
-      }),
+      snow: mk(pal.snow[0], { roughness: 0.12, metalness: 0.1 }),
+      glass: mk(pal.glass[0], { transparent: true, opacity: 0.72, roughness: 0.08 }),
+      holo: mk(pal.holo[0], { wireframe: true }),
+      metal: mk(pal.metal[0], { metalness: 0.8, roughness: 0.2 }),
+      tree: mk(pal.tree[0], { roughness: 0.75 }),
+      rock: mk(pal.rock[0], { roughness: 0.85 }),
+      cloud: mk(pal.cloud[0], { roughness: 0.4, transparent: true, opacity: 0.88 }),
     };
   }
 

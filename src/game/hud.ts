@@ -148,7 +148,7 @@ export class HudManager {
       <h1 class="title">${isGameOver ? 'GAME OVER' : 'MARBLE MADNESS'}</h1>
       <div class="sub">${isGameOver ? `FINAL SCORE: ${finalScore}` : '3D ISOMETRIC ARCADE RUN · MULTIPLAYER SHARED WORLD'}</div>
       <div class="courses">${courseButtons}</div>
-      <button class="go click" id="menu-resume">${isGameOver ? 'PLAY AGAIN' : 'RESUME RUN'}</button>
+      <button class="go click" id="menu-resume">${isGameOver ? 'PLAY AGAIN' : 'PRESS START'}</button>
       <div class="fine">
         Steer with Device Tilt (Mobile Rotameter), Touch Joystick, or Arrow Keys / WASD.<br>
         Multiplayer: Bump into other marbles to knock them off balance and score +250 points!
