@@ -50,7 +50,6 @@ export class SoundManager {
   currentBgm: HTMLAudioElement | null = null;
   currentBgmKey: string = '';
   isMuted: boolean = false;
-  private musicVolume = this.loadMusicVolume();
 
   // Dedicated Music and SFX volume sliders (default pleasant non-deafening mix)
   public musicVolume = 0.35;
@@ -66,26 +65,36 @@ export class SoundManager {
   }
 
   private loadSettings(): void {
-    const savedMusic = localStorage.getItem('mm_music_volume');
+    const savedMusic = localStorage.getItem('marble_music_volume') || localStorage.getItem('mm_music_volume');
     if (savedMusic !== null) this.musicVolume = Math.max(0, Math.min(1, parseFloat(savedMusic)));
 
-    const savedSfx = localStorage.getItem('mm_sfx_volume');
+    const savedSfx = localStorage.getItem('marble_sfx_volume') || localStorage.getItem('mm_sfx_volume');
     if (savedSfx !== null) this.sfxVolume = Math.max(0, Math.min(1, parseFloat(savedSfx)));
 
     const savedMute = localStorage.getItem('mm_is_muted');
     if (savedMute !== null) this.isMuted = savedMute === 'true';
   }
 
+  public getMusicVolume(): number {
+    return this.musicVolume;
+  }
+
   public setMusicVolume(vol: number): void {
     this.musicVolume = Math.max(0, Math.min(1, vol));
+    localStorage.setItem('marble_music_volume', String(this.musicVolume));
     localStorage.setItem('mm_music_volume', String(this.musicVolume));
     if (this.currentBgm) {
       this.currentBgm.volume = this.isMuted ? 0 : this.musicVolume;
     }
   }
 
+  public getSfxVolume(): number {
+    return this.sfxVolume;
+  }
+
   public setSfxVolume(vol: number): void {
     this.sfxVolume = Math.max(0, Math.min(1, vol));
+    localStorage.setItem('marble_sfx_volume', String(this.sfxVolume));
     localStorage.setItem('mm_sfx_volume', String(this.sfxVolume));
   }
 
@@ -171,22 +180,6 @@ export class SoundManager {
     });
 
     this.currentBgm = el;
-  }
-
-  private loadMusicVolume(): number {
-    const raw = globalThis.localStorage?.getItem('marble_music_volume');
-    const stored = raw === null || raw === undefined ? Number.NaN : Number(raw);
-    return Number.isFinite(stored) ? Math.max(0, Math.min(1, stored)) : 0.16;
-  }
-
-  getMusicVolume(): number {
-    return this.musicVolume;
-  }
-
-  setMusicVolume(volume: number): void {
-    this.musicVolume = Math.max(0, Math.min(1, volume));
-    globalThis.localStorage?.setItem('marble_music_volume', String(this.musicVolume));
-    if (this.currentBgm) this.currentBgm.volume = this.musicVolume;
   }
 
   /** Stop and dispose of the current background music playback. */

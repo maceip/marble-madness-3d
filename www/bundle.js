@@ -821,22 +821,30 @@ var SoundManager = class {
     this.loadSettings();
   }
   loadSettings() {
-    const savedMusic = localStorage.getItem("mm_music_volume");
+    const savedMusic = localStorage.getItem("marble_music_volume") || localStorage.getItem("mm_music_volume");
     if (savedMusic !== null) this.musicVolume = Math.max(0, Math.min(1, parseFloat(savedMusic)));
-    const savedSfx = localStorage.getItem("mm_sfx_volume");
+    const savedSfx = localStorage.getItem("marble_sfx_volume") || localStorage.getItem("mm_sfx_volume");
     if (savedSfx !== null) this.sfxVolume = Math.max(0, Math.min(1, parseFloat(savedSfx)));
     const savedMute = localStorage.getItem("mm_is_muted");
     if (savedMute !== null) this.isMuted = savedMute === "true";
   }
+  getMusicVolume() {
+    return this.musicVolume;
+  }
   setMusicVolume(vol) {
     this.musicVolume = Math.max(0, Math.min(1, vol));
+    localStorage.setItem("marble_music_volume", String(this.musicVolume));
     localStorage.setItem("mm_music_volume", String(this.musicVolume));
     if (this.currentBgm) {
       this.currentBgm.volume = this.isMuted ? 0 : this.musicVolume;
     }
   }
+  getSfxVolume() {
+    return this.sfxVolume;
+  }
   setSfxVolume(vol) {
     this.sfxVolume = Math.max(0, Math.min(1, vol));
+    localStorage.setItem("marble_sfx_volume", String(this.sfxVolume));
     localStorage.setItem("mm_sfx_volume", String(this.sfxVolume));
   }
   /** Initialize AudioContext; must be called from a user-gesture handler. */
@@ -904,19 +912,6 @@ var SoundManager = class {
       }
     });
     this.currentBgm = el;
-  }
-  loadMusicVolume() {
-    const raw = globalThis.localStorage?.getItem("marble_music_volume");
-    const stored = raw === null || raw === void 0 ? Number.NaN : Number(raw);
-    return Number.isFinite(stored) ? Math.max(0, Math.min(1, stored)) : 0.16;
-  }
-  getMusicVolume() {
-    return this.musicVolume;
-  }
-  setMusicVolume(volume) {
-    this.musicVolume = Math.max(0, Math.min(1, volume));
-    globalThis.localStorage?.setItem("marble_music_volume", String(this.musicVolume));
-    if (this.currentBgm) this.currentBgm.volume = this.musicVolume;
   }
   /** Stop and dispose of the current background music playback. */
   stopBgm() {
@@ -1686,22 +1681,6 @@ function retroText(text, className = "") {
     return `<img class="retro-glyph" src="/sprites/retro-font/char-${String(code).padStart(3, "0")}.png" alt="" aria-hidden="true">`;
   }).join("");
   return `<span class="retro-text ${className}" aria-label="${escapeAttribute(label)}">${glyphs}</span>`;
-}
-function retroLogo() {
-  const upper = [0, 1, 2, 3, 4, 5, 6].map((id) => `<img src="/sprites/ui/title_${String(id).padStart(3, "0")}_${[16, 17, 28, 164, 28, 17, 16][id]}x30.png" alt="">`).join("");
-  const lowerWidths = [120, 40, 38, 42, 48];
-  const lower = lowerWidths.map((width, index) => `<img src="/sprites/ui/title_${String(index + 7).padStart(3, "0")}_${width}x32.png" alt="">`).join("");
-  return `<div class="retro-logo" role="img" aria-label="Marble Madness"><div>${upper}</div><div>${lower}</div></div>`;
-}
-function retroSpriteStrip() {
-  return `<div class="retro-sprite-strip" aria-label="Original extracted game sprites">
-    <img src="/sprites/retro-marble/blue-28.png" alt="Blue marble sprite">
-    <img src="/sprites/enemies/enemy_000_14x14.png" alt="Steelie sprite">
-    <img src="/sprites/enemies/enemy_020_14x14.png" alt="Muncher sprite">
-    <img src="/sprites/enemies/enemy_056_32x37.png" alt="Goal sprite">
-    <img src="/sprites/enemies/enemy_106_14x12.png" alt="Object sprite">
-    <img src="/sprites/retro-marble/red-28.png" alt="Red marble sprite">
-  </div>`;
 }
 var RETRO_OBJECT_SPRITES = {
   blade: "/sprites/enemies/enemy_106_14x12.png",
@@ -34422,6 +34401,27 @@ window.addEventListener("DOMContentLoaded", () => {
   console.log("[Marble Madness] Starting game engine...");
   const game = new GameManager();
   window.game = game;
+  if (new URLSearchParams(window.location.search).has("harness")) {
+    window.__marbleHarness = {
+      snapshot: () => ({
+        state: game.state,
+        stage: game.currentStageIndex + 1,
+        x: game.physics.marble.x,
+        y: game.physics.marble.y,
+        z: game.physics.marble.z,
+        vx: game.physics.marble.vx,
+        vy: game.physics.marble.vy,
+        vz: game.physics.marble.vz,
+        speed: game.physics.marble.speed,
+        grounded: game.physics.marble.grounded,
+        dead: game.physics.marble.dead,
+        timeLeft: game.timeLeft
+      }),
+      start: () => game.startGameDirect(),
+      selectStage: (stage) => game.setupStage(stage - 1, false),
+      showEndgame: () => game.hud.showMenu(8, game.currentStageIndex + 1, true, game.score)
+    };
+  }
   let lastTime = performance.now();
   function loop(now) {
     const dt = Math.min(0.1, (now - lastTime) / 1e3);
