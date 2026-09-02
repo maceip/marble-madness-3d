@@ -312,7 +312,10 @@ var DEFS = [
         "8,24": { surf: "path", h: 8, prop: "item" }
       }
     },
-    hazards: []
+    hazards: [
+      { kind: "muncher", x: 10, z: 12, h: 5 },
+      { kind: "steelie", x: 9, z: 22, h: 8, range: 2.5 }
+    ]
   },
   // =====================================================================
   // 2. ARCTIC ADVENTURE — Beginner Race (Arcade Stage 2.png)
@@ -394,6 +397,8 @@ var DEFS = [
       }
     },
     hazards: [
+      { kind: "steelie", x: 8, z: 8, h: 5, range: 3 },
+      { kind: "muncher", x: 6, z: 18, h: 3 },
       { kind: "bat", x: 8, z: 7, h: 12, period: 3.4, axis: "x", range: 4, speed: 0.26 },
       { kind: "blade", x: 8, z: 16, h: 5, period: 2.8, axis: "x", range: 4, speed: 0.32 },
       { kind: "snake", x: 4, z: 22, h: 5, path: [[4, 22], [8, 23], [6, 25]], speed: 0.3 },
@@ -473,6 +478,8 @@ var DEFS = [
       }
     },
     hazards: [
+      { kind: "steelie", x: 11, z: 10, h: 3, range: 3.5 },
+      { kind: "muncher", x: 8, z: 24, h: 2 },
       { kind: "bat", x: 10, z: 6, h: 12, period: 3.6, axis: "x", range: 4, speed: 0.3 },
       { kind: "blade", x: 8, z: 11, h: 6, period: 3.2, axis: "x", range: 3.5, speed: 0.28 },
       { kind: "blade", x: 11, z: 18, h: 5, period: 2.8, axis: "z", range: 3, speed: 0.32 },
@@ -560,6 +567,8 @@ var DEFS = [
       }
     },
     hazards: [
+      { kind: "steelie", x: 9, z: 11, h: 4, range: 4 },
+      { kind: "muncher", x: 12, z: 18, h: 3 },
       { kind: "bomber", x: 9, z: 5, h: 12, period: 4.8, axis: "x", range: 4.5, speed: 0.28 },
       { kind: "snake", x: 4, z: 9, h: 6, path: [[4, 9], [14, 9], [14, 12], [4, 12]], speed: 0.32 },
       { kind: "blade", x: 9, z: 15, h: 5, period: 3.5, axis: "x", range: 4, speed: 0.3 },
@@ -618,6 +627,9 @@ var DEFS = [
       }
     },
     hazards: [
+      { kind: "muncher", x: 5, z: 6, h: 2 },
+      { kind: "muncher", x: 14, z: 6, h: 2 },
+      { kind: "steelie", x: 9, z: 10, h: 1, range: 2.5 },
       { kind: "blade", x: 4, z: 5, h: 4, period: 2.8, axis: "x", range: 3, speed: 0.32 },
       { kind: "blade", x: 15, z: 5, h: 4, period: 2.8, axis: "x", range: 3, speed: 0.32 },
       { kind: "bat", x: 9, z: 3, h: 10, period: 3.5, axis: "z", range: 3, speed: 0.25 },
@@ -665,6 +677,8 @@ var DEFS = [
       }
     },
     hazards: [
+      { kind: "muncher", x: 8, z: 3, h: 3 },
+      { kind: "acid", x: 6, z: 7, h: 2 },
       { kind: "snake", x: 4, z: 3, h: 4, path: [[4, 3], [13, 3], [13, 7], [6, 9]], speed: 0.32 },
       { kind: "bat", x: 8, z: 4, h: 8, period: 3.2, axis: "x", range: 4, speed: 0.3 },
       { kind: "bomber", x: 10, z: 5, h: 8, period: 5, axis: "z", range: 3, speed: 0.26 }
@@ -708,6 +722,8 @@ var DEFS = [
       }
     },
     hazards: [
+      { kind: "steelie", x: 10, z: 5, h: 3, range: 3 },
+      { kind: "muncher", x: 9, z: 8, h: 2 },
       { kind: "snake", x: 4, z: 5, h: 5, path: [[4, 5], [13, 5], [13, 8], [4, 8]], speed: 0.36 },
       { kind: "blade", x: 8, z: 3, h: 8, period: 3.5, axis: "z", range: 3, speed: 0.28 },
       { kind: "bat", x: 10, z: 7, h: 8, period: 3.2, axis: "x", range: 3.5, speed: 0.26 }
@@ -745,6 +761,8 @@ var DEFS = [
       }
     },
     hazards: [
+      { kind: "steelie", x: 8, z: 3, h: 3, range: 4 },
+      { kind: "acid", x: 11, z: 4, h: 3 },
       { kind: "bomber", x: 6, z: 2, h: 10, period: 4.5, axis: "x", range: 5, speed: 0.34 },
       { kind: "bat", x: 5, z: 5, h: 9, period: 3, axis: "x", range: 4, speed: 0.32 },
       { kind: "blade", x: 11, z: 5, h: 8, period: 3.8, axis: "z", range: 3, speed: 0.28 }
@@ -886,7 +904,10 @@ var SoundManager = class {
     const ctx = this.audioCtx;
     if (!ctx || ctx.state !== "running") return;
     const buf = this.sounds.get(key);
-    if (!buf || !(buf instanceof AudioBuffer)) return;
+    if (!buf || !(buf instanceof AudioBuffer)) {
+      this.synthesizeSfxFallback(key, volume);
+      return;
+    }
     const src = ctx.createBufferSource();
     const gain = ctx.createGain();
     src.buffer = buf;
@@ -897,6 +918,48 @@ var SoundManager = class {
       gain.disconnect();
     };
     src.start(0);
+  }
+  synthesizeSfxFallback(name, volume) {
+    const ctx = this.audioCtx;
+    if (!ctx || ctx.state !== "running") return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    gain.gain.value = Math.max(0, Math.min(1, volume * 0.4));
+    if (name === "bounce") {
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.12);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.12);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.12);
+    } else if (name === "shatter") {
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(650, now);
+      osc.frequency.exponentialRampToValueAtTime(90, now + 0.35);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.35);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } else if (name === "item" || name === "checkpoint") {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(1040, now + 0.18);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.18);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.18);
+    } else if (name === "goal") {
+      osc.type = "square";
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.setValueAtTime(554.37, now + 0.12);
+      osc.frequency.setValueAtTime(659.25, now + 0.24);
+      gain.gain.exponentialRampToValueAtTime(1e-3, now + 0.5);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.5);
+    }
   }
   /**
    * Drive the looping roll sound from marble speed.
@@ -1025,13 +1088,37 @@ var COURSE_TIME = 120;
 var MABLE_R = 0.24;
 
 // src/game/physics.ts
+function quatNormalize(q) {
+  const len = Math.hypot(q[0], q[1], q[2], q[3]);
+  if (len < 1e-6) return [0, 0, 0, 1];
+  return [q[0] / len, q[1] / len, q[2] / len, q[3] / len];
+}
+function quatMultiply(a, b) {
+  const [ax, ay, az, aw] = a;
+  const [bx, by, bz, bw] = b;
+  return [
+    aw * bx + ax * bw + ay * bz - az * by,
+    aw * by - ax * bz + ay * bw + az * bx,
+    aw * bz + ax * by - ay * bx + az * bw,
+    aw * bw - ax * bx - ay * by - az * bz
+  ];
+}
+function quatFromAxisAngle(ax, ay, az, angle) {
+  const len = Math.hypot(ax, ay, az);
+  if (len < 1e-6) return [0, 0, 0, 1];
+  const half = angle * 0.5;
+  const s = Math.sin(half) / len;
+  return [ax * s, ay * s, az * s, Math.cos(half)];
+}
 var PhysicsEngine = class {
   level;
   marble;
   events = {};
-  GRAVITY = -0.014;
-  ACCEL = 0.012;
-  BRAKE_DRAG = 0.88;
+  GRAVITY = -0.015;
+  ACCEL = 0.014;
+  BRAKE_DRAG = 0.86;
+  SHATTER_VELOCITY = -0.42;
+  // Falling faster than this splatters marble!
   constructor(level) {
     this.level = level;
     this.marble = this.createInitialState();
@@ -1056,12 +1143,18 @@ var PhysicsEngine = class {
       rotX: 0,
       rotY: 0,
       rotZ: 0,
+      quat: [0, 0, 0, 1],
+      omega: [0, 0, 0],
       grounded: true,
       dead: false,
+      shattered: false,
+      skidding: false,
       currentCell: cell ?? null,
       speed: 0,
+      angularSpeed: 0,
       inWater: false,
-      fallHeight: 0
+      fallHeight: 0,
+      lastAirY: groundY
     };
   }
   respawn(atPos) {
@@ -1081,9 +1174,13 @@ var PhysicsEngine = class {
     this.marble.vx = 0;
     this.marble.vy = 0;
     this.marble.vz = 0;
+    this.marble.omega = [0, 0, 0];
     this.marble.grounded = false;
     this.marble.dead = false;
+    this.marble.shattered = false;
+    this.marble.skidding = false;
     this.marble.fallHeight = 0;
+    this.marble.lastAirY = this.marble.y;
   }
   getGroundHeightAt(x, z) {
     const c = Math.floor(x);
@@ -1112,31 +1209,37 @@ var PhysicsEngine = class {
     };
   }
   update(input) {
-    if (this.marble.dead) return;
+    if (this.marble.dead || this.marble.shattered) return;
     const m = this.marble;
-    let steerForce = this.ACCEL * input.intensity;
-    let surfaceFriction = 0.982;
     const groundInfo = this.getGroundHeightAt(m.x, m.z);
     m.currentCell = groundInfo.cell;
+    let surfaceFriction = 0.984;
+    let surfaceTraction = 0.85;
+    let steerForce = this.ACCEL * input.intensity;
     if (groundInfo.cell) {
       switch (groundInfo.cell.surf) {
         case "snow":
-          surfaceFriction = 0.994;
-          steerForce *= 0.65;
+          surfaceFriction = 0.996;
+          surfaceTraction = 0.22;
+          steerForce *= 0.55;
           break;
         case "sand":
-          surfaceFriction = 0.93;
-          steerForce *= 1.3;
-          break;
-        case "water":
-          surfaceFriction = 0.91;
-          m.inWater = true;
+          surfaceFriction = 0.92;
+          surfaceTraction = 0.95;
+          steerForce *= 1.25;
           break;
         case "metal":
-          surfaceFriction = 0.988;
+          surfaceFriction = 0.99;
+          surfaceTraction = 0.9;
           break;
         case "glass":
-          surfaceFriction = 0.99;
+          surfaceFriction = 0.992;
+          surfaceTraction = 0.45;
+          break;
+        case "water":
+          surfaceFriction = 0.9;
+          surfaceTraction = 0.35;
+          m.inWater = true;
           break;
         default:
           m.inWater = false;
@@ -1146,9 +1249,11 @@ var PhysicsEngine = class {
     if (m.grounded) {
       m.vx += input.steerX * steerForce;
       m.vz += input.steerZ * steerForce;
-      if (groundInfo.cell && (groundInfo.cell.dx !== 0 || groundInfo.cell.dz !== 0)) {
-        m.vx += groundInfo.cell.dx * 7e-3;
-        m.vz += groundInfo.cell.dz * 7e-3;
+      const [nx, ny, nz] = groundInfo.normal;
+      if (ny < 0.99) {
+        const slopeGravity = 0.018;
+        m.vx += nx * slopeGravity * (1 - ny);
+        m.vz += nz * slopeGravity * (1 - ny);
       }
       if (input.brake) {
         m.vx *= this.BRAKE_DRAG;
@@ -1157,27 +1262,41 @@ var PhysicsEngine = class {
         m.vx *= surfaceFriction;
         m.vz *= surfaceFriction;
       }
-      const currentSpeed = Math.sqrt(m.vx * m.vx + m.vz * m.vz);
+      const currentSpeed = Math.hypot(m.vx, m.vz);
       if (currentSpeed > MAX_SPEED) {
         const factor = MAX_SPEED / currentSpeed;
         m.vx *= factor;
         m.vz *= factor;
       }
       m.speed = currentSpeed;
+      const targetOmegaX = -m.vz / MABLE_R;
+      const targetOmegaZ = m.vx / MABLE_R;
+      const omegaDiff = Math.hypot(targetOmegaX - m.omega[0], targetOmegaZ - m.omega[2]);
+      m.omega[0] += (targetOmegaX - m.omega[0]) * surfaceTraction;
+      m.omega[2] += (targetOmegaZ - m.omega[2]) * surfaceTraction;
+      if (omegaDiff > 0.8 && currentSpeed > 0.15) {
+        m.skidding = true;
+        if (this.events.onSkid) this.events.onSkid(Math.min(1, omegaDiff / 2));
+      } else {
+        m.skidding = false;
+      }
     } else {
       m.vy += this.GRAVITY;
       if (m.vy < -TERMINAL_FALL) m.vy = -TERMINAL_FALL;
-      m.vx += input.steerX * (steerForce * 0.4);
-      m.vz += input.steerZ * (steerForce * 0.4);
-      m.vx *= 0.992;
-      m.vz *= 0.992;
-      const airSpeed = Math.sqrt(m.vx * m.vx + m.vz * m.vz);
+      m.vx += input.steerX * (steerForce * 0.35);
+      m.vz += input.steerZ * (steerForce * 0.35);
+      m.vx *= 0.994;
+      m.vz *= 0.994;
+      const airSpeed = Math.hypot(m.vx, m.vz);
       if (airSpeed > MAX_SPEED_AIR) {
         const factor = MAX_SPEED_AIR / airSpeed;
         m.vx *= factor;
         m.vz *= factor;
       }
       m.speed = airSpeed;
+      m.skidding = false;
+      m.omega[0] *= 0.995;
+      m.omega[2] *= 0.995;
     }
     const nextX = m.x + m.vx;
     const nextZ = m.z + m.vz;
@@ -1187,13 +1306,13 @@ var PhysicsEngine = class {
       const cellX = cellAt(this.level.layout, Math.floor(nextX), Math.floor(m.z));
       const cellZ = cellAt(this.level.layout, Math.floor(m.x), Math.floor(nextZ));
       if (cellX && cellX.solid) {
-        m.vx = -m.vx * 0.4;
+        m.vx = -m.vx * 0.45;
         if (this.events.onBounce && Math.abs(m.vx) > 0.05) this.events.onBounce(Math.abs(m.vx));
       } else {
         m.x = nextX;
       }
       if (cellZ && cellZ.solid) {
-        m.vz = -m.vz * 0.4;
+        m.vz = -m.vz * 0.45;
         if (this.events.onBounce && Math.abs(m.vz) > 0.05) this.events.onBounce(Math.abs(m.vz));
       } else {
         m.z = nextZ;
@@ -1205,13 +1324,26 @@ var PhysicsEngine = class {
     const nextGround = this.getGroundHeightAt(m.x, m.z);
     const requiredY = nextGround.height + MABLE_R;
     if (nextY <= requiredY) {
-      if (!m.grounded && m.vy < -0.15) {
-        if (this.events.onBounce) this.events.onBounce(Math.abs(m.vy));
-        if (m.vy < -0.45) {
-          m.vy = -m.vy * 0.35;
-          m.y = requiredY + 0.02;
-        } else {
+      if (!m.grounded && m.vy < -0.12) {
+        const fallDist = m.lastAirY - nextY;
+        if (m.vy <= this.SHATTER_VELOCITY || fallDist > 2.2) {
           m.y = requiredY;
+          m.vy = 0;
+          m.vx = 0;
+          m.vz = 0;
+          m.dead = true;
+          m.shattered = true;
+          if (this.events.onShatter) {
+            this.events.onShatter();
+          } else if (this.events.onBounce) {
+            this.events.onBounce(1);
+          }
+          return;
+        }
+        if (this.events.onBounce) this.events.onBounce(Math.abs(m.vy) * 1.8);
+        m.vy = -m.vy * 0.28;
+        m.y = requiredY + 0.02;
+        if (Math.abs(m.vy) < 0.04) {
           m.vy = 0;
           m.grounded = true;
         }
@@ -1219,22 +1351,39 @@ var PhysicsEngine = class {
         m.y = requiredY;
         m.vy = 0;
         m.grounded = true;
+        m.lastAirY = m.y;
       }
       if (nextGround.cell?.prop === "springboard") {
-        m.vy = 0.46;
+        m.vy = 0.48;
         m.grounded = false;
+        m.lastAirY = m.y;
         if (this.events.onSpringboard) this.events.onSpringboard();
       }
       if (nextGround.cell?.prop === "spike") {
         m.vy = SPIKE_BOUNCE;
         m.grounded = false;
+        m.lastAirY = m.y;
         if (this.events.onBounce) this.events.onBounce(1);
       }
     } else {
       m.y = nextY;
-      if (nextY - requiredY > 0.25) {
+      if (nextY - requiredY > 0.18) {
+        if (m.grounded) {
+          m.lastAirY = m.y;
+        }
         m.grounded = false;
       }
+    }
+    const angMag = Math.hypot(m.omega[0], m.omega[1], m.omega[2]);
+    m.angularSpeed = angMag;
+    if (angMag > 1e-5) {
+      const deltaQuat = quatFromAxisAngle(
+        m.omega[0] / angMag,
+        m.omega[1] / angMag,
+        m.omega[2] / angMag,
+        angMag * (1 / 60)
+      );
+      m.quat = quatNormalize(quatMultiply(deltaQuat, m.quat));
     }
     m.rotX += m.vz * 2.8;
     m.rotZ -= m.vx * 2.8;
@@ -1352,6 +1501,36 @@ var HazardManager = class {
           }
           break;
         }
+        case "steelie": {
+          const dx = marble.x - h.x;
+          const dz = marble.z - h.z;
+          const dist = Math.hypot(dx, dz);
+          if (dist < 8.5 && dist > 0.01) {
+            const huntSpeed = 7e-3;
+            h.vx = (h.vx ?? 0) * 0.96 + dx / dist * huntSpeed;
+            h.vz = (h.vz ?? 0) * 0.96 + dz / dist * huntSpeed;
+          } else {
+            const wanderAngle = h.animTime * 1.5;
+            const targetX = h.baseX + Math.cos(wanderAngle) * (h.def.range ?? 2);
+            const targetZ = h.baseZ + Math.sin(wanderAngle) * (h.def.range ?? 2);
+            h.vx = (h.vx ?? 0) * 0.92 + (targetX - h.x) * 0.02;
+            h.vz = (h.vz ?? 0) * 0.92 + (targetZ - h.z) * 0.02;
+          }
+          h.x += h.vx ?? 0;
+          h.z += h.vz ?? 0;
+          break;
+        }
+        case "muncher": {
+          const dist = Math.hypot(marble.x - h.x, marble.z - h.z);
+          if (dist < 3.8) {
+            h.emerged = Math.min(1, (h.emerged ?? 0) + dt * 4);
+            h.jawOpen = Math.sin(h.animTime * 14) * 0.5 + 0.5;
+          } else {
+            h.emerged = Math.max(0, (h.emerged ?? 0) - dt * 2.5);
+            h.jawOpen = 0;
+          }
+          break;
+        }
         case "snake": {
           const path = h.def.path;
           if (path && path.length > 1) {
@@ -1407,6 +1586,38 @@ var HazardManager = class {
               marble.vx += (marble.x - h.x) * 0.15;
               marble.vz += (marble.z - h.z) * 0.15;
               if (this.events.onHitBat) this.events.onHitBat();
+            }
+            break;
+          case "steelie": {
+            if (dist3D < 0.55) {
+              const now = performance.now();
+              if (now - (h.cooldown ?? 0) > 500) {
+                h.cooldown = now;
+                const nx = dx / (dist3D || 1);
+                const nz = dz / (dist3D || 1);
+                const bumpForce = 0.38;
+                marble.vx -= nx * bumpForce;
+                marble.vz -= nz * bumpForce;
+                marble.vy += 0.22;
+                h.vx = (h.vx ?? 0) + nx * bumpForce * 0.8;
+                h.vz = (h.vz ?? 0) + nz * bumpForce * 0.8;
+                if (this.events.onSteelieBump) {
+                  this.events.onSteelieBump(h, bumpForce);
+                } else if (this.events.onHitBat) {
+                  this.events.onHitBat();
+                }
+              }
+            }
+            break;
+          }
+          case "muncher":
+            if ((h.emerged ?? 0) > 0.5 && dist2D < 0.52 && Math.abs(dy) < 0.6) {
+              if (this.events.onKill) this.events.onKill("muncher");
+            }
+            break;
+          case "acid":
+            if (dist2D < 0.65 && Math.abs(dy) < 0.5) {
+              if (this.events.onKill) this.events.onKill("acid");
             }
             break;
           case "snake":
@@ -30874,6 +31085,12 @@ var GameRenderer = class {
   waterMeshes = [];
   animatedProps = [];
   totalTime = 0;
+  shakeAmount = 0;
+  camFollowX = 0;
+  camFollowY = 0;
+  camFollowZ = 0;
+  camInitialized = false;
+  textureCache = /* @__PURE__ */ new Map();
   constructor() {
     this.canvas = document.getElementById("gl");
     this.renderer = new WebGLRenderer({
@@ -30937,30 +31154,59 @@ var GameRenderer = class {
   }
   createMarbleTexture(primaryColor, accentColor) {
     const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 128;
+    canvas.width = 512;
+    canvas.height = 256;
     const ctx = canvas.getContext("2d");
-    const grad = ctx.createLinearGradient(0, 0, 256, 128);
+    const grad = ctx.createLinearGradient(0, 0, 512, 256);
     grad.addColorStop(0, "#ffffff");
-    grad.addColorStop(0.5, "#e6ecf8");
-    grad.addColorStop(1, "#d0d8ea");
+    grad.addColorStop(0.3, "#edf3fa");
+    grad.addColorStop(0.7, "#c8d4e8");
+    grad.addColorStop(1, "#a6b8d4");
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 256, 128);
+    ctx.fillRect(0, 0, 512, 256);
     ctx.fillStyle = primaryColor;
-    ctx.fillRect(0, 24, 256, 36);
-    ctx.fillRect(0, 84, 256, 24);
+    ctx.beginPath();
+    ctx.moveTo(0, 40);
+    ctx.bezierCurveTo(128, 80, 384, 10, 512, 60);
+    ctx.lineTo(512, 130);
+    ctx.bezierCurveTo(384, 80, 128, 150, 0, 110);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = primaryColor;
+    ctx.beginPath();
+    ctx.moveTo(0, 160);
+    ctx.bezierCurveTo(128, 200, 384, 140, 512, 190);
+    ctx.lineTo(512, 240);
+    ctx.bezierCurveTo(384, 190, 128, 250, 0, 220);
+    ctx.closePath();
+    ctx.fill();
     ctx.fillStyle = accentColor;
-    for (let x = 0; x < 256; x += 32) {
-      ctx.fillRect(x, 0, 16, 128);
-    }
-    ctx.strokeStyle = "rgba(0,0,0,0.2)";
-    ctx.lineWidth = 2;
-    for (let x = 0; x < 256; x += 16) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, 128);
-      ctx.stroke();
-    }
+    ctx.beginPath();
+    ctx.moveTo(0, 75);
+    ctx.bezierCurveTo(128, 115, 384, 45, 512, 95);
+    ctx.lineTo(512, 110);
+    ctx.bezierCurveTo(384, 60, 128, 130, 0, 90);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(256, 128, 44, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = primaryColor;
+    ctx.beginPath();
+    ctx.arc(256, 128, 36, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 36px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("MM", 256, 128);
+    const specGrad = ctx.createLinearGradient(0, 0, 512, 0);
+    specGrad.addColorStop(0, "rgba(255,255,255,0.4)");
+    specGrad.addColorStop(0.5, "rgba(255,255,255,0.0)");
+    specGrad.addColorStop(1, "rgba(255,255,255,0.3)");
+    ctx.fillStyle = specGrad;
+    ctx.fillRect(0, 0, 512, 256);
     const tex = new CanvasTexture(canvas);
     tex.wrapS = RepeatWrapping;
     tex.wrapT = RepeatWrapping;
@@ -31455,26 +31701,154 @@ var GameRenderer = class {
     ringMesh.position.set(30, 20, -100);
     this.environmentGroup.add(ringMesh);
   }
+  getArcadeTileTexture(type, c1, c2, c3) {
+    const key = `${type}_${c1}_${c2}_${c3}`;
+    if (this.textureCache.has(key)) return this.textureCache.get(key);
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    const hex1 = "#" + c1.toString(16).padStart(6, "0");
+    const hex2 = "#" + c2.toString(16).padStart(6, "0");
+    const hex3 = "#" + c3.toString(16).padStart(6, "0");
+    switch (type) {
+      case "path": {
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.fillStyle = hex2;
+        ctx.fillRect(0, 0, 64, 64);
+        ctx.fillRect(64, 64, 64, 64);
+        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(2, 2, 60, 60);
+        ctx.strokeRect(66, 66, 60, 60);
+        ctx.strokeStyle = "rgba(0,0,0,0.45)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, 128, 128);
+        ctx.beginPath();
+        ctx.moveTo(64, 0);
+        ctx.lineTo(64, 128);
+        ctx.moveTo(0, 64);
+        ctx.lineTo(128, 64);
+        ctx.stroke();
+        break;
+      }
+      case "snow": {
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.fillStyle = hex2;
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.arc(i % 2 * 64 + 32, Math.floor(i / 2) * 64 + 32, 22, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.strokeStyle = "rgba(255,255,255,0.85)";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(1, 1, 126, 126);
+        break;
+      }
+      case "metal": {
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.fillStyle = hex2;
+        ctx.fillRect(4, 4, 120, 120);
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        for (const [rx, ry] of [[12, 12], [116, 12], [12, 116], [116, 116]]) {
+          ctx.beginPath();
+          ctx.arc(rx, ry, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case "sand": {
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.fillStyle = hex2;
+        for (let y = 0; y < 128; y += 16) {
+          ctx.fillRect(0, y, 128, 4);
+        }
+        ctx.strokeStyle = "rgba(0,0,0,0.25)";
+        ctx.strokeRect(0, 0, 128, 128);
+        break;
+      }
+      case "wall": {
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.fillStyle = hex2;
+        ctx.fillRect(0, 64, 128, 64);
+        ctx.strokeStyle = hex3;
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, 124, 124);
+        break;
+      }
+      default: {
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.strokeStyle = hex2;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(1, 1, 126, 126);
+        break;
+      }
+    }
+    const tex = new CanvasTexture(canvas);
+    tex.wrapS = RepeatWrapping;
+    tex.wrapT = RepeatWrapping;
+    this.textureCache.set(key, tex);
+    return tex;
+  }
   createSurfaceMaterials(stageId) {
     const pal = stagePalette(stageId);
-    const mk = (top, extra = {}) => new MeshStandardMaterial({ color: top, roughness: 0.4, ...extra });
+    const pathTex = this.getArcadeTileTexture("path", pal.path[0], pal.path[1], pal.path[2]);
+    const wallTex = this.getArcadeTileTexture("wall", pal.wall[0], pal.wall[1], pal.wall[2]);
+    const sandTex = this.getArcadeTileTexture("sand", pal.sand[0], pal.sand[1], pal.sand[2]);
+    const snowTex = this.getArcadeTileTexture("snow", pal.snow[0], pal.snow[1], pal.snow[2]);
+    const metalTex = this.getArcadeTileTexture("metal", pal.metal[0], pal.metal[1], pal.metal[2]);
     return {
-      path: mk(pal.path[0], { roughness: 0.35 }),
-      wall: mk(pal.wall[0], { roughness: 0.6 }),
-      sand: mk(pal.sand[0], { roughness: 0.95 }),
-      water: mk(pal.water[0], {
-        roughness: 0.05,
+      path: new MeshStandardMaterial({
+        map: pathTex,
+        roughness: 0.28,
+        metalness: 0.15
+      }),
+      wall: new MeshStandardMaterial({
+        map: wallTex,
+        roughness: 0.6
+      }),
+      sand: new MeshStandardMaterial({
+        map: sandTex,
+        roughness: 0.95
+      }),
+      water: new MeshStandardMaterial({
+        color: pal.water[0],
+        roughness: 0.04,
         metalness: 0.1,
         transparent: true,
         opacity: 0.82
       }),
-      snow: mk(pal.snow[0], { roughness: 0.12, metalness: 0.1 }),
-      glass: mk(pal.glass[0], { transparent: true, opacity: 0.72, roughness: 0.08 }),
-      holo: mk(pal.holo[0], { wireframe: true }),
-      metal: mk(pal.metal[0], { metalness: 0.8, roughness: 0.2 }),
-      tree: mk(pal.tree[0], { roughness: 0.75 }),
-      rock: mk(pal.rock[0], { roughness: 0.85 }),
-      cloud: mk(pal.cloud[0], { roughness: 0.4, transparent: true, opacity: 0.88 })
+      snow: new MeshStandardMaterial({
+        map: snowTex,
+        roughness: 0.08,
+        metalness: 0.25
+      }),
+      glass: new MeshStandardMaterial({
+        color: pal.glass[0],
+        transparent: true,
+        opacity: 0.72,
+        roughness: 0.06,
+        metalness: 0.4
+      }),
+      holo: new MeshStandardMaterial({
+        color: pal.holo[0],
+        wireframe: true,
+        emissive: pal.holo[0]
+      }),
+      metal: new MeshStandardMaterial({
+        map: metalTex,
+        metalness: 0.85,
+        roughness: 0.18
+      }),
+      tree: new MeshStandardMaterial({ color: pal.tree[0], roughness: 0.75 }),
+      rock: new MeshStandardMaterial({ color: pal.rock[0], roughness: 0.85 }),
+      cloud: new MeshStandardMaterial({ color: pal.cloud[0], roughness: 0.4, transparent: true, opacity: 0.88 })
     };
   }
   createTreeProp() {
@@ -31690,6 +32064,68 @@ var GameRenderer = class {
         this.goalPointLight.position.set(h.x, h.y + 0.5, h.z);
         break;
       }
+      case "steelie": {
+        const steelieMat = new MeshStandardMaterial({
+          color: 1118485,
+          roughness: 0.08,
+          metalness: 0.95
+        });
+        const ball = new Mesh(this.sharedSphereGeom, steelieMat);
+        ball.castShadow = true;
+        ball.name = "steelieBall";
+        group.add(ball);
+        const dotGeom = new SphereGeometry(0.04, 8, 8);
+        const dotMat = new MeshBasicMaterial({ color: 16765503 });
+        const dot = new Mesh(dotGeom, dotMat);
+        dot.position.set(0, MABLE_R * 0.7, MABLE_R * 0.7);
+        ball.add(dot);
+        break;
+      }
+      case "muncher": {
+        const baseGeom = new CylinderGeometry(0.24, 0.28, 0.35, 12);
+        const skinMat = new MeshStandardMaterial({ color: 2075192, roughness: 0.6 });
+        const body = new Mesh(baseGeom, skinMat);
+        body.position.y = 0.17;
+        body.name = "muncherBody";
+        group.add(body);
+        const jawGeom = new BoxGeometry(0.32, 0.14, 0.3);
+        const jawTop = new Mesh(jawGeom, skinMat);
+        jawTop.position.set(0, 0.38, 0.08);
+        jawTop.name = "jawTop";
+        const toothGeom = new ConeGeometry(0.04, 0.08, 4);
+        const toothMat = new MeshBasicMaterial({ color: 16777215 });
+        for (let t = -0.1; t <= 0.1; t += 0.08) {
+          const tooth = new Mesh(toothGeom, toothMat);
+          tooth.rotation.x = Math.PI;
+          tooth.position.set(t, -0.07, 0.12);
+          jawTop.add(tooth);
+        }
+        group.add(jawTop);
+        const jawBottom = new Mesh(jawGeom, skinMat);
+        jawBottom.position.set(0, 0.24, 0.08);
+        jawBottom.name = "jawBottom";
+        for (let t = -0.1; t <= 0.1; t += 0.08) {
+          const tooth = new Mesh(toothGeom, toothMat);
+          tooth.position.set(t, 0.07, 0.12);
+          jawBottom.add(tooth);
+        }
+        group.add(jawBottom);
+        break;
+      }
+      case "acid": {
+        const poolGeom = new CylinderGeometry(0.48, 0.48, 0.04, 16);
+        const poolMat = new MeshStandardMaterial({
+          color: 2289220,
+          emissive: 1148962,
+          transparent: true,
+          opacity: 0.85,
+          roughness: 0.1
+        });
+        const pool = new Mesh(poolGeom, poolMat);
+        pool.name = "acidPool";
+        group.add(pool);
+        break;
+      }
       case "springboard": {
         const padGeom = new BoxGeometry(0.7, 0.1, 0.7);
         const padMat = new MeshStandardMaterial({ color: 16746496 });
@@ -31775,16 +32211,51 @@ var GameRenderer = class {
       });
     }
   }
+  emitSkidMarks(pos, intensity = 1) {
+    const dustGeom = new TetrahedronGeometry(0.04);
+    const dustMat = new MeshBasicMaterial({
+      color: 14739696,
+      transparent: true,
+      opacity: 0.6 * Math.min(1, intensity)
+    });
+    for (let i = 0; i < 3; i++) {
+      const mesh = new Mesh(dustGeom, dustMat);
+      mesh.position.set(
+        pos[0] + (Math.random() - 0.5) * 0.1,
+        pos[1] - MABLE_R + 0.02,
+        pos[2] + (Math.random() - 0.5) * 0.1
+      );
+      this.particlesGroup.add(mesh);
+      this.particles.push({
+        mesh,
+        vx: (Math.random() - 0.5) * 0.04,
+        vy: 0.02 + Math.random() * 0.04,
+        vz: (Math.random() - 0.5) * 0.04,
+        life: 0,
+        maxLife: 0.35 + Math.random() * 0.2
+      });
+    }
+  }
+  triggerScreenShake(amount = 0.3) {
+    this.shakeAmount = Math.max(this.shakeAmount, amount);
+  }
   // =========================================================================
   // MAIN RENDER LOOP
   // =========================================================================
   render(marble, hazards, remotePlayers, stageId, dt) {
     this.totalTime += dt;
     this.marbleMesh.position.set(marble.x, marble.y, marble.z);
-    this.marbleMesh.rotation.x = marble.rotX;
-    this.marbleMesh.rotation.z = marble.rotZ;
+    if (marble.quat) {
+      this.marbleMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
+    } else {
+      this.marbleMesh.rotation.x = marble.rotX;
+      this.marbleMesh.rotation.z = marble.rotZ;
+    }
     this.marbleShadow.position.set(marble.x, Math.max(0, marble.y - MABLE_R + 0.01), marble.z);
     this.localLabelSprite.position.set(marble.x, marble.y + 0.65, marble.z);
+    if (marble.speed > 0.22 && marble.grounded) {
+      this.emitSkidMarks([marble.x, marble.y, marble.z], marble.speed / 0.32);
+    }
     this.syncRemotePlayers(remotePlayers, stageId);
     for (const h of hazards) {
       const obj = this.hazardMeshes.get(h);
@@ -31801,6 +32272,26 @@ var GameRenderer = class {
         const wingR = obj.getObjectByName("wingR");
         if (wingL) wingL.rotation.z = Math.sin(h.animTime * 18) * 0.6;
         if (wingR) wingR.rotation.z = -Math.sin(h.animTime * 18) * 0.6;
+      } else if (h.def.kind === "muncher") {
+        const emerged = h.emerged ?? 0;
+        obj.position.y = h.y + (emerged - 1) * 0.35;
+        const jawTop = obj.getObjectByName("jawTop");
+        const jawBottom = obj.getObjectByName("jawBottom");
+        const jawAngle = (h.jawOpen ?? 0) * 0.65;
+        if (jawTop) jawTop.rotation.x = -jawAngle;
+        if (jawBottom) jawBottom.rotation.x = jawAngle;
+      } else if (h.def.kind === "steelie") {
+        const ball = obj.getObjectByName("steelieBall");
+        if (ball) {
+          ball.rotation.x += (h.vz ?? 0) * 2.8;
+          ball.rotation.z -= (h.vx ?? 0) * 2.8;
+        }
+      } else if (h.def.kind === "acid") {
+        const pool = obj.getObjectByName("acidPool");
+        if (pool) {
+          const s = 1 + Math.sin(this.totalTime * 6) * 0.05;
+          pool.scale.set(s, 1, s);
+        }
       }
     }
     for (const prop of this.animatedProps) {
@@ -31828,14 +32319,36 @@ var GameRenderer = class {
       }
       return true;
     });
+    if (!this.camInitialized) {
+      this.camFollowX = marble.x;
+      this.camFollowY = marble.y;
+      this.camFollowZ = marble.z;
+      this.camInitialized = true;
+    } else {
+      const leadX = marble.x + marble.vx * 12;
+      const leadY = marble.y;
+      const leadZ = marble.z + marble.vz * 12;
+      this.camFollowX += (leadX - this.camFollowX) * Math.min(1, dt * 8);
+      this.camFollowY += (leadY - this.camFollowY) * Math.min(1, dt * 6);
+      this.camFollowZ += (leadZ - this.camFollowZ) * Math.min(1, dt * 8);
+    }
+    let shakeX = 0;
+    let shakeY = 0;
+    let shakeZ = 0;
+    if (this.shakeAmount > 1e-3) {
+      shakeX = (Math.random() - 0.5) * this.shakeAmount;
+      shakeY = (Math.random() - 0.5) * this.shakeAmount;
+      shakeZ = (Math.random() - 0.5) * this.shakeAmount;
+      this.shakeAmount *= 0.88;
+    }
     const radTilt = CAM_TILT * Math.PI / 180;
     const radYaw = CAM_YAW * Math.PI / 180;
     const camDist = CAM_BACK * 0.38;
-    const camX = marble.x + Math.sin(radYaw) * Math.cos(radTilt) * camDist;
-    const camY = marble.y + Math.sin(radTilt) * camDist + 3.8;
-    const camZ = marble.z + Math.cos(radYaw) * Math.cos(radTilt) * camDist;
+    const camX = this.camFollowX + Math.sin(radYaw) * Math.cos(radTilt) * camDist + shakeX;
+    const camY = this.camFollowY + Math.sin(radTilt) * camDist + 3.8 + shakeY;
+    const camZ = this.camFollowZ + Math.cos(radYaw) * Math.cos(radTilt) * camDist + shakeZ;
     this.camera.position.set(camX, camY, camZ);
-    this.camera.lookAt(marble.x + 1.2, marble.y + 0.5, marble.z + 1.2);
+    this.camera.lookAt(this.camFollowX + 1.2, this.camFollowY + 0.5, this.camFollowZ + 1.2);
     this.renderer.render(this.scene, this.camera);
   }
   onResize() {
@@ -32570,9 +33083,22 @@ var GameManager = class {
     };
     this.physics.events.onBounce = (force) => {
       soundManager.playSfx("bounce", Math.min(1, force * 1.5));
+      this.renderer.triggerScreenShake(Math.min(0.32, force * 0.22));
+    };
+    this.physics.events.onShatter = () => {
+      soundManager.playSfx("shatter", 1);
+      this.renderer.triggerScreenShake(0.48);
+      this.handleDeath("shatter");
+    };
+    this.physics.events.onSkid = (intensity) => {
+      this.renderer.emitSkidMarks(
+        [this.physics.marble.x, this.physics.marble.y, this.physics.marble.z],
+        intensity
+      );
     };
     this.physics.events.onSpringboard = () => {
       soundManager.playSfx("springboard", 1);
+      this.renderer.triggerScreenShake(0.18);
     };
     this.physics.events.onFall = () => {
       soundManager.playSfx("fall", 1);
@@ -32602,6 +33128,16 @@ var GameManager = class {
     };
     this.hazards.events.onHitBat = () => {
       soundManager.playSfx("bounce", 0.8);
+      this.renderer.triggerScreenShake(0.2);
+    };
+    this.hazards.events.onSteelieBump = (_steelie, force) => {
+      soundManager.playSfx("bounce", 1);
+      this.renderer.emitBumpSparks([
+        this.physics.marble.x,
+        this.physics.marble.y,
+        this.physics.marble.z
+      ]);
+      this.renderer.triggerScreenShake(Math.min(0.4, force * 0.8));
     };
     const gestureHandler = () => {
       this.startAudio();
@@ -32694,10 +33230,27 @@ var GameManager = class {
       this.physics.marble.y,
       this.physics.marble.z
     ]);
-    if (reason === "blade" || reason === "snake") {
+    if (reason === "muncher") {
       soundManager.playSfx("muncher", 1);
-    } else {
+      this.hud.showBanner("CHOMPED!", "AVOID MUNCHERS", 1600);
+    } else if (reason === "shatter") {
       soundManager.playSfx("shatter", 1);
+      this.hud.showBanner("SHATTERED!", "HIGH DROP", 1600);
+    } else if (reason === "acid") {
+      soundManager.playSfx("fall", 1);
+      this.hud.showBanner("DISSOLVED!", "ACID POOL", 1600);
+    } else if (reason === "blade") {
+      soundManager.playSfx("shatter", 1);
+      this.hud.showBanner("SLICED!", "WATCH THE BLADES", 1600);
+    } else if (reason === "snake") {
+      soundManager.playSfx("muncher", 1);
+      this.hud.showBanner("CRUSHED!", "ACID WORM", 1600);
+    } else if (reason === "bomb") {
+      soundManager.playSfx("shatter", 1);
+      this.hud.showBanner("BLOWN UP!", "DODGE BOMBS", 1600);
+    } else {
+      soundManager.playSfx("fall", 0.9);
+      this.hud.showBanner("FELL OFF!", "WATCH THE EDGES", 1500);
     }
     if (this.lives <= 0) {
       this.state = "GAME_OVER";

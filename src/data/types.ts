@@ -45,6 +45,9 @@ export type HazardKind =
   | 'bat' // sine-weaving bat that kills on contact
   | 'snake' // serpentine racer, killed by falling
   | 'bomber' // Bombardier: drops bombs
+  | 'steelie' // Black rival marble: seeks and bumps player
+  | 'muncher' // Marble muncher: emerges from floor and chomps marble
+  | 'acid' // Acid puddle: dissolves marble
   | 'springboard'
   | 'checkpoint'
   | 'goal'

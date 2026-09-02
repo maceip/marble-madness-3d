@@ -17,6 +17,9 @@ export interface HazardInstance {
   x: number;
   y: number;
   z: number;
+  vx?: number;
+  vy?: number;
+  vz?: number;
   baseX: number;
   baseZ: number;
   rotation: number;
@@ -26,14 +29,18 @@ export interface HazardInstance {
   waypointIndex?: number;
   bombs?: Bomb[];
   bombTimer?: number;
+  jawOpen?: number;
+  emerged?: number;
+  cooldown?: number;
 }
 
 export interface HazardEvents {
   onCollectItem?: (item: HazardDef) => void;
   onCheckpoint?: (hazard: HazardDef) => void;
   onGoal?: () => void;
-  onKill?: (reason: 'blade' | 'bat' | 'bomb' | 'snake' | 'spike') => void;
+  onKill?: (reason: 'blade' | 'bat' | 'bomb' | 'snake' | 'spike' | 'muncher' | 'acid') => void;
   onHitBat?: () => void;
+  onSteelieBump?: (steelie: HazardInstance, force: number) => void;
 }
 
 export class HazardManager {
@@ -163,6 +170,43 @@ export class HazardManager {
           break;
         }
 
+        case 'steelie': {
+          // Steelie AI: Black rival marble hunts player marble when in range
+          const dx = marble.x - h.x;
+          const dz = marble.z - h.z;
+          const dist = Math.hypot(dx, dz);
+
+          if (dist < 8.5 && dist > 0.01) {
+            const huntSpeed = 0.007;
+            h.vx = (h.vx ?? 0) * 0.96 + (dx / dist) * huntSpeed;
+            h.vz = (h.vz ?? 0) * 0.96 + (dz / dist) * huntSpeed;
+          } else {
+            // Patrol orbit around base position
+            const wanderAngle = h.animTime * 1.5;
+            const targetX = h.baseX + Math.cos(wanderAngle) * (h.def.range ?? 2.0);
+            const targetZ = h.baseZ + Math.sin(wanderAngle) * (h.def.range ?? 2.0);
+            h.vx = (h.vx ?? 0) * 0.92 + (targetX - h.x) * 0.02;
+            h.vz = (h.vz ?? 0) * 0.92 + (targetZ - h.z) * 0.02;
+          }
+
+          h.x += h.vx ?? 0;
+          h.z += h.vz ?? 0;
+          break;
+        }
+
+        case 'muncher': {
+          // Marble Muncher: emerges and snaps jaws when marble gets close
+          const dist = Math.hypot(marble.x - h.x, marble.z - h.z);
+          if (dist < 3.8) {
+            h.emerged = Math.min(1.0, (h.emerged ?? 0) + dt * 4.0);
+            h.jawOpen = Math.sin(h.animTime * 14) * 0.5 + 0.5;
+          } else {
+            h.emerged = Math.max(0.0, (h.emerged ?? 0) - dt * 2.5);
+            h.jawOpen = 0;
+          }
+          break;
+        }
+
         case 'snake': {
           // Follow path waypoints
           const path = h.def.path;
@@ -228,6 +272,46 @@ export class HazardManager {
               marble.vx += (marble.x - h.x) * 0.15;
               marble.vz += (marble.z - h.z) * 0.15;
               if (this.events.onHitBat) this.events.onHitBat();
+            }
+            break;
+
+          case 'steelie': {
+            if (dist3D < 0.55) {
+              const now = performance.now();
+              if (now - (h.cooldown ?? 0) > 500) {
+                h.cooldown = now;
+                const nx = dx / (dist3D || 1);
+                const nz = dz / (dist3D || 1);
+                const bumpForce = 0.38;
+
+                // Impulse applied to player
+                marble.vx -= nx * bumpForce;
+                marble.vz -= nz * bumpForce;
+                marble.vy += 0.22;
+
+                // Impulse applied to Steelie
+                h.vx = (h.vx ?? 0) + nx * bumpForce * 0.8;
+                h.vz = (h.vz ?? 0) + nz * bumpForce * 0.8;
+
+                if (this.events.onSteelieBump) {
+                  this.events.onSteelieBump(h, bumpForce);
+                } else if (this.events.onHitBat) {
+                  this.events.onHitBat();
+                }
+              }
+            }
+            break;
+          }
+
+          case 'muncher':
+            if ((h.emerged ?? 0) > 0.5 && dist2D < 0.52 && Math.abs(dy) < 0.6) {
+              if (this.events.onKill) this.events.onKill('muncher');
+            }
+            break;
+
+          case 'acid':
+            if (dist2D < 0.65 && Math.abs(dy) < 0.5) {
+              if (this.events.onKill) this.events.onKill('acid');
             }
             break;
 

@@ -145,6 +145,12 @@ export class GameRenderer {
   private waterMeshes: THREE.Mesh[] = [];
   private animatedProps: THREE.Object3D[] = [];
   private totalTime = 0;
+  private shakeAmount = 0;
+  private camFollowX = 0;
+  private camFollowY = 0;
+  private camFollowZ = 0;
+  private camInitialized = false;
+  private textureCache = new Map<string, THREE.CanvasTexture>();
 
   constructor() {
     this.canvas = document.getElementById('gl') as HTMLCanvasElement;
@@ -226,37 +232,72 @@ export class GameRenderer {
 
   private createMarbleTexture(primaryColor: string, accentColor: string): THREE.CanvasTexture {
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 128;
+    canvas.width = 512;
+    canvas.height = 256;
     const ctx = canvas.getContext('2d')!;
 
-    // Base surface with subtle pearlescent gloss
-    const grad = ctx.createLinearGradient(0, 0, 256, 128);
+    // 1. High-gloss pearlescent base
+    const grad = ctx.createLinearGradient(0, 0, 512, 256);
     grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.5, '#e6ecf8');
-    grad.addColorStop(1, '#d0d8ea');
+    grad.addColorStop(0.3, '#edf3fa');
+    grad.addColorStop(0.7, '#c8d4e8');
+    grad.addColorStop(1, '#a6b8d4');
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 256, 128);
+    ctx.fillRect(0, 0, 512, 256);
 
-    // Classic arcade colored bands & chevrons
+    // 2. Bold spiral racing bands (Arcade classic swirl)
     ctx.fillStyle = primaryColor;
-    ctx.fillRect(0, 24, 256, 36);
-    ctx.fillRect(0, 84, 256, 24);
+    ctx.beginPath();
+    ctx.moveTo(0, 40);
+    ctx.bezierCurveTo(128, 80, 384, 10, 512, 60);
+    ctx.lineTo(512, 130);
+    ctx.bezierCurveTo(384, 80, 128, 150, 0, 110);
+    ctx.closePath();
+    ctx.fill();
 
+    ctx.fillStyle = primaryColor;
+    ctx.beginPath();
+    ctx.moveTo(0, 160);
+    ctx.bezierCurveTo(128, 200, 384, 140, 512, 190);
+    ctx.lineTo(512, 240);
+    ctx.bezierCurveTo(384, 190, 128, 250, 0, 220);
+    ctx.closePath();
+    ctx.fill();
+
+    // 3. Crisp accent highlight stripe
     ctx.fillStyle = accentColor;
-    for (let x = 0; x < 256; x += 32) {
-      ctx.fillRect(x, 0, 16, 128);
-    }
+    ctx.beginPath();
+    ctx.moveTo(0, 75);
+    ctx.bezierCurveTo(128, 115, 384, 45, 512, 95);
+    ctx.lineTo(512, 110);
+    ctx.bezierCurveTo(384, 60, 128, 130, 0, 90);
+    ctx.closePath();
+    ctx.fill();
 
-    // Grid details
-    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-    ctx.lineWidth = 2;
-    for (let x = 0; x < 256; x += 16) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, 128);
-      ctx.stroke();
-    }
+    // 4. Center emblem circle with specular rim
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(256, 128, 44, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = primaryColor;
+    ctx.beginPath();
+    ctx.arc(256, 128, 36, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 36px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('MM', 256, 128);
+
+    // 5. Specular highlight sheen
+    const specGrad = ctx.createLinearGradient(0, 0, 512, 0);
+    specGrad.addColorStop(0, 'rgba(255,255,255,0.4)');
+    specGrad.addColorStop(0.5, 'rgba(255,255,255,0.0)');
+    specGrad.addColorStop(1, 'rgba(255,255,255,0.3)');
+    ctx.fillStyle = specGrad;
+    ctx.fillRect(0, 0, 512, 256);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
@@ -753,28 +794,173 @@ export class GameRenderer {
     this.environmentGroup.add(ringMesh);
   }
 
+  private getArcadeTileTexture(
+    type: string,
+    c1: number,
+    c2: number,
+    c3: number,
+  ): THREE.CanvasTexture {
+    const key = `${type}_${c1}_${c2}_${c3}`;
+    if (this.textureCache.has(key)) return this.textureCache.get(key)!;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+
+    const hex1 = '#' + c1.toString(16).padStart(6, '0');
+    const hex2 = '#' + c2.toString(16).padStart(6, '0');
+    const hex3 = '#' + c3.toString(16).padStart(6, '0');
+
+    switch (type) {
+      case 'path': {
+        // 2x2 Arcade isometric checkerboard with beveled borders
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+
+        ctx.fillStyle = hex2;
+        ctx.fillRect(0, 0, 64, 64);
+        ctx.fillRect(64, 64, 64, 64);
+
+        // Bevel highlights & shadow lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(2, 2, 60, 60);
+        ctx.strokeRect(66, 66, 60, 60);
+
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, 128, 128);
+        ctx.beginPath();
+        ctx.moveTo(64, 0); ctx.lineTo(64, 128);
+        ctx.moveTo(0, 64); ctx.lineTo(128, 64);
+        ctx.stroke();
+        break;
+      }
+      case 'snow': {
+        // Ice crystal lattice with specular shine
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.fillStyle = hex2;
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.arc((i % 2) * 64 + 32, Math.floor(i / 2) * 64 + 32, 22, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(1, 1, 126, 126);
+        break;
+      }
+      case 'metal': {
+        // Brushed metallic panels with industrial corner rivets
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.fillStyle = hex2;
+        ctx.fillRect(4, 4, 120, 120);
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        for (const [rx, ry] of [[12, 12], [116, 12], [12, 116], [116, 116]]) {
+          ctx.beginPath();
+          ctx.arc(rx, ry, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case 'sand': {
+        // Desert ripple grains
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.fillStyle = hex2;
+        for (let y = 0; y < 128; y += 16) {
+          ctx.fillRect(0, y, 128, 4);
+        }
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        ctx.strokeRect(0, 0, 128, 128);
+        break;
+      }
+      case 'wall': {
+        // Arcade tiered block facets
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.fillStyle = hex2;
+        ctx.fillRect(0, 64, 128, 64);
+        ctx.strokeStyle = hex3;
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, 124, 124);
+        break;
+      }
+      default: {
+        ctx.fillStyle = hex1;
+        ctx.fillRect(0, 0, 128, 128);
+        ctx.strokeStyle = hex2;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(1, 1, 126, 126);
+        break;
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    this.textureCache.set(key, tex);
+    return tex;
+  }
+
   private createSurfaceMaterials(stageId: number): Record<string, THREE.Material> {
     const pal = stagePalette(stageId);
-    const mk = (top: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) =>
-      new THREE.MeshStandardMaterial({ color: top, roughness: 0.4, ...extra });
+
+    const pathTex = this.getArcadeTileTexture('path', pal.path[0], pal.path[1], pal.path[2]);
+    const wallTex = this.getArcadeTileTexture('wall', pal.wall[0], pal.wall[1], pal.wall[2]);
+    const sandTex = this.getArcadeTileTexture('sand', pal.sand[0], pal.sand[1], pal.sand[2]);
+    const snowTex = this.getArcadeTileTexture('snow', pal.snow[0], pal.snow[1], pal.snow[2]);
+    const metalTex = this.getArcadeTileTexture('metal', pal.metal[0], pal.metal[1], pal.metal[2]);
 
     return {
-      path: mk(pal.path[0], { roughness: 0.35 }),
-      wall: mk(pal.wall[0], { roughness: 0.6 }),
-      sand: mk(pal.sand[0], { roughness: 0.95 }),
-      water: mk(pal.water[0], {
-        roughness: 0.05,
+      path: new THREE.MeshStandardMaterial({
+        map: pathTex,
+        roughness: 0.28,
+        metalness: 0.15,
+      }),
+      wall: new THREE.MeshStandardMaterial({
+        map: wallTex,
+        roughness: 0.6,
+      }),
+      sand: new THREE.MeshStandardMaterial({
+        map: sandTex,
+        roughness: 0.95,
+      }),
+      water: new THREE.MeshStandardMaterial({
+        color: pal.water[0],
+        roughness: 0.04,
         metalness: 0.1,
         transparent: true,
         opacity: 0.82,
       }),
-      snow: mk(pal.snow[0], { roughness: 0.12, metalness: 0.1 }),
-      glass: mk(pal.glass[0], { transparent: true, opacity: 0.72, roughness: 0.08 }),
-      holo: mk(pal.holo[0], { wireframe: true }),
-      metal: mk(pal.metal[0], { metalness: 0.8, roughness: 0.2 }),
-      tree: mk(pal.tree[0], { roughness: 0.75 }),
-      rock: mk(pal.rock[0], { roughness: 0.85 }),
-      cloud: mk(pal.cloud[0], { roughness: 0.4, transparent: true, opacity: 0.88 }),
+      snow: new THREE.MeshStandardMaterial({
+        map: snowTex,
+        roughness: 0.08,
+        metalness: 0.25,
+      }),
+      glass: new THREE.MeshStandardMaterial({
+        color: pal.glass[0],
+        transparent: true,
+        opacity: 0.72,
+        roughness: 0.06,
+        metalness: 0.4,
+      }),
+      holo: new THREE.MeshStandardMaterial({
+        color: pal.holo[0],
+        wireframe: true,
+        emissive: pal.holo[0],
+      }),
+      metal: new THREE.MeshStandardMaterial({
+        map: metalTex,
+        metalness: 0.85,
+        roughness: 0.18,
+      }),
+      tree: new THREE.MeshStandardMaterial({ color: pal.tree[0], roughness: 0.75 }),
+      rock: new THREE.MeshStandardMaterial({ color: pal.rock[0], roughness: 0.85 }),
+      cloud: new THREE.MeshStandardMaterial({ color: pal.cloud[0], roughness: 0.4, transparent: true, opacity: 0.88 }),
     };
   }
 
@@ -1016,6 +1202,81 @@ export class GameRenderer {
         break;
       }
 
+      case 'steelie': {
+        // High-gloss obsidian black sphere with gold specular sheen
+        const steelieMat = new THREE.MeshStandardMaterial({
+          color: 0x111115,
+          roughness: 0.08,
+          metalness: 0.95,
+        });
+        const ball = new THREE.Mesh(this.sharedSphereGeom, steelieMat);
+        ball.castShadow = true;
+        ball.name = 'steelieBall';
+        group.add(ball);
+
+        // Core gold reflection spot
+        const dotGeom = new THREE.SphereGeometry(0.04, 8, 8);
+        const dotMat = new THREE.MeshBasicMaterial({ color: 0xffd23f });
+        const dot = new THREE.Mesh(dotGeom, dotMat);
+        dot.position.set(0, MABLE_R * 0.7, MABLE_R * 0.7);
+        ball.add(dot);
+        break;
+      }
+
+      case 'muncher': {
+        // Green tubular body hidden in hole
+        const baseGeom = new THREE.CylinderGeometry(0.24, 0.28, 0.35, 12);
+        const skinMat = new THREE.MeshStandardMaterial({ color: 0x1faa38, roughness: 0.6 });
+        const body = new THREE.Mesh(baseGeom, skinMat);
+        body.position.y = 0.17;
+        body.name = 'muncherBody';
+        group.add(body);
+
+        // Upper Jaw with white fangs
+        const jawGeom = new THREE.BoxGeometry(0.32, 0.14, 0.3);
+        const jawTop = new THREE.Mesh(jawGeom, skinMat);
+        jawTop.position.set(0, 0.38, 0.08);
+        jawTop.name = 'jawTop';
+
+        // White teeth
+        const toothGeom = new THREE.ConeGeometry(0.04, 0.08, 4);
+        const toothMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        for (let t = -0.1; t <= 0.1; t += 0.08) {
+          const tooth = new THREE.Mesh(toothGeom, toothMat);
+          tooth.rotation.x = Math.PI;
+          tooth.position.set(t, -0.07, 0.12);
+          jawTop.add(tooth);
+        }
+        group.add(jawTop);
+
+        // Lower Jaw
+        const jawBottom = new THREE.Mesh(jawGeom, skinMat);
+        jawBottom.position.set(0, 0.24, 0.08);
+        jawBottom.name = 'jawBottom';
+        for (let t = -0.1; t <= 0.1; t += 0.08) {
+          const tooth = new THREE.Mesh(toothGeom, toothMat);
+          tooth.position.set(t, 0.07, 0.12);
+          jawBottom.add(tooth);
+        }
+        group.add(jawBottom);
+        break;
+      }
+
+      case 'acid': {
+        const poolGeom = new THREE.CylinderGeometry(0.48, 0.48, 0.04, 16);
+        const poolMat = new THREE.MeshStandardMaterial({
+          color: 0x22ee44,
+          emissive: 0x118822,
+          transparent: true,
+          opacity: 0.85,
+          roughness: 0.1,
+        });
+        const pool = new THREE.Mesh(poolGeom, poolMat);
+        pool.name = 'acidPool';
+        group.add(pool);
+        break;
+      }
+
       case 'springboard': {
         const padGeom = new THREE.BoxGeometry(0.7, 0.1, 0.7);
         const padMat = new THREE.MeshStandardMaterial({ color: 0xff8800 });
@@ -1121,6 +1382,38 @@ export class GameRenderer {
     }
   }
 
+  public emitSkidMarks(pos: [number, number, number], intensity = 1.0): void {
+    const dustGeom = new THREE.TetrahedronGeometry(0.04);
+    const dustMat = new THREE.MeshBasicMaterial({
+      color: 0xe0e8f0,
+      transparent: true,
+      opacity: 0.6 * Math.min(1, intensity),
+    });
+
+    for (let i = 0; i < 3; i++) {
+      const mesh = new THREE.Mesh(dustGeom, dustMat);
+      mesh.position.set(
+        pos[0] + (Math.random() - 0.5) * 0.1,
+        pos[1] - MABLE_R + 0.02,
+        pos[2] + (Math.random() - 0.5) * 0.1,
+      );
+      this.particlesGroup.add(mesh);
+
+      this.particles.push({
+        mesh,
+        vx: (Math.random() - 0.5) * 0.04,
+        vy: 0.02 + Math.random() * 0.04,
+        vz: (Math.random() - 0.5) * 0.04,
+        life: 0,
+        maxLife: 0.35 + Math.random() * 0.2,
+      });
+    }
+  }
+
+  public triggerScreenShake(amount = 0.3): void {
+    this.shakeAmount = Math.max(this.shakeAmount, amount);
+  }
+
   // =========================================================================
   // MAIN RENDER LOOP
   // =========================================================================
@@ -1134,18 +1427,27 @@ export class GameRenderer {
   ): void {
     this.totalTime += dt;
 
-    // Update local marble position & rolling orientation
+    // 1. Update local marble position & true 3D rolling orientation
     this.marbleMesh.position.set(marble.x, marble.y, marble.z);
-    this.marbleMesh.rotation.x = marble.rotX;
-    this.marbleMesh.rotation.z = marble.rotZ;
+    if (marble.quat) {
+      this.marbleMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
+    } else {
+      this.marbleMesh.rotation.x = marble.rotX;
+      this.marbleMesh.rotation.z = marble.rotZ;
+    }
 
     this.marbleShadow.position.set(marble.x, Math.max(0, marble.y - MABLE_R + 0.01), marble.z);
     this.localLabelSprite.position.set(marble.x, marble.y + 0.65, marble.z);
 
-    // Sync multiplayer remote players
+    // Speed particles trail when going fast
+    if (marble.speed > 0.22 && marble.grounded) {
+      this.emitSkidMarks([marble.x, marble.y, marble.z], marble.speed / 0.32);
+    }
+
+    // 2. Sync multiplayer remote players
     this.syncRemotePlayers(remotePlayers, stageId);
 
-    // Update hazards animations
+    // 3. Update hazards animations
     for (const h of hazards) {
       const obj = this.hazardMeshes.get(h);
       if (!obj) continue;
@@ -1163,21 +1465,43 @@ export class GameRenderer {
         const wingR = obj.getObjectByName('wingR');
         if (wingL) wingL.rotation.z = Math.sin(h.animTime * 18) * 0.6;
         if (wingR) wingR.rotation.z = -Math.sin(h.animTime * 18) * 0.6;
+      } else if (h.def.kind === 'muncher') {
+        // Pop-up emergence from floor and snapping jaws
+        const emerged = h.emerged ?? 0;
+        obj.position.y = h.y + (emerged - 1.0) * 0.35;
+        const jawTop = obj.getObjectByName('jawTop');
+        const jawBottom = obj.getObjectByName('jawBottom');
+        const jawAngle = (h.jawOpen ?? 0) * 0.65;
+        if (jawTop) jawTop.rotation.x = -jawAngle;
+        if (jawBottom) jawBottom.rotation.x = jawAngle;
+      } else if (h.def.kind === 'steelie') {
+        // Roll Steelie black marble
+        const ball = obj.getObjectByName('steelieBall');
+        if (ball) {
+          ball.rotation.x += (h.vz ?? 0) * 2.8;
+          ball.rotation.z -= (h.vx ?? 0) * 2.8;
+        }
+      } else if (h.def.kind === 'acid') {
+        const pool = obj.getObjectByName('acidPool');
+        if (pool) {
+          const s = 1.0 + Math.sin(this.totalTime * 6) * 0.05;
+          pool.scale.set(s, 1, s);
+        }
       }
     }
 
-    // Animate background props
+    // 4. Animate background props
     for (const prop of this.animatedProps) {
       prop.rotation.y += dt * 0.5;
       prop.rotation.x += dt * 0.3;
     }
 
-    // Animate water waves
+    // 5. Animate water waves
     for (const w of this.waterMeshes) {
       w.position.y += Math.sin(this.totalTime * 4) * 0.002;
     }
 
-    // Update particles
+    // 6. Update particles
     for (const p of this.particles) {
       p.life += dt;
       p.vy -= 0.007;
@@ -1197,17 +1521,43 @@ export class GameRenderer {
       return true;
     });
 
-    // Isometric follow camera
+    // 7. Smooth Isometric follow camera with lead-ahead & screen shake
+    if (!this.camInitialized) {
+      this.camFollowX = marble.x;
+      this.camFollowY = marble.y;
+      this.camFollowZ = marble.z;
+      this.camInitialized = true;
+    } else {
+      // Smooth tracking spring-damper
+      const leadX = marble.x + marble.vx * 12;
+      const leadY = marble.y;
+      const leadZ = marble.z + marble.vz * 12;
+      this.camFollowX += (leadX - this.camFollowX) * Math.min(1, dt * 8);
+      this.camFollowY += (leadY - this.camFollowY) * Math.min(1, dt * 6);
+      this.camFollowZ += (leadZ - this.camFollowZ) * Math.min(1, dt * 8);
+    }
+
+    // Screen Shake Offset
+    let shakeX = 0;
+    let shakeY = 0;
+    let shakeZ = 0;
+    if (this.shakeAmount > 0.001) {
+      shakeX = (Math.random() - 0.5) * this.shakeAmount;
+      shakeY = (Math.random() - 0.5) * this.shakeAmount;
+      shakeZ = (Math.random() - 0.5) * this.shakeAmount;
+      this.shakeAmount *= 0.88;
+    }
+
     const radTilt = (CAM_TILT * Math.PI) / 180;
     const radYaw = (CAM_YAW * Math.PI) / 180;
 
     const camDist = CAM_BACK * 0.38;
-    const camX = marble.x + Math.sin(radYaw) * Math.cos(radTilt) * camDist;
-    const camY = marble.y + Math.sin(radTilt) * camDist + 3.8;
-    const camZ = marble.z + Math.cos(radYaw) * Math.cos(radTilt) * camDist;
+    const camX = this.camFollowX + Math.sin(radYaw) * Math.cos(radTilt) * camDist + shakeX;
+    const camY = this.camFollowY + Math.sin(radTilt) * camDist + 3.8 + shakeY;
+    const camZ = this.camFollowZ + Math.cos(radYaw) * Math.cos(radTilt) * camDist + shakeZ;
 
     this.camera.position.set(camX, camY, camZ);
-    this.camera.lookAt(marble.x + 1.2, marble.y + 0.5, marble.z + 1.2);
+    this.camera.lookAt(this.camFollowX + 1.2, this.camFollowY + 0.5, this.camFollowZ + 1.2);
 
     this.renderer.render(this.scene, this.camera);
   }

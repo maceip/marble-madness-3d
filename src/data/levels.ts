@@ -108,7 +108,10 @@ const DEFS: LevelDef[] = [
         '8,24': { surf: 'path', h: 8, prop: 'item' },
       },
     },
-    hazards: [],
+    hazards: [
+      { kind: 'muncher', x: 10, z: 12, h: 5 },
+      { kind: 'steelie', x: 9, z: 22, h: 8, range: 2.5 },
+    ],
   },
 
   // =====================================================================
@@ -196,6 +199,8 @@ const DEFS: LevelDef[] = [
       },
     },
     hazards: [
+      { kind: 'steelie', x: 8, z: 8, h: 5, range: 3.0 },
+      { kind: 'muncher', x: 6, z: 18, h: 3 },
       { kind: 'bat', x: 8, z: 7, h: 12, period: 3.4, axis: 'x', range: 4, speed: 0.26 },
       { kind: 'blade', x: 8, z: 16, h: 5, period: 2.8, axis: 'x', range: 4, speed: 0.32 },
       { kind: 'snake', x: 4, z: 22, h: 5, path: [[4, 22], [8, 23], [6, 25]], speed: 0.3 },
@@ -276,6 +281,8 @@ const DEFS: LevelDef[] = [
       },
     },
     hazards: [
+      { kind: 'steelie', x: 11, z: 10, h: 3, range: 3.5 },
+      { kind: 'muncher', x: 8, z: 24, h: 2 },
       { kind: 'bat', x: 10, z: 6, h: 12, period: 3.6, axis: 'x', range: 4, speed: 0.3 },
       { kind: 'blade', x: 8, z: 11, h: 6, period: 3.2, axis: 'x', range: 3.5, speed: 0.28 },
       { kind: 'blade', x: 11, z: 18, h: 5, period: 2.8, axis: 'z', range: 3, speed: 0.32 },
@@ -371,6 +378,8 @@ const DEFS: LevelDef[] = [
       },
     },
     hazards: [
+      { kind: 'steelie', x: 9, z: 11, h: 4, range: 4.0 },
+      { kind: 'muncher', x: 12, z: 18, h: 3 },
       { kind: 'bomber', x: 9, z: 5, h: 12, period: 4.8, axis: 'x', range: 4.5, speed: 0.28 },
       { kind: 'snake', x: 4, z: 9, h: 6, path: [[4, 9], [14, 9], [14, 12], [4, 12]], speed: 0.32 },
       { kind: 'blade', x: 9, z: 15, h: 5, period: 3.5, axis: 'x', range: 4, speed: 0.3 },
@@ -434,6 +443,9 @@ const DEFS: LevelDef[] = [
       },
     },
     hazards: [
+      { kind: 'muncher', x: 5, z: 6, h: 2 },
+      { kind: 'muncher', x: 14, z: 6, h: 2 },
+      { kind: 'steelie', x: 9, z: 10, h: 1, range: 2.5 },
       { kind: 'blade', x: 4, z: 5, h: 4, period: 2.8, axis: 'x', range: 3, speed: 0.32 },
       { kind: 'blade', x: 15, z: 5, h: 4, period: 2.8, axis: 'x', range: 3, speed: 0.32 },
       { kind: 'bat', x: 9, z: 3, h: 10, period: 3.5, axis: 'z', range: 3, speed: 0.25 },
@@ -482,6 +494,8 @@ const DEFS: LevelDef[] = [
       },
     },
     hazards: [
+      { kind: 'muncher', x: 8, z: 3, h: 3 },
+      { kind: 'acid', x: 6, z: 7, h: 2 },
       { kind: 'snake', x: 4, z: 3, h: 4, path: [[4, 3], [13, 3], [13, 7], [6, 9]], speed: 0.32 },
       { kind: 'bat', x: 8, z: 4, h: 8, period: 3.2, axis: 'x', range: 4, speed: 0.3 },
       { kind: 'bomber', x: 10, z: 5, h: 8, period: 5, axis: 'z', range: 3, speed: 0.26 },
@@ -526,6 +540,8 @@ const DEFS: LevelDef[] = [
       },
     },
     hazards: [
+      { kind: 'steelie', x: 10, z: 5, h: 3, range: 3.0 },
+      { kind: 'muncher', x: 9, z: 8, h: 2 },
       { kind: 'snake', x: 4, z: 5, h: 5, path: [[4, 5], [13, 5], [13, 8], [4, 8]], speed: 0.36 },
       { kind: 'blade', x: 8, z: 3, h: 8, period: 3.5, axis: 'z', range: 3, speed: 0.28 },
       { kind: 'bat', x: 10, z: 7, h: 8, period: 3.2, axis: 'x', range: 3.5, speed: 0.26 },
@@ -564,6 +580,8 @@ const DEFS: LevelDef[] = [
       },
     },
     hazards: [
+      { kind: 'steelie', x: 8, z: 3, h: 3, range: 4.0 },
+      { kind: 'acid', x: 11, z: 4, h: 3 },
       { kind: 'bomber', x: 6, z: 2, h: 10, period: 4.5, axis: 'x', range: 5, speed: 0.34 },
       { kind: 'bat', x: 5, z: 5, h: 9, period: 3.0, axis: 'x', range: 4, speed: 0.32 },
       { kind: 'blade', x: 11, z: 5, h: 8, period: 3.8, axis: 'z', range: 3, speed: 0.28 },

@@ -16,23 +16,70 @@ export interface MarbleState {
   vx: number;
   vy: number;
   vz: number;
-  /** 3x3 visual rotation matrix components for rolling sphere */
+  /** 3D rotation Euler angles for rolling sphere (radians) */
   rotX: number;
   rotY: number;
   rotZ: number;
+  /** True 3D quaternion components [x, y, z, w] */
+  quat: [number, number, number, number];
+  /** 3D angular velocity vector [wx, wy, wz] (rad/s) */
+  omega: [number, number, number];
   grounded: boolean;
   dead: boolean;
+  shattered: boolean;
+  skidding: boolean;
   currentCell: Cell | null;
   speed: number;
+  angularSpeed: number;
   inWater: boolean;
   fallHeight: number;
+  lastAirY: number;
 }
 
 export interface PhysicsEvents {
   onBounce?: (force: number) => void;
+  onShatter?: () => void;
+  onSkid?: (intensity: number) => void;
   onFall?: () => void;
   onSpringboard?: () => void;
   onSplash?: () => void;
+}
+
+// =========================================================================
+// QUATERNION & VECTOR 3D MATH HELPERS (Pure high-performance math)
+// =========================================================================
+
+function quatNormalize(q: [number, number, number, number]): [number, number, number, number] {
+  const len = Math.hypot(q[0], q[1], q[2], q[3]);
+  if (len < 1e-6) return [0, 0, 0, 1];
+  return [q[0] / len, q[1] / len, q[2] / len, q[3] / len];
+}
+
+function quatMultiply(
+  a: [number, number, number, number],
+  b: [number, number, number, number],
+): [number, number, number, number] {
+  const [ax, ay, az, aw] = a;
+  const [bx, by, bz, bw] = b;
+  return [
+    aw * bx + ax * bw + ay * bz - az * by,
+    aw * by - ax * bz + ay * bw + az * bx,
+    aw * bz + ax * by - ay * bx + az * bw,
+    aw * bw - ax * bx - ay * by - az * bz,
+  ];
+}
+
+function quatFromAxisAngle(
+  ax: number,
+  ay: number,
+  az: number,
+  angle: number,
+): [number, number, number, number] {
+  const len = Math.hypot(ax, ay, az);
+  if (len < 1e-6) return [0, 0, 0, 1];
+  const half = angle * 0.5;
+  const s = Math.sin(half) / len;
+  return [ax * s, ay * s, az * s, Math.cos(half)];
 }
 
 export class PhysicsEngine {
@@ -40,9 +87,10 @@ export class PhysicsEngine {
   public marble: MarbleState;
   public events: PhysicsEvents = {};
 
-  private readonly GRAVITY = -0.014;
-  private readonly ACCEL = 0.012;
-  private readonly BRAKE_DRAG = 0.88;
+  private readonly GRAVITY = -0.015;
+  private readonly ACCEL = 0.014;
+  private readonly BRAKE_DRAG = 0.86;
+  private readonly SHATTER_VELOCITY = -0.42; // Falling faster than this splatters marble!
 
   constructor(level: BuiltLevel) {
     this.level = level;
@@ -71,12 +119,18 @@ export class PhysicsEngine {
       rotX: 0,
       rotY: 0,
       rotZ: 0,
+      quat: [0, 0, 0, 1],
+      omega: [0, 0, 0],
       grounded: true,
       dead: false,
+      shattered: false,
+      skidding: false,
       currentCell: cell ?? null,
       speed: 0,
+      angularSpeed: 0,
       inWater: false,
       fallHeight: 0,
+      lastAirY: groundY,
     };
   }
 
@@ -97,9 +151,13 @@ export class PhysicsEngine {
     this.marble.vx = 0;
     this.marble.vy = 0;
     this.marble.vz = 0;
+    this.marble.omega = [0, 0, 0];
     this.marble.grounded = false;
     this.marble.dead = false;
+    this.marble.shattered = false;
+    this.marble.skidding = false;
     this.marble.fallHeight = 0;
+    this.marble.lastAirY = this.marble.y;
   }
 
   public getGroundHeightAt(x: number, z: number): { height: number; cell: Cell | null; normal: [number, number, number] } {
@@ -141,41 +199,44 @@ export class PhysicsEngine {
   }
 
   public update(input: InputState): void {
-    if (this.marble.dead) return;
+    if (this.marble.dead || this.marble.shattered) return;
 
     const m = this.marble;
-
-    // Apply player steering input
-    let steerForce = this.ACCEL * input.intensity;
-    let surfaceFriction = 0.982;
-
     const groundInfo = this.getGroundHeightAt(m.x, m.z);
     m.currentCell = groundInfo.cell;
 
-    // Surface specific physics modifiers
+    // Surface traction & friction properties
+    let surfaceFriction = 0.984;
+    let surfaceTraction = 0.85;
+    let steerForce = this.ACCEL * input.intensity;
+
     if (groundInfo.cell) {
       switch (groundInfo.cell.surf) {
         case 'snow':
-          // Ice: slippery, fast, low friction
-          surfaceFriction = 0.994;
-          steerForce *= 0.65;
+          // Ice: super slick, low traction (causes drifting and spinning)
+          surfaceFriction = 0.996;
+          surfaceTraction = 0.22;
+          steerForce *= 0.55;
           break;
         case 'sand':
-          // Sand: high drag, slow
-          surfaceFriction = 0.93;
-          steerForce *= 1.3;
-          break;
-        case 'water':
-          // Water: slow, dragging down
-          surfaceFriction = 0.91;
-          m.inWater = true;
+          // Sand: heavy rolling resistance and low top speed
+          surfaceFriction = 0.92;
+          surfaceTraction = 0.95;
+          steerForce *= 1.25;
           break;
         case 'metal':
-          // Metal rails: fast
-          surfaceFriction = 0.988;
+          // Metal rails: crisp, high speed
+          surfaceFriction = 0.99;
+          surfaceTraction = 0.9;
           break;
         case 'glass':
-          surfaceFriction = 0.99;
+          surfaceFriction = 0.992;
+          surfaceTraction = 0.45;
+          break;
+        case 'water':
+          surfaceFriction = 0.90;
+          surfaceTraction = 0.35;
+          m.inWater = true;
           break;
         default:
           m.inWater = false;
@@ -184,17 +245,21 @@ export class PhysicsEngine {
     }
 
     if (m.grounded) {
-      // Ground acceleration & slopes
+      // 1. Steering & Trackball Acceleration
       m.vx += input.steerX * steerForce;
       m.vz += input.steerZ * steerForce;
 
-      // Apply slope gravity pull
-      if (groundInfo.cell && (groundInfo.cell.dx !== 0 || groundInfo.cell.dz !== 0)) {
-        m.vx += groundInfo.cell.dx * 0.007;
-        m.vz += groundInfo.cell.dz * 0.007;
+      // 2. Analytical Downhill Slope Acceleration
+      // Normal vector components nx, nz correspond to slope gradient
+      const [nx, ny, nz] = groundInfo.normal;
+      if (ny < 0.99) {
+        // Ramps / banked slopes accelerate marble downhill
+        const slopeGravity = 0.018;
+        m.vx += nx * slopeGravity * (1.0 - ny);
+        m.vz += nz * slopeGravity * (1.0 - ny);
       }
 
-      // Apply friction or braking
+      // 3. Friction & Braking
       if (input.brake) {
         m.vx *= this.BRAKE_DRAG;
         m.vz *= this.BRAKE_DRAG;
@@ -203,56 +268,76 @@ export class PhysicsEngine {
         m.vz *= surfaceFriction;
       }
 
-      // Speed cap on ground
-      const currentSpeed = Math.sqrt(m.vx * m.vx + m.vz * m.vz);
+      // 4. Speed Cap
+      const currentSpeed = Math.hypot(m.vx, m.vz);
       if (currentSpeed > MAX_SPEED) {
         const factor = MAX_SPEED / currentSpeed;
         m.vx *= factor;
         m.vz *= factor;
       }
-
       m.speed = currentSpeed;
+
+      // 5. Skid & Drift Detection
+      // Desired rolling angular velocity: omega = (n x v) / R
+      const targetOmegaX = -m.vz / MABLE_R;
+      const targetOmegaZ = m.vx / MABLE_R;
+      const omegaDiff = Math.hypot(targetOmegaX - m.omega[0], targetOmegaZ - m.omega[2]);
+
+      // Traction smoothly aligns marble angular spin with translational velocity
+      m.omega[0] += (targetOmegaX - m.omega[0]) * surfaceTraction;
+      m.omega[2] += (targetOmegaZ - m.omega[2]) * surfaceTraction;
+
+      if (omegaDiff > 0.8 && currentSpeed > 0.15) {
+        m.skidding = true;
+        if (this.events.onSkid) this.events.onSkid(Math.min(1, omegaDiff / 2));
+      } else {
+        m.skidding = false;
+      }
     } else {
-      // Airborne physics
+      // Airborne Physics: Gravity & Drag
       m.vy += this.GRAVITY;
       if (m.vy < -TERMINAL_FALL) m.vy = -TERMINAL_FALL;
 
-      // Air control
-      m.vx += input.steerX * (steerForce * 0.4);
-      m.vz += input.steerZ * (steerForce * 0.4);
-      m.vx *= 0.992;
-      m.vz *= 0.992;
+      // Subtle air steering control
+      m.vx += input.steerX * (steerForce * 0.35);
+      m.vz += input.steerZ * (steerForce * 0.35);
+      m.vx *= 0.994;
+      m.vz *= 0.994;
 
-      const airSpeed = Math.sqrt(m.vx * m.vx + m.vz * m.vz);
+      const airSpeed = Math.hypot(m.vx, m.vz);
       if (airSpeed > MAX_SPEED_AIR) {
         const factor = MAX_SPEED_AIR / airSpeed;
         m.vx *= factor;
         m.vz *= factor;
       }
       m.speed = airSpeed;
+      m.skidding = false;
+
+      // Angular velocity spins freely with slight air damping
+      m.omega[0] *= 0.995;
+      m.omega[2] *= 0.995;
     }
 
-    // Integrate position
+    // Integrate Position
     const nextX = m.x + m.vx;
     const nextZ = m.z + m.vz;
     const nextY = m.y + m.vy;
 
-    // Wall collision against solid cells
+    // Wall Collision against Solid Cells
     const nextCell = cellAt(this.level.layout, Math.floor(nextX), Math.floor(nextZ));
     if (nextCell && nextCell.solid) {
-      // Check X and Z components independently for sliding against walls
       const cellX = cellAt(this.level.layout, Math.floor(nextX), Math.floor(m.z));
       const cellZ = cellAt(this.level.layout, Math.floor(m.x), Math.floor(nextZ));
 
       if (cellX && cellX.solid) {
-        m.vx = -m.vx * 0.4;
+        m.vx = -m.vx * 0.45;
         if (this.events.onBounce && Math.abs(m.vx) > 0.05) this.events.onBounce(Math.abs(m.vx));
       } else {
         m.x = nextX;
       }
 
       if (cellZ && cellZ.solid) {
-        m.vz = -m.vz * 0.4;
+        m.vz = -m.vz * 0.45;
         if (this.events.onBounce && Math.abs(m.vz) > 0.05) this.events.onBounce(Math.abs(m.vz));
       } else {
         m.z = nextZ;
@@ -262,20 +347,36 @@ export class PhysicsEngine {
       m.z = nextZ;
     }
 
-    // Ground & vertical collision
+    // Ground & Vertical Collision
     const nextGround = this.getGroundHeightAt(m.x, m.z);
     const requiredY = nextGround.height + MABLE_R;
 
     if (nextY <= requiredY) {
-      if (!m.grounded && m.vy < -0.15) {
-        // Hard landing / bounce
-        if (this.events.onBounce) this.events.onBounce(Math.abs(m.vy));
-        if (m.vy < -0.45) {
-          // Landing bounce
-          m.vy = -m.vy * 0.35;
-          m.y = requiredY + 0.02;
-        } else {
+      if (!m.grounded && m.vy < -0.12) {
+        // Landing Impact Assessment
+        const fallDist = m.lastAirY - nextY;
+
+        // HIGH DROP SPLAT: Shatter on excessive fall or downward impact velocity!
+        if (m.vy <= this.SHATTER_VELOCITY || fallDist > 2.2) {
           m.y = requiredY;
+          m.vy = 0;
+          m.vx = 0;
+          m.vz = 0;
+          m.dead = true;
+          m.shattered = true;
+          if (this.events.onShatter) {
+            this.events.onShatter();
+          } else if (this.events.onBounce) {
+            this.events.onBounce(1.0);
+          }
+          return;
+        }
+
+        // Moderate Drop: Elastic Rebound Bounce
+        if (this.events.onBounce) this.events.onBounce(Math.abs(m.vy) * 1.8);
+        m.vy = -m.vy * 0.28;
+        m.y = requiredY + 0.02;
+        if (Math.abs(m.vy) < 0.04) {
           m.vy = 0;
           m.grounded = true;
         }
@@ -283,35 +384,52 @@ export class PhysicsEngine {
         m.y = requiredY;
         m.vy = 0;
         m.grounded = true;
+        m.lastAirY = m.y;
       }
 
-      // Check for springboards
+      // Check for Springboards
       if (nextGround.cell?.prop === 'springboard') {
-        m.vy = 0.46;
+        m.vy = 0.48;
         m.grounded = false;
+        m.lastAirY = m.y;
         if (this.events.onSpringboard) this.events.onSpringboard();
       }
 
-      // Check for spikes bounce / kill
+      // Check for Spikes Bounce / Kill
       if (nextGround.cell?.prop === 'spike') {
         m.vy = SPIKE_BOUNCE;
         m.grounded = false;
+        m.lastAirY = m.y;
         if (this.events.onBounce) this.events.onBounce(1.0);
       }
     } else {
       m.y = nextY;
-      // If marble stepped off a cliff
-      if (nextY - requiredY > 0.25) {
+      if (nextY - requiredY > 0.18) {
+        if (m.grounded) {
+          m.lastAirY = m.y;
+        }
         m.grounded = false;
       }
     }
 
-    // Update 3D rolling orientation
-    // Visual roll angle depends on velocity
+    // 6. True 3D Angular Velocity Integration into Quaternion
+    const angMag = Math.hypot(m.omega[0], m.omega[1], m.omega[2]);
+    m.angularSpeed = angMag;
+    if (angMag > 1e-5) {
+      const deltaQuat = quatFromAxisAngle(
+        m.omega[0] / angMag,
+        m.omega[1] / angMag,
+        m.omega[2] / angMag,
+        angMag * (1 / 60),
+      );
+      m.quat = quatNormalize(quatMultiply(deltaQuat, m.quat));
+    }
+
+    // Keep Euler angles in sync for UI/legacy renderers
     m.rotX += m.vz * 2.8;
     m.rotZ -= m.vx * 2.8;
 
-    // Check void fall / death
+    // Check Void Fall / Death
     if (m.y < -15) {
       m.dead = true;
       if (this.events.onFall) this.events.onFall();

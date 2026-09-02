@@ -184,7 +184,10 @@ export class SoundManager {
     if (!ctx || ctx.state !== 'running') return;
 
     const buf = this.sounds.get(key);
-    if (!buf || !(buf instanceof AudioBuffer)) return;
+    if (!buf || !(buf instanceof AudioBuffer)) {
+      this.synthesizeSfxFallback(key, volume);
+      return;
+    }
 
     const src = ctx.createBufferSource();
     const gain = ctx.createGain();
@@ -196,6 +199,51 @@ export class SoundManager {
       gain.disconnect();
     };
     src.start(0);
+  }
+
+  private synthesizeSfxFallback(name: string, volume: number): void {
+    const ctx = this.audioCtx;
+    if (!ctx || ctx.state !== 'running') return;
+
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    gain.gain.value = Math.max(0, Math.min(1, volume * 0.4));
+
+    if (name === 'bounce') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.12);
+    } else if (name === 'shatter') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(650, now);
+      osc.frequency.exponentialRampToValueAtTime(90, now + 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } else if (name === 'item' || name === 'checkpoint') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(1040, now + 0.18);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.18);
+    } else if (name === 'goal') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.setValueAtTime(554.37, now + 0.12);
+      osc.frequency.setValueAtTime(659.25, now + 0.24);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.5);
+    }
   }
 
   /**

@@ -139,9 +139,22 @@ export class GameManager {
     // Physics events
     this.physics.events.onBounce = (force) => {
       soundManager.playSfx('bounce', Math.min(1, force * 1.5));
+      this.renderer.triggerScreenShake(Math.min(0.32, force * 0.22));
+    };
+    this.physics.events.onShatter = () => {
+      soundManager.playSfx('shatter', 1.0);
+      this.renderer.triggerScreenShake(0.48);
+      this.handleDeath('shatter');
+    };
+    this.physics.events.onSkid = (intensity) => {
+      this.renderer.emitSkidMarks(
+        [this.physics.marble.x, this.physics.marble.y, this.physics.marble.z],
+        intensity,
+      );
     };
     this.physics.events.onSpringboard = () => {
       soundManager.playSfx('springboard', 1.0);
+      this.renderer.triggerScreenShake(0.18);
     };
     this.physics.events.onFall = () => {
       soundManager.playSfx('fall', 1.0);
@@ -177,6 +190,17 @@ export class GameManager {
 
     this.hazards.events.onHitBat = () => {
       soundManager.playSfx('bounce', 0.8);
+      this.renderer.triggerScreenShake(0.2);
+    };
+
+    this.hazards.events.onSteelieBump = (_steelie, force) => {
+      soundManager.playSfx('bounce', 1.0);
+      this.renderer.emitBumpSparks([
+        this.physics.marble.x,
+        this.physics.marble.y,
+        this.physics.marble.z,
+      ]);
+      this.renderer.triggerScreenShake(Math.min(0.4, force * 0.8));
     };
 
     // Global gesture to start audio
@@ -288,10 +312,27 @@ export class GameManager {
       this.physics.marble.z,
     ]);
 
-    if (reason === 'blade' || reason === 'snake') {
+    if (reason === 'muncher') {
       soundManager.playSfx('muncher', 1.0);
-    } else {
+      this.hud.showBanner('CHOMPED!', 'AVOID MUNCHERS', 1600);
+    } else if (reason === 'shatter') {
       soundManager.playSfx('shatter', 1.0);
+      this.hud.showBanner('SHATTERED!', 'HIGH DROP', 1600);
+    } else if (reason === 'acid') {
+      soundManager.playSfx('fall', 1.0);
+      this.hud.showBanner('DISSOLVED!', 'ACID POOL', 1600);
+    } else if (reason === 'blade') {
+      soundManager.playSfx('shatter', 1.0);
+      this.hud.showBanner('SLICED!', 'WATCH THE BLADES', 1600);
+    } else if (reason === 'snake') {
+      soundManager.playSfx('muncher', 1.0);
+      this.hud.showBanner('CRUSHED!', 'ACID WORM', 1600);
+    } else if (reason === 'bomb') {
+      soundManager.playSfx('shatter', 1.0);
+      this.hud.showBanner('BLOWN UP!', 'DODGE BOMBS', 1600);
+    } else {
+      soundManager.playSfx('fall', 0.9);
+      this.hud.showBanner('FELL OFF!', 'WATCH THE EDGES', 1500);
     }
 
     if (this.lives <= 0) {
