@@ -22,10 +22,12 @@ const BGM_TABLE: Record<string, string> = {
   intro: 'marble-056.mp3',
   '1': 'marble-073.mp3',
   '2': 'marble-075.mp3',
-  '3': 'marble-077.mp3',
-  '4': 'marble-079.mp3',
-  '5': 'marble-081.mp3',
-  '6': 'marble-081.mp3',
+  '3': 'marble-069.mp3',
+  '4': 'marble-066.mp3',
+  '5': 'marble-077.mp3',
+  '6': 'marble-079.mp3',
+  '7': 'marble-081.mp3',
+  '8': 'marble-067.mp3',
 };
 
 const SFX_TABLE: Record<SfxName, string> = {

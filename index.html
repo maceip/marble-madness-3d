@@ -8,6 +8,16 @@
     />
     <meta name="theme-color" content="#101018" />
     <title>Marble Madness 3D — WebGL isometric marble run</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <meta property="og:title" content="Marble Madness 3D — WebGL Isometric Marble Run" />
+    <meta property="og:description" content="Play the 3D isometric remake of Marble Madness with physical slope dynamics, mobile rotameter tilt steering, 3D high-res environments, and live hosted multiplayer bumping!" />
+    <meta property="og:image" content="/images/marbletriangle.png" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Marble Madness 3D" />
+    <meta name="twitter:description" content="Play the 3D isometric remake of Marble Madness with live multiplayer." />
+    <meta name="twitter:image" content="/images/marbletriangle.png" />
     <style>
       :root {
         --ink: #f2f4ff;
@@ -388,9 +398,137 @@
       .hidden {
         display: none !important;
       }
+
+      /* Splash Screen Video / Boot / Loading */
+      #splash-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #060810;
+        transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.6s;
+        overflow: hidden;
+      }
+      #splash-screen.fade-out {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .splash-video-wrap {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      #splash-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        filter: brightness(0.7) contrast(1.15) saturate(1.2);
+        display: block;
+      }
+      .splash-scanlines {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.03));
+        background-size: 100% 4px, 6px 100%;
+        pointer-events: none;
+      }
+      .splash-content {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: clamp(18px, 4vw, 32px);
+        margin: 16px;
+        max-width: 580px;
+        background: rgba(11, 14, 24, 0.82);
+        border: 1px solid rgba(51, 224, 255, 0.45);
+        border-radius: 18px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.85), 0 0 30px rgba(51, 224, 255, 0.25);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        animation: splashFloat 3s ease-in-out infinite alternate;
+      }
+      @keyframes splashFloat {
+        0% { transform: translateY(0); }
+        100% { transform: translateY(-5px); }
+      }
+      .splash-logo {
+        width: clamp(60px, 12vw, 84px);
+        height: auto;
+        margin-bottom: 12px;
+        filter: drop-shadow(0 0 12px rgba(255, 59, 92, 0.6));
+      }
+      .splash-title {
+        font-size: clamp(22px, 5.5vw, 34px);
+        font-weight: 900;
+        letter-spacing: 0.14em;
+        margin: 0 0 6px 0;
+        background: linear-gradient(135deg, #ffd23f, #ff3b5c, #33e0ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 20px rgba(255, 59, 92, 0.4);
+      }
+      .splash-subtitle {
+        font-size: clamp(9.5px, 2.2vw, 12px);
+        color: var(--cool);
+        letter-spacing: 0.16em;
+        margin-bottom: 22px;
+        line-height: 1.4;
+      }
+      .splash-btn {
+        background: linear-gradient(135deg, #ff3b5c, #ff6b8b);
+        color: #fff;
+        border: none;
+        border-radius: 28px;
+        padding: 13px 30px;
+        font-family: inherit;
+        font-size: clamp(13px, 3vw, 16px);
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        cursor: pointer;
+        box-shadow: 0 0 20px rgba(255, 59, 92, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        transition: transform 0.15s, box-shadow 0.15s;
+        animation: btnPulse 1.6s infinite alternate;
+      }
+      .splash-btn:hover, .splash-btn:active {
+        transform: scale(1.04);
+        box-shadow: 0 0 30px rgba(255, 59, 92, 0.9);
+      }
+      @keyframes btnPulse {
+        0% { transform: scale(0.98); box-shadow: 0 0 14px rgba(255, 59, 92, 0.4); }
+        100% { transform: scale(1.02); box-shadow: 0 0 26px rgba(255, 59, 92, 0.8); }
+      }
+      .splash-tip {
+        margin-top: 14px;
+        font-size: 10.5px;
+        color: var(--dim);
+        letter-spacing: 0.05em;
+      }
     </style>
   </head>
   <body>
+    <div id="splash-screen">
+      <div class="splash-video-wrap">
+        <video id="splash-video" src="/splash.mp4" autoplay loop muted playsinline webkit-playsinline preload="auto"></video>
+        <div class="splash-scanlines"></div>
+      </div>
+      <div class="splash-content">
+        <img src="/images/marbletriangle.png" alt="Marble Madness 3D" class="splash-logo" />
+        <h1 class="splash-title">MARBLE MADNESS 3D</h1>
+        <div class="splash-subtitle">3D ISOMETRIC ARCADE RUN · MULTIPLAYER SHARED WORLD</div>
+        <button id="splash-start-btn" class="splash-btn click">PRESS START / TAP TO PLAY</button>
+        <div class="splash-tip">Calibrates device tilt rotameter & initializes 3D spatial audio</div>
+      </div>
+    </div>
     <div id="app">
       <canvas id="gl"></canvas>
       <div id="hud">

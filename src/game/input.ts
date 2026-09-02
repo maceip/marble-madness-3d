@@ -48,6 +48,10 @@ export class InputManager {
   private mouseStart: [number, number] = [0, 0];
   private mouseCurrent: [number, number] = [0, 0];
 
+  private touchActive = false;
+  private touchStart: [number, number] = [0, 0];
+  private touchCurrent: [number, number] = [0, 0];
+
   private joyActive = false;
   private joyCenter: [number, number] = [0, 0];
   private joyKnob: [number, number] = [0, 0];
@@ -162,6 +166,38 @@ export class InputManager {
 
       window.addEventListener('touchend', endJoy);
       window.addEventListener('touchcancel', endJoy);
+    }
+
+    const canvas = document.getElementById('gl');
+    if (canvas) {
+      canvas.addEventListener(
+        'touchstart',
+        (e) => {
+          if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            this.touchActive = true;
+            this.touchStart = [touch.clientX, touch.clientY];
+            this.touchCurrent = [touch.clientX, touch.clientY];
+          }
+        },
+        { passive: true },
+      );
+
+      window.addEventListener(
+        'touchmove',
+        (e) => {
+          if (!this.touchActive || e.touches.length === 0) return;
+          const touch = e.touches[0];
+          this.touchCurrent = [touch.clientX, touch.clientY];
+        },
+        { passive: true },
+      );
+
+      const endTouch = () => {
+        this.touchActive = false;
+      };
+      window.addEventListener('touchend', endTouch);
+      window.addEventListener('touchcancel', endTouch);
     }
   }
 
@@ -303,11 +339,21 @@ export class InputManager {
     if (this.joyActive) {
       screenX = this.joyKnob[0];
       screenY = this.joyKnob[1];
+    } else if (this.touchActive) {
+      const dx = this.touchCurrent[0] - this.touchStart[0];
+      const dy = this.touchCurrent[1] - this.touchStart[1];
+      const maxDrag = 80;
+      const tLen = Math.sqrt(dx * dx + dy * dy);
+      if (tLen > 5) {
+        const factor = Math.min(1, tLen / maxDrag);
+        screenX = (dx / tLen) * factor;
+        screenY = (dy / tLen) * factor;
+      }
     }
 
     let tiltDeg = 0;
     let usingTilt = false;
-    const keyboardOrPointer = kLen > 0 || this.isMouseDown || this.joyActive;
+    const keyboardOrPointer = kLen > 0 || this.isMouseDown || this.joyActive || this.touchActive;
 
     if (this.tiltEnabled && this.hasOrientation && !keyboardOrPointer) {
       const maxAngle = 32;

@@ -12,13 +12,18 @@ A high-performance modern WebGL & Three.js 3D isometric remake of the 1984 arcad
   - Slope gravity, velocity-dependent traction, banking, and surface resistance (path, grass, sand, water drag, ice, and glass).
   - Custom continuous-slope wedge geometry and collision mesh generation from ASCII course definitions.
   - Interactive stage props: Buzzsaws, bats, bombers, acid snakes, springboards, item crystals, and checkpoints.
-- **6 Thematic High-Resolution Stages**:
+- **8 Thematic High-Resolution Stages**:
   1. **Pink Gardens** — Practice race: magenta waves, chicane, isometric cube.
   2. **Arctic Adventure** — Glacial crevasses, ice slides, and igloos.
-  3. **Edgy Maze** — Cyberpunk wireframe grid abyss and synthwave geometry.
-  4. **Dusty Trail** — Sandstone mesas, desert canyons, and geysers.
-  5. **Drillin' Rye** — Underground ore-cart mine shafts and stalactites.
-  6. **Space Dementia** — Floating anti-gravity cloud walkways, asteroids, and orbital rings.
+  3. **Astral Spire** — Celestial tower: starlight relief murals, gold star clusters, chutes, and stepped ziggurat terraces.
+  4. **Pyramid Oasis** — Pharaoh's sands: Great Pyramids, obsidian obelisks with glowing hieroglyphs, palm trees, and sunken oasis.
+  5. **Edgy Maze** — Cyberpunk wireframe grid abyss and synthwave geometry.
+  6. **Dusty Trail** — Sandstone mesas, desert canyons, and geysers.
+  7. **Drillin' Rye** — Underground ore-cart mine shafts and stalactites.
+  8. **Space Dementia** — Floating anti-gravity cloud walkways, asteroids, and orbital rings.
+- **Web-Optimized Video Splash Boot Screen**:
+  - Arcade video splash screen (`splash.mp4`) with scanlines, brand logo, and smooth transition.
+  - One-tap audio unlocking and accelerometer rotameter calibration.
 - **Hosted Real-Time Multiplayer Mode**:
   - Zero setup, shared-world architecture (no rooms or pairings).
   - Live 3D position, rolling angle, drop-shadow, and billboard nametag synchronization over WebSockets.

@@ -76,6 +76,36 @@ export class GameManager {
   }
 
   private bindEvents(): void {
+    // Splash screen boot / press start
+    const splashEl = document.getElementById('splash-screen');
+    const splashBtn = document.getElementById('splash-start-btn');
+    const startFromSplash = async () => {
+      this.startAudio();
+      await this.input.requestDeviceOrientationPermission();
+      this.input.calibrateNow();
+      if (splashEl) {
+        splashEl.classList.add('fade-out');
+        setTimeout(() => splashEl.remove(), 700);
+      }
+      if (this.state === 'TITLE') {
+        this.state = 'PLAYING';
+        this.hud.hideMenu();
+        this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2000);
+      }
+    };
+
+    if (splashBtn) {
+      splashBtn.addEventListener('click', () => {
+        void startFromSplash();
+      });
+    }
+    if (splashEl) {
+      splashEl.addEventListener('click', (e) => {
+        if (e.target === splashBtn) return;
+        void startFromSplash();
+      });
+    }
+
     // Input callbacks
     this.input.onRestart = () => this.restartCurrentStage();
     this.input.onToggleMenu = () => {

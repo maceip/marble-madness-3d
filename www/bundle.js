@@ -347,16 +347,16 @@ var DEFS = [
       "  miiii      im       ",
       "  miiii  jjjjim       ",
       "  miiiiiiiiiiim       ",
-      "  miiii                   ",
-      "  miii                    ",
-      "  miiiiii                 ",
-      "  miii                    ",
-      "  miiiiii                 ",
-      "  miiiiiiii               ",
-      "  miiiiPiiii              ",
-      "  miiiiiiii               ",
-      "  miiii$iii               ",
-      "  mmmmmmmm                "
+      "  miiii               ",
+      "  miii                ",
+      "  miiiiii             ",
+      "  miii                ",
+      "  miiiiii             ",
+      "  miiiiiiii           ",
+      "  miiiiPiiii          ",
+      "  miiiiiiii           ",
+      "  miiii$iii           ",
+      "  mmmmmmmm            "
     ]),
     patches: {
       cells: {
@@ -401,12 +401,178 @@ var DEFS = [
     ]
   },
   // =====================================================================
-  // 3. EDGY MAZE — Intermediate Race (Arcade Stage 3.png)
+  // 3. ASTRAL SPIRE — Celestial Tower (Image #1)
+  //    Sky-blue stone citadel with relief mural balustrades, gold stars,
+  //    chutes, funnel shaft, stepped pyramid terraces, and maze finish.
+  // =====================================================================
+  {
+    id: 3,
+    name: "Astral Spire",
+    subtitle: "Celestial tower \u2014 starlight and carved stone",
+    theme: "celestial",
+    sourceArt: "stage_tower.jpg",
+    baseHeight: 18,
+    time: 110,
+    start: [12.4, 2.4],
+    layout: pad([
+      "      ####gggggg####  ",
+      "     #....gggggg....# ",
+      "    #.....P.........# ",
+      "    #....bbbbbbbb...# ",
+      "   #.....bbbbbbbb....#",
+      "   #..##kkkkkkkk##...#",
+      "   #..#..........#...#",
+      "   #..#..........#...#",
+      "   #..#..ffffffff#...#",
+      "   #..#..ffffffff#...#",
+      "   #..#..##....##....#",
+      "   #..#..............#",
+      "   #..#..000000..#...#",
+      "   #..#..000000..#...#",
+      "   #..#..bbbbbb..#...#",
+      "   #..#..bbbbbb..#...#",
+      "   #..#..........#...#",
+      "   #..#..P.......#...#",
+      "   #..#..........#...#",
+      "   #..#..ffffffff#...#",
+      "   #..#..ffffffff#...#",
+      "   #..##kkkkkkkk##...#",
+      "   #.................#",
+      "   #..222222222222...#",
+      "   #..244444444422...#",
+      "   #..246666664422...#",
+      "   #..246k..k64422...#",
+      "   #..246k.$k64422...#",
+      "   #..246666664422...#",
+      "   #..244444444422...#",
+      "   #..222222222222...#",
+      "   ###################"
+    ]),
+    patches: {
+      cells: {
+        "6,0:15,0": { surf: "wall", h: 4, solid: true },
+        "9,0:15,3": { surf: "glass", h: 4 },
+        "9,2": { surf: "path", h: 4, prop: "checkpoint" },
+        "5,3:15,4": { surf: "path", h: 4, fall: "SW" },
+        "6,5:14,5": { surf: "wall", h: 3, solid: true },
+        "5,6:15,7": { surf: "path", h: 3 },
+        "7,8:14,9": { surf: "path", h: 3, fall: "SE" },
+        "6,10:15,11": { surf: "path", h: 2 },
+        "7,12:12,13": { surf: "water", h: 0 },
+        "7,14:14,15": { surf: "path", h: 2, fall: "SW" },
+        "5,16:15,18": { surf: "path", h: 2 },
+        "8,17": { surf: "path", h: 2, prop: "checkpoint" },
+        "6,19:14,20": { surf: "path", h: 2, fall: "SE" },
+        "4,23:17,30": { surf: "path", h: 2 },
+        "7,25:14,28": { surf: "path", h: 3 },
+        "9,26:12,27": { surf: "path", h: 4 },
+        "10,27": { surf: "path", h: 4, prop: "goal" },
+        "6,7": { surf: "path", h: 3, prop: "item" },
+        "14,11": { surf: "path", h: 2, prop: "item" },
+        "13,18": { surf: "path", h: 2, prop: "item" }
+      }
+    },
+    hazards: [
+      { kind: "bat", x: 10, z: 6, h: 12, period: 3.6, axis: "x", range: 4, speed: 0.3 },
+      { kind: "blade", x: 8, z: 11, h: 6, period: 3.2, axis: "x", range: 3.5, speed: 0.28 },
+      { kind: "blade", x: 11, z: 18, h: 5, period: 2.8, axis: "z", range: 3, speed: 0.32 },
+      { kind: "bat", x: 7, z: 24, h: 8, period: 4.2, axis: "x", range: 4.5, speed: 0.26 }
+    ]
+  },
+  // =====================================================================
+  // 4. PYRAMID OASIS — Sands of the Pharaoh (Image #2)
+  //    Great Pyramid tomb entrance, desert dunes, black obelisks with
+  //    glowing hieroglyphs, sunken oasis pool, chasm bridge & dual goals.
+  // =====================================================================
+  {
+    id: 4,
+    name: "Pyramid Oasis",
+    subtitle: "Pharaoh's tombs and black obelisks",
+    theme: "egyptian",
+    sourceArt: "stage_pyramid.jpg",
+    baseHeight: 16,
+    time: 115,
+    start: [7.4, 2.4],
+    layout: pad([
+      "   kkkkkkkkkkkkkkkk   ",
+      "  k...kkk....kkk...k  ",
+      "  k.t.kkk.P..kkk.t.k  ",
+      "  k...kkk....kkk...k  ",
+      "  k~~~~~~~~~~~~~~~~k  ",
+      "  k~..kk......kk..~k  ",
+      "  k~..kk......kk..~k  ",
+      "  k~..jj......jj..~k  ",
+      "  k~..jj......jj..~k  ",
+      "  k~..............~k  ",
+      "  k~..##......##..~k  ",
+      "  k~..##......##..~k  ",
+      "  k~..............~k  ",
+      "  k~bbbbbb..ffffff~k  ",
+      "  k~bbbbbb..ffffff~k  ",
+      "  k~..............~k  ",
+      "  k~.t..........t.~k  ",
+      "  k~....======....~k  ",
+      "  k~....======....~k  ",
+      "  k~....======....~k  ",
+      "  k~..............~k  ",
+      "  k~..P........P..~k  ",
+      "  k~..............~k  ",
+      "  k~....ffffff....~k  ",
+      "  k~....ffffff....~k  ",
+      "  k~....mmmmmm....~k  ",
+      "  k~....mmmmmm....~k  ",
+      "  k~gg..........gg~k  ",
+      "  k~$g..........g$~k  ",
+      "   kkkkkkkkkkkkkkkk   "
+    ]),
+    patches: {
+      cells: {
+        "2,0:17,0": { surf: "rock", h: 4, solid: true },
+        "5,1:7,3": { surf: "rock", h: 4, solid: true },
+        "11,1:13,3": { surf: "rock", h: 4, solid: true },
+        "8,2": { surf: "sand", h: 4, prop: "checkpoint" },
+        "3,2": { surf: "tree", h: 4, solid: true },
+        "15,2": { surf: "tree", h: 4, solid: true },
+        "3,4:16,4": { surf: "sand", h: 4, fall: "S" },
+        "5,5:7,6": { surf: "rock", h: 4, solid: true },
+        "11,5:13,6": { surf: "rock", h: 4, solid: true },
+        "5,7:7,8": { surf: "metal", h: 4 },
+        "11,7:13,8": { surf: "metal", h: 4 },
+        "5,10:7,11": { surf: "wall", h: 3, solid: true },
+        "11,10:13,11": { surf: "wall", h: 3, solid: true },
+        "3,13:8,14": { surf: "sand", h: 3, fall: "SW" },
+        "10,13:15,14": { surf: "sand", h: 3, fall: "SE" },
+        "3,16": { surf: "tree", h: 2, solid: true },
+        "15,16": { surf: "tree", h: 2, solid: true },
+        "6,17:12,19": { surf: "water", h: 0 },
+        "3,20:15,22": { surf: "sand", h: 2 },
+        "4,21": { surf: "sand", h: 2, prop: "checkpoint" },
+        "14,21": { surf: "sand", h: 2, prop: "checkpoint" },
+        "6,23:12,24": { surf: "sand", h: 2, fall: "SE" },
+        "6,25:12,26": { surf: "metal", h: 2 },
+        "3,27:5,28": { surf: "glass", h: 2 },
+        "13,27:15,28": { surf: "glass", h: 2 },
+        "3,28": { surf: "glass", h: 2, prop: "goal" },
+        "15,28": { surf: "glass", h: 2, prop: "goal" },
+        "9,9": { surf: "sand", h: 3, prop: "item" },
+        "9,15": { surf: "sand", h: 2, prop: "item" },
+        "9,21": { surf: "sand", h: 2, prop: "item" }
+      }
+    },
+    hazards: [
+      { kind: "bomber", x: 9, z: 5, h: 12, period: 4.8, axis: "x", range: 4.5, speed: 0.28 },
+      { kind: "snake", x: 4, z: 9, h: 6, path: [[4, 9], [14, 9], [14, 12], [4, 12]], speed: 0.32 },
+      { kind: "blade", x: 9, z: 15, h: 5, period: 3.5, axis: "x", range: 4, speed: 0.3 },
+      { kind: "snake", x: 4, z: 20, h: 4, path: [[4, 20], [14, 20], [10, 23]], speed: 0.34 }
+    ]
+  },
+  // =====================================================================
+  // 5. EDGY MAZE — Intermediate Race (Arcade Stage 3.png)
   //    Wall labyrinth, glass chutes, acid pools, rolling-floor waves,
   //    then a curved run into the goal chamber.
   // =====================================================================
   {
-    id: 3,
+    id: 5,
     name: "Edgy Maze",
     subtitle: "Intermediate \u2014 four floors of geometry",
     theme: "edgy",
@@ -415,292 +581,173 @@ var DEFS = [
     time: 100,
     start: [3.4, 2.4],
     layout: pad([
-      "######################",
-      "#........##.........#",
-      "#..P.....##....g....#",
-      "#........##.........#",
-      "####..#######..######",
-      "#........##.........#",
-      "#.bbb....##....fff.#",
-      "#........##.........#",
-      "#....=======........#",
-      "#........##.........#",
-      "####..##....##..#####",
-      "#..................#",
-      "#..xxxx............#",
-      "#..................#",
-      "#.....HHHHHH.......#",
-      "#.....ssssss.......#",
-      "#.....HHHHHH.......#",
-      "#..................#",
-      "#........P.........#",
-      "#..................#",
-      "#.............$.#..#",
-      "######################"
-    ], "#"),
-    patches: {
-      cells: {
-        "1,1:8,3": { surf: "path", h: 6 },
-        "3,2": { surf: "path", h: 6, prop: "checkpoint" },
-        "11,1:19,3": { surf: "path", h: 6 },
-        "16,2": { surf: "glass", h: 6 },
-        "1,5:8,7": { surf: "path", h: 4 },
-        "2,6:4,6": { surf: "glass", h: 4, fall: "SW" },
-        "11,5:19,7": { surf: "path", h: 4 },
-        "15,6:17,6": { surf: "glass", h: 4, fall: "SE" },
-        "1,8:19,9": { surf: "path", h: 3 },
-        "5,8:11,8": { surf: "water", h: 0 },
-        "4,9": { surf: "path", h: 3, prop: "item" },
-        "1,11:19,13": { surf: "path", h: 3 },
-        "3,12:6,12": { surf: "path", h: 3, prop: "blade" },
-        "5,14:16,16": { surf: "path", h: 3, fall: "S" },
-        "5,14:16,14": { surf: "path", h: 4, fall: "S" },
-        "5,15:16,15": { surf: "path", h: 2 },
-        "5,16:16,16": { surf: "path", h: 4, fall: "S" },
-        "1,17:19,20": { surf: "path", h: 2 },
-        "9,18": { surf: "path", h: 2, prop: "checkpoint" },
-        "14,20": { surf: "path", h: 2, prop: "goal" },
-        "16,18": { surf: "path", h: 2, prop: "item" },
-        "9,1:10,9": { surf: "wall", h: 4, solid: true },
-        "0,0:21,0": { surf: "wall", h: 4, solid: true },
-        "0,21:21,21": { surf: "wall", h: 3, solid: true }
-      }
-    },
-    hazards: [
-      { kind: "blade", x: 4, z: 12, h: 6, period: 3, axis: "x", range: 3.4, speed: 0.3 },
-      { kind: "bat", x: 14, z: 6, h: 12, period: 3.6, axis: "z", range: 3, speed: 0.27 },
-      { kind: "bat", x: 4, z: 6, h: 12, period: 4, axis: "z", range: 3, speed: 0.25 },
-      { kind: "snake", x: 8, z: 15, h: 6, path: [[8, 15], [14, 15], [12, 18]], speed: 0.32 },
-      { kind: "bomber", x: 16, z: 11, h: 11, period: 5.5, axis: "x", range: 3.5, speed: 0.28 }
-    ]
-  },
-  // =====================================================================
-  // 4. DUSTY TRAIL — Aerial Race (Arcade Stage 4.png)
-  //    Sand mesa, steep slide, plank over a gorge, geyser field, catapult
-  //    (springboard) across a second gap, hammers, then the canyon goal.
-  // =====================================================================
-  {
-    id: 4,
-    name: "Dusty Trail",
-    subtitle: "Aerial race \u2014 gorge, geysers, catapult",
-    theme: "desert",
-    sourceArt: "Arcade - Marble Madness - Stages - Stage 4.png",
-    baseHeight: 13,
-    time: 100,
-    start: [6.4, 2.4],
-    layout: pad([
-      "  ~~~~~~~~~~~~~~~~    ",
-      "  ~..............~    ",
-      "  ~......P.......~    ",
-      "  ~..............~    ",
-      "  ~~............~~    ",
-      "   ~............~     ",
-      "   ~............~     ",
-      "   ~bbbbbbbbbbb~~     ",
-      "   ~............~     ",
-      "   ~~..........~~     ",
-      "    ~..mmmmmm..~      ",
-      "    ~..........~      ",
-      "    ~..........~      ",
-      "    ~~~......~~~      ",
-      "      ~.^^^^.~        ",
-      "      ~......~        ",
-      "      ~.^^^^.~        ",
-      "      ~......~        ",
-      "      ~..R...~        ",
-      "      ~      ~        ",
-      "      ~      ~        ",
-      "      ~......~        ",
-      "      ~......~        ",
-      "      ~..P...~        ",
-      "      ~..$...~        ",
-      "       ~~~~~~         "
+      "  ##################  ",
+      "  #..gg..-....-..gg.# ",
+      "  #.bbbb.-#..-.ffff.# ",
+      "  #.bbbb.-#..-.ffff.# ",
+      "  #......#....#.....# ",
+      "  #.xxxx.#....#.xx..# ",
+      "  #......#....#.....# ",
+      "  #...#..........#..# ",
+      "  ##################  ",
+      "      #........#      ",
+      "      #..P..$..#      ",
+      "      #........#      ",
+      "      ##########      "
     ]),
     patches: {
       cells: {
-        "3,1:16,4": { surf: "sand", h: 4 },
-        "6,2": { surf: "sand", h: 4, prop: "checkpoint" },
-        "4,3": { surf: "sand", h: 4, prop: "item" },
-        "4,5:15,6": { surf: "sand", h: 3, fall: "S" },
-        "4,7:15,7": { surf: "sand", h: 3, fall: "SW" },
-        "4,8:15,8": { surf: "sand", h: 2 },
-        "5,10:12,10": { surf: "metal", h: 4 },
-        "5,11:12,11": { surf: "void" },
-        "5,12:12,12": { surf: "metal", h: 2 },
-        "4,9:13,9": { surf: "sand", h: 2 },
-        "4,13:13,13": { surf: "sand", h: 2 },
-        "7,14:10,14": { surf: "sand", h: 1, prop: "spike" },
-        "6,15:11,15": { surf: "sand", h: 1 },
-        "7,16:10,16": { surf: "sand", h: 1, prop: "spike" },
-        "6,17:11,17": { surf: "sand", h: 1 },
-        "7,18": { surf: "sand", h: 2, prop: "springboard" },
-        "6,18:11,18": { surf: "sand", h: 1 },
-        "6,19:11,20": { surf: "void" },
-        "6,21:11,24": { surf: "sand", h: 1 },
-        "8,23": { surf: "sand", h: 1, prop: "checkpoint" },
-        "9,24": { surf: "sand", h: 1, prop: "goal" },
-        "10,22": { surf: "sand", h: 1, prop: "item" }
+        "1,0:18,0": { surf: "wall", h: 4, solid: true },
+        "1,8:18,8": { surf: "wall", h: 2, solid: true },
+        "7,1:7,7": { surf: "wall", h: 3, solid: true, fall: "none" },
+        "12,1:12,7": { surf: "wall", h: 3, solid: true, fall: "none" },
+        "3,1:5,1": { surf: "glass", h: 4 },
+        "14,1:16,1": { surf: "glass", h: 4 },
+        "2,2:5,3": { surf: "glass", h: 3, fall: "SW" },
+        "13,2:16,3": { surf: "glass", h: 3, fall: "SE" },
+        "7,2:7,3": { surf: "holo", h: 2, solid: false, fall: "none" },
+        "11,2:11,3": { surf: "holo", h: 2, solid: false, fall: "none" },
+        "8,4:11,7": { surf: "holo", h: 1, solid: false, fall: "none" },
+        "2,4:6,7": { surf: "path", h: 2 },
+        "13,4:17,7": { surf: "path", h: 2 },
+        "7,9:14,11": { surf: "path", h: 1 },
+        "8,10": { surf: "path", h: 1, prop: "checkpoint" },
+        "12,10": { surf: "path", h: 1, prop: "goal" },
+        "4,4": { surf: "path", h: 2, prop: "item" },
+        "15,4": { surf: "path", h: 2, prop: "item" }
       }
     },
     hazards: [
-      { kind: "snake", x: 6, z: 8, h: 5, path: [[6, 8], [14, 8], [10, 12]], speed: 0.3 },
-      { kind: "blade", x: 8, z: 16, h: 4, period: 3.4, axis: "x", range: 3, speed: 0.3 },
-      { kind: "bat", x: 9, z: 11, h: 9, period: 3.2, axis: "x", range: 4, speed: 0.28 },
-      { kind: "bomber", x: 10, z: 21, h: 8, period: 5, axis: "z", range: 2.5, speed: 0.24 }
+      { kind: "blade", x: 4, z: 5, h: 4, period: 2.8, axis: "x", range: 3, speed: 0.32 },
+      { kind: "blade", x: 15, z: 5, h: 4, period: 2.8, axis: "x", range: 3, speed: 0.32 },
+      { kind: "bat", x: 9, z: 3, h: 10, period: 3.5, axis: "z", range: 3, speed: 0.25 },
+      { kind: "bomber", x: 9, z: 6, h: 9, period: 5, axis: "x", range: 4, speed: 0.28 }
     ]
   },
   // =====================================================================
-  // 5. DRILLIN' RYE — mine race (Arcade Stage 5.png)
-  //    Shafts, ore-cart rails, springboards over spike pits, hammers.
-  // =====================================================================
-  {
-    id: 5,
-    name: "Drillin' Rye",
-    subtitle: "Mine race \u2014 rails, hammers, ore carts",
-    theme: "mine",
-    sourceArt: "Arcade - Marble Madness - Stages - Stage 5.png",
-    baseHeight: 15,
-    time: 105,
-    start: [4.4, 2.4],
-    layout: pad([
-      "######################",
-      "#....................#",
-      "#....P...............#",
-      "#....................#",
-      "####....####....######",
-      "#....................#",
-      "#..R....##....R......#",
-      "#....................#",
-      "#mmmmmmmmmmmmmmmmmmm#",
-      "#mmmmmmmmmmmmmmmmmmm#",
-      "#mmmmmmmmmmmmmmmmmmm#",
-      "#....................#",
-      "#..xx..........xx....#",
-      "#....................#",
-      "####....####....######",
-      "#....................#",
-      "#....R..........R....#",
-      "#....................#",
-      "#.........P..........#",
-      "#....................#",
-      "#.................$..#",
-      "######################"
-    ], "#"),
-    patches: {
-      cells: {
-        "1,1:20,3": { surf: "path", h: 6 },
-        "4,2": { surf: "path", h: 6, prop: "checkpoint" },
-        "1,4:3,4": { surf: "wall", h: 5, solid: true },
-        "8,4:11,4": { surf: "wall", h: 5, solid: true },
-        "16,4:20,4": { surf: "wall", h: 5, solid: true },
-        "4,4:7,4": { surf: "metal", h: 5 },
-        "5,4:6,4": { surf: "void" },
-        "12,4:15,4": { surf: "metal", h: 5 },
-        "13,4:14,4": { surf: "void" },
-        "1,5:20,7": { surf: "path", h: 4 },
-        "3,6": { surf: "path", h: 4, prop: "springboard" },
-        "14,6": { surf: "path", h: 4, prop: "springboard" },
-        "9,6:10,6": { surf: "wall", h: 5, solid: true },
-        "1,8:19,8": { surf: "metal", h: 4, fall: "S" },
-        "1,9:19,9": { surf: "metal", h: 2, fall: "S" },
-        "1,10:19,10": { surf: "metal", h: 1 },
-        "1,11:20,13": { surf: "path", h: 1 },
-        "3,12:4,12": { surf: "path", h: 1, prop: "blade" },
-        "15,12:16,12": { surf: "path", h: 1, prop: "blade" },
-        "8,12": { surf: "path", h: 1, prop: "item" },
-        "4,14:7,14": { surf: "metal", h: 1 },
-        "5,14:6,14": { surf: "void" },
-        "12,14:15,14": { surf: "metal", h: 1 },
-        "13,14:14,14": { surf: "void" },
-        "1,15:20,17": { surf: "path", h: 1 },
-        "5,16": { surf: "path", h: 1, prop: "springboard" },
-        "16,16": { surf: "path", h: 1, prop: "springboard" },
-        "7,16": { surf: "sand", h: 1, prop: "spike" },
-        "14,16": { surf: "sand", h: 1, prop: "spike" },
-        "1,18:20,20": { surf: "path", h: 1 },
-        "10,18": { surf: "path", h: 1, prop: "checkpoint" },
-        "18,20": { surf: "path", h: 1, prop: "goal" },
-        "4,19": { surf: "path", h: 1, prop: "item" }
-      }
-    },
-    hazards: [
-      { kind: "snake", x: 3, z: 9, h: 6, path: [[3, 9], [17, 9], [17, 12], [3, 12]], speed: 0.34 },
-      { kind: "snake", x: 16, z: 10, h: 6, path: [[16, 10], [2, 10], [2, 18], [16, 18]], speed: 0.28 },
-      { kind: "blade", x: 10, z: 12, h: 5, period: 3.6, axis: "x", range: 4, speed: 0.3 },
-      { kind: "bat", x: 12, z: 16, h: 8, period: 3.5, axis: "x", range: 3.5, speed: 0.26 }
-    ]
-  },
-  // =====================================================================
-  // 6. SPACE DEMENTIA — Ultimate Race (Arcade Stage 6.png)
-  //    Cloud start, floating plates, glass links, holo traps (fall
-  //    through), striped speedbumps, then the goal plate.
+  // 6. DUSTY TRAIL — Expert Race (Arcade Stage 4.png)
+  //    Desert mesa, gorge crossing on narrow wooden boards, geysers,
+  //    then a fast downhill bowl.
   // =====================================================================
   {
     id: 6,
-    name: "Space Dementia",
-    subtitle: "Ultimate race \u2014 thin air, holo traps",
-    theme: "space",
-    sourceArt: "Arcade - Marble Madness - Stages - Stage 6.png",
-    baseHeight: 16,
-    time: 110,
-    start: [5.4, 2.4],
+    name: "Dusty Trail",
+    subtitle: "Expert \u2014 gorge crossing and geysers",
+    theme: "desert",
+    sourceArt: "Arcade - Marble Madness - Stages - Stage 4.png",
+    baseHeight: 14,
+    time: 105,
+    start: [3.4, 2.4],
     layout: pad([
-      "cccccccccccccccccccccc",
-      "cc..................cc",
-      "cc....P.............cc",
-      "cc..................cc",
-      "c....................c",
-      "c....CCCC............c",
-      "c....CCCC....CCCC....c",
-      "c............CCCC....c",
-      "c....................c",
-      "c......gg............c",
-      "c......gg....----....c",
-      "c....................c",
-      "c....CCCC............c",
-      "c....CCCC....CCCC....c",
-      "c............CCCC....c",
-      "c....................c",
-      "c.........P..........c",
-      "c....................c",
-      "c..............$.....c",
-      "cccccccccccccccccccccc"
+      "  ~~~~~~~~~~~~~~~~    ",
+      "  ~..*..^^...$..~~    ",
+      "  ~..............~    ",
+      "  ~..mmm....mmm..~    ",
+      "  ~..m.m....m.m..~    ",
+      "  ~..............~    ",
+      "   ~..bbbbbb..~~~     ",
+      "    ~..b...b.~~       ",
+      "     ~..bbb.~         ",
+      "      ~~...~~         ",
+      "       ~$P~           ",
+      "        ~~            "
     ]),
     patches: {
       cells: {
-        "2,1:19,3": { surf: "cloud", h: 6 },
-        "5,2": { surf: "cloud", h: 6, prop: "checkpoint" },
-        "0,0:21,0": { surf: "cloud", h: 5 },
-        "0,19:21,19": { surf: "cloud", h: 2 },
-        // open sky between plates — later keys punch the islands back in
-        "1,4:20,18": { surf: "void" },
-        "5,4:8,4": { surf: "glass", h: 5, fall: "S" },
-        "5,5:8,6": { surf: "cloud", h: 5 },
-        "9,6:12,6": { surf: "glass", h: 5 },
-        "13,6:16,7": { surf: "cloud", h: 5 },
-        "13,8:16,8": { surf: "glass", h: 4, fall: "S" },
-        "13,10:16,10": { surf: "holo", h: 4 },
-        "5,11:8,11": { surf: "glass", h: 4, fall: "S" },
-        "5,12:8,13": { surf: "cloud", h: 3 },
-        "9,13:12,13": { surf: "glass", h: 3 },
-        "13,13:16,14": { surf: "cloud", h: 3 },
-        "8,15:12,15": { surf: "cloud", h: 3, fall: "S" },
-        "8,16:12,16": { surf: "cloud", h: 3 },
-        "10,16": { surf: "cloud", h: 3, prop: "checkpoint" },
-        "2,16:19,18": { surf: "cloud", h: 2 },
-        "15,18": { surf: "cloud", h: 2, prop: "goal" },
-        "16,7": { surf: "cloud", h: 5, prop: "item" },
-        "6,13": { surf: "cloud", h: 3, prop: "item" },
-        "4,17": { surf: "sand", h: 2 },
-        "5,17": { surf: "sand", h: 2 },
-        "3,2": { surf: "cloud", h: 6, prop: "spike" }
+        "4,3:7,4": { surf: "metal", h: 3 },
+        "11,3:14,4": { surf: "metal", h: 3 },
+        "4,6:10,8": { surf: "sand", h: 2, fall: "SW" },
+        "6,8": { surf: "sand", h: 1, prop: "spike" },
+        "8,9": { surf: "sand", h: 1, prop: "blade" },
+        "8,10": { surf: "sand", h: 1, prop: "checkpoint" },
+        "9,10": { surf: "sand", h: 1, prop: "goal" },
+        "4,1": { surf: "sand", h: 2, prop: "item" }
       }
     },
     hazards: [
-      { kind: "bomber", x: 10, z: 6, h: 12, period: 4.5, axis: "x", range: 5, speed: 0.3 },
-      { kind: "bomber", x: 14, z: 13, h: 12, period: 5.5, axis: "z", range: 3, speed: 0.28 },
-      { kind: "bat", x: 7, z: 14, h: 11, period: 3, axis: "x", range: 4, speed: 0.3 },
-      { kind: "blade", x: 12, z: 17, h: 6, period: 3.8, axis: "z", range: 3, speed: 0.28 }
+      { kind: "snake", x: 4, z: 3, h: 4, path: [[4, 3], [13, 3], [13, 7], [6, 9]], speed: 0.32 },
+      { kind: "bat", x: 8, z: 4, h: 8, period: 3.2, axis: "x", range: 4, speed: 0.3 },
+      { kind: "bomber", x: 10, z: 5, h: 8, period: 5, axis: "z", range: 3, speed: 0.26 }
+    ]
+  },
+  // =====================================================================
+  // 7. DRILLIN' RYE — Ore Carts & Shafts (Arcade Stage 5.png)
+  //    Underground shafts, springboards, ore-cart rail slopes.
+  // =====================================================================
+  {
+    id: 7,
+    name: "Drillin' Rye",
+    subtitle: "Underground \u2014 mind the ore carts and shafts",
+    theme: "mine",
+    sourceArt: "Arcade - Marble Madness - Stages - Stage 5.png",
+    baseHeight: 15,
+    time: 110,
+    start: [3.4, 2.4],
+    layout: pad([
+      "  ################    ",
+      "  #..==.##...^^..#    ",
+      "  #..==.##.......#    ",
+      "  #..R..##.......#    ",
+      "  #......##.####.#    ",
+      "  #....R.....R...#    ",
+      "  #..............#    ",
+      "  ##..xx....xx..##    ",
+      "  #..............#    ",
+      "  #..P........$..#    ",
+      "  ################    "
+    ]),
+    patches: {
+      cells: {
+        "3,1:4,2": { surf: "void" },
+        "3,3:4,3": { surf: "holo", h: 1 },
+        "3,4": { surf: "path", h: 1, prop: "springboard" },
+        "6,5": { surf: "path", h: 1, prop: "springboard" },
+        "12,5": { surf: "path", h: 1, prop: "springboard" },
+        "3,9": { surf: "path", h: 1, prop: "checkpoint" },
+        "13,9": { surf: "path", h: 1, prop: "goal" }
+      }
+    },
+    hazards: [
+      { kind: "snake", x: 4, z: 5, h: 5, path: [[4, 5], [13, 5], [13, 8], [4, 8]], speed: 0.36 },
+      { kind: "blade", x: 8, z: 3, h: 8, period: 3.5, axis: "z", range: 3, speed: 0.28 },
+      { kind: "bat", x: 10, z: 7, h: 8, period: 3.2, axis: "x", range: 3.5, speed: 0.26 }
+    ]
+  },
+  // =====================================================================
+  // 8. SPACE DEMENTIA — Anti-Gravity (Arcade Stage 6.png)
+  //    Floating cloud platforms, glass links, thin air and cosmic void.
+  // =====================================================================
+  {
+    id: 8,
+    name: "Space Dementia",
+    subtitle: "Anti-gravity \u2014 thin air and cosmic abyss",
+    theme: "space",
+    sourceArt: "Arcade - Marble Madness - Stages - Stage 6.png",
+    baseHeight: 16,
+    time: 120,
+    start: [3.4, 2.4],
+    layout: pad([
+      "  cccccccccccccccccc  ",
+      "  cc..bb....bb....cc  ",
+      "  cc..bb....bb....cc  ",
+      "  c....ss...ss....c   ",
+      "  c....ss...ss....c   ",
+      "  c..4..........4.c   ",
+      "  c..4..P....$..4.c   ",
+      "  cccccccccccccccccc  "
+    ]),
+    patches: {
+      cells: {
+        "3,3:4,4": { surf: "glass", h: 3, fall: "S" },
+        "9,3:10,4": { surf: "glass", h: 3, fall: "S" },
+        "7,6": { surf: "cloud", h: 2, prop: "checkpoint" },
+        "12,6": { surf: "cloud", h: 2, prop: "goal" }
+      }
+    },
+    hazards: [
+      { kind: "bomber", x: 6, z: 2, h: 10, period: 4.5, axis: "x", range: 5, speed: 0.34 },
+      { kind: "bat", x: 5, z: 5, h: 9, period: 3, axis: "x", range: 4, speed: 0.32 },
+      { kind: "blade", x: 11, z: 5, h: 8, period: 3.8, axis: "z", range: 3, speed: 0.28 }
     ]
   }
 ];
@@ -711,10 +758,12 @@ var BGM_TABLE = {
   intro: "marble-056.mp3",
   "1": "marble-073.mp3",
   "2": "marble-075.mp3",
-  "3": "marble-077.mp3",
-  "4": "marble-079.mp3",
-  "5": "marble-081.mp3",
-  "6": "marble-081.mp3"
+  "3": "marble-069.mp3",
+  "4": "marble-066.mp3",
+  "5": "marble-077.mp3",
+  "6": "marble-079.mp3",
+  "7": "marble-081.mp3",
+  "8": "marble-067.mp3"
 };
 var SFX_TABLE = {
   roll: "marble-049.mp3",
@@ -1483,6 +1532,7 @@ var HudManager = class {
       courseButtons += `<button class="click" data-stage="${i}" ${isCurrent ? 'aria-current="true"' : ""}>STAGE ${i}</button>`;
     }
     this.menuEl.innerHTML = `
+      <img src="/images/marbletriangle.png" style="width:52px;height:auto;margin-bottom:8px;filter:drop-shadow(0 0 10px rgba(255,59,92,0.6));" alt="Marble Logo" />
       <h1 class="title">${isGameOver ? "GAME OVER" : "MARBLE MADNESS"}</h1>
       <div class="sub">${isGameOver ? `FINAL SCORE: ${finalScore}` : "3D ISOMETRIC ARCADE RUN \xB7 MULTIPLAYER SHARED WORLD"}</div>
       <div class="courses">${courseButtons}</div>
@@ -30743,27 +30793,46 @@ var STAGE_PALETTES = {
   },
   3: {
     ...PALETTE_BASE,
+    path: [5535920, 2902128, 1451064],
+    wall: [2635860, 1450032, 659480],
+    glass: [5304544, 2396288, 1198144],
+    rock: [4215920, 2372164, 1186340],
+    water: [1452104, 792104, 396308]
+  },
+  4: {
+    ...PALETTE_BASE,
+    path: [14459978, 9725994, 5519380],
+    sand: [15913594, 12097608, 7624736],
+    rock: [10516548, 7097384, 4073492],
+    wall: [1710624, 921106, 394762],
+    metal: [2631728, 1447452, 657934],
+    tree: [2391096, 1330208, 665616],
+    water: [2140376, 1075340, 537672],
+    glass: [15780928, 11043872, 5783568]
+  },
+  5: {
+    ...PALETTE_BASE,
     path: [8013992, 3809376, 1708080],
     wall: [2757688, 1575460, 787988],
     glass: [6750184, 2793616, 1595488],
     holo: [16733644, 8921168, 4853800],
     water: [3403366, 1345592, 671776]
   },
-  4: {
+  6: {
     ...PALETTE_BASE,
     path: [13934682, 9068592, 4861976],
     sand: [15255672, 10518592, 6309912],
     metal: [12886128, 8020024, 3812376],
     wall: [9067056, 5912600, 2759692]
   },
-  5: {
+  7: {
     ...PALETTE_BASE,
     path: [9071192, 5914672, 2760728],
     metal: [12107976, 5922920, 2764856],
     wall: [3811880, 2365464, 1313804],
     sand: [6967360, 4468776, 2365464]
   },
-  6: {
+  8: {
     ...PALETTE_BASE,
     path: [4872872, 2371688, 1054776],
     cloud: [13691135, 8956104, 4745352],
@@ -30981,13 +31050,28 @@ var GameRenderer = class {
           }
         }
         if (cell.surf === "tree") {
-          const treeGroup = this.createTreeProp();
+          const treeGroup = stageId === 4 ? this.createPalmTreeProp() : this.createTreeProp();
           treeGroup.position.set(c + 0.5, columnHeight, r + 0.5);
           this.terrainGroup.add(treeGroup);
         } else if (cell.surf === "rock") {
-          const rock = this.createRockProp();
-          rock.position.set(c + 0.5, columnHeight, r + 0.5);
-          this.terrainGroup.add(rock);
+          let rockProp;
+          if (stageId === 4) {
+            rockProp = c % 2 === 0 ? this.createPyramidObstacleProp() : this.createRockProp();
+          } else if (stageId === 3) {
+            rockProp = this.createReliefMuralProp();
+          } else {
+            rockProp = this.createRockProp();
+          }
+          rockProp.position.set(c + 0.5, columnHeight, r + 0.5);
+          this.terrainGroup.add(rockProp);
+        } else if (cell.surf === "wall" && stageId === 4 && (c === 5 || c === 11)) {
+          const obelisk = this.createObeliskProp();
+          obelisk.position.set(c + 0.5, columnHeight, r + 0.5);
+          this.terrainGroup.add(obelisk);
+        } else if (cell.surf === "wall" && stageId === 3 && (c === 6 || c === 14)) {
+          const starProp = this.createStarProp();
+          starProp.position.set(c + 0.5, columnHeight + 0.6, r + 0.5);
+          this.terrainGroup.add(starProp);
         } else if (cell.surf === "water") {
           const waterGeom = new PlaneGeometry(1, 1, 4, 4);
           waterGeom.rotateX(-Math.PI / 2);
@@ -31152,6 +31236,24 @@ var GameRenderer = class {
         this.buildArcticBackdrop();
         break;
       case 3:
+        fogColor = 922664;
+        skyColorTop = 1978976;
+        skyColorBottom = 527386;
+        this.sunLight.color.setHex(16771743);
+        this.hemiLight.color.setHex(9486591);
+        this.hemiLight.groundColor.setHex(1318450);
+        this.buildCelestialBackdrop();
+        break;
+      case 4:
+        fogColor = 2759180;
+        skyColorTop = 6568984;
+        skyColorBottom = 1839110;
+        this.sunLight.color.setHex(16773324);
+        this.hemiLight.color.setHex(16766088);
+        this.hemiLight.groundColor.setHex(3677704);
+        this.buildEgyptianBackdrop();
+        break;
+      case 5:
         fogColor = 1313316;
         skyColorTop = 3872102;
         skyColorBottom = 853528;
@@ -31160,7 +31262,7 @@ var GameRenderer = class {
         this.hemiLight.groundColor.setHex(2228292);
         this.buildCyberGridBackdrop();
         break;
-      case 4:
+      case 6:
         fogColor = 2364426;
         skyColorTop = 5909778;
         skyColorBottom = 1575940;
@@ -31169,7 +31271,7 @@ var GameRenderer = class {
         this.hemiLight.groundColor.setHex(3346688);
         this.buildDesertBackdrop();
         break;
-      case 5:
+      case 7:
         fogColor = 1575952;
         skyColorTop = 4002846;
         skyColorBottom = 1050634;
@@ -31178,7 +31280,7 @@ var GameRenderer = class {
         this.hemiLight.groundColor.setHex(2230280);
         this.buildMineCavernBackdrop();
         break;
-      case 6:
+      case 8:
         fogColor = 263700;
         skyColorTop = 1184824;
         skyColorBottom = 131848;
@@ -31236,6 +31338,55 @@ var GameRenderer = class {
       mesh.position.set(Math.cos(angle) * 80, h / 2 - 8, Math.sin(angle) * 80);
       this.environmentGroup.add(mesh);
     }
+  }
+  buildCelestialBackdrop() {
+    const towerMat = new MeshStandardMaterial({
+      color: 2373724,
+      roughness: 0.6,
+      metalness: 0.3
+    });
+    for (let i = 0; i < 16; i++) {
+      const radius = 3 + Math.random() * 3;
+      const height = 30 + Math.random() * 40;
+      const cyl = new Mesh(new CylinderGeometry(radius, radius * 1.2, height, 8), towerMat);
+      const angle = i / 16 * Math.PI * 2;
+      cyl.position.set(Math.cos(angle) * 85, height / 2 - 15, Math.sin(angle) * 85);
+      this.environmentGroup.add(cyl);
+    }
+    const starMat = new MeshStandardMaterial({
+      color: 16765503,
+      emissive: 8939008,
+      metalness: 0.8,
+      roughness: 0.2
+    });
+    for (let i = 0; i < 18; i++) {
+      const star = new Mesh(new OctahedronGeometry(2 + Math.random() * 2, 0), starMat);
+      star.position.set(-80 + Math.random() * 160, 20 + Math.random() * 40, -60 + Math.random() * 80);
+      this.animatedProps.push(star);
+      this.environmentGroup.add(star);
+    }
+  }
+  buildEgyptianBackdrop() {
+    const pyrMat = new MeshStandardMaterial({
+      color: 11040840,
+      roughness: 0.9
+    });
+    const greatPyr = new Mesh(new ConeGeometry(55, 45, 4), pyrMat);
+    greatPyr.rotateY(Math.PI / 4);
+    greatPyr.position.set(20, 18, -75);
+    this.environmentGroup.add(greatPyr);
+    const archMat = new MeshBasicMaterial({ color: 656900 });
+    const arch = new Mesh(new BoxGeometry(10, 14, 2), archMat);
+    arch.position.set(20, 4, -48);
+    this.environmentGroup.add(arch);
+    const sidePyr1 = new Mesh(new ConeGeometry(30, 25, 4), pyrMat);
+    sidePyr1.rotateY(Math.PI / 4);
+    sidePyr1.position.set(-65, 8, -60);
+    this.environmentGroup.add(sidePyr1);
+    const sidePyr2 = new Mesh(new ConeGeometry(24, 20, 4), pyrMat);
+    sidePyr2.rotateY(Math.PI / 4);
+    sidePyr2.position.set(75, 6, -50);
+    this.environmentGroup.add(sidePyr2);
   }
   buildCyberGridBackdrop() {
     const grid = new GridHelper(160, 40, 3399935, 16726876);
@@ -31343,6 +31494,96 @@ var GameRenderer = class {
     rock.position.y = 0.35;
     rock.castShadow = true;
     return rock;
+  }
+  createPalmTreeProp() {
+    const group = new Group();
+    const trunkMat = new MeshStandardMaterial({ color: 7228978, roughness: 0.9 });
+    const trunk = new Mesh(new CylinderGeometry(0.1, 0.16, 1.2, 7), trunkMat);
+    trunk.position.y = 0.6;
+    trunk.rotation.z = 0.08;
+    group.add(trunk);
+    const frondMat = new MeshStandardMaterial({
+      color: 2263096,
+      roughness: 0.6,
+      side: DoubleSide
+    });
+    for (let i = 0; i < 6; i++) {
+      const frond = new Mesh(new PlaneGeometry(0.7, 0.25), frondMat);
+      const angle = i / 6 * Math.PI * 2;
+      frond.position.set(Math.cos(angle) * 0.35, 1.25, Math.sin(angle) * 0.35);
+      frond.rotation.y = angle;
+      frond.rotation.x = 0.45;
+      group.add(frond);
+    }
+    return group;
+  }
+  createObeliskProp() {
+    const group = new Group();
+    const obeliskMat = new MeshStandardMaterial({
+      color: 1315864,
+      roughness: 0.15,
+      metalness: 0.7
+    });
+    const shaft = new Mesh(new CylinderGeometry(0.18, 0.28, 1.8, 4), obeliskMat);
+    shaft.position.y = 0.9;
+    shaft.rotation.y = Math.PI / 4;
+    group.add(shaft);
+    const capMat = new MeshStandardMaterial({
+      color: 16765503,
+      emissive: 11175936,
+      metalness: 0.8,
+      roughness: 0.2
+    });
+    const cap = new Mesh(new ConeGeometry(0.26, 0.45, 4), capMat);
+    cap.position.y = 1.95;
+    cap.rotation.y = Math.PI / 4;
+    group.add(cap);
+    return group;
+  }
+  createPyramidObstacleProp() {
+    const geom = new ConeGeometry(0.65, 0.9, 4);
+    const mat = new MeshStandardMaterial({
+      color: 13146200,
+      roughness: 0.85
+    });
+    const mesh = new Mesh(geom, mat);
+    mesh.position.y = 0.45;
+    mesh.rotation.y = Math.PI / 4;
+    mesh.castShadow = true;
+    return mesh;
+  }
+  createReliefMuralProp() {
+    const group = new Group();
+    const slabMat = new MeshStandardMaterial({
+      color: 4018288,
+      roughness: 0.7
+    });
+    const slab = new Mesh(new BoxGeometry(0.85, 0.9, 0.3), slabMat);
+    slab.position.y = 0.45;
+    slab.castShadow = true;
+    group.add(slab);
+    const faceMat = new MeshStandardMaterial({
+      color: 7377088,
+      roughness: 0.5
+    });
+    const face = new Mesh(new SphereGeometry(0.18, 8, 8), faceMat);
+    face.scale.set(1, 1.3, 0.4);
+    face.position.set(0, 0.48, 0.16);
+    group.add(face);
+    return group;
+  }
+  createStarProp() {
+    const geom = new OctahedronGeometry(0.35, 0);
+    const mat = new MeshStandardMaterial({
+      color: 16765503,
+      emissive: 11171584,
+      metalness: 0.7,
+      roughness: 0.2
+    });
+    const star = new Mesh(geom, mat);
+    star.position.y = 0.35;
+    this.animatedProps.push(star);
+    return star;
   }
   // =========================================================================
   // HAZARDS & ENTITIES
@@ -31621,6 +31862,9 @@ var InputManager = class {
   isMouseDown = false;
   mouseStart = [0, 0];
   mouseCurrent = [0, 0];
+  touchActive = false;
+  touchStart = [0, 0];
+  touchCurrent = [0, 0];
   joyActive = false;
   joyCenter = [0, 0];
   joyKnob = [0, 0];
@@ -31718,6 +31962,35 @@ var InputManager = class {
       };
       window.addEventListener("touchend", endJoy);
       window.addEventListener("touchcancel", endJoy);
+    }
+    const canvas = document.getElementById("gl");
+    if (canvas) {
+      canvas.addEventListener(
+        "touchstart",
+        (e) => {
+          if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            this.touchActive = true;
+            this.touchStart = [touch.clientX, touch.clientY];
+            this.touchCurrent = [touch.clientX, touch.clientY];
+          }
+        },
+        { passive: true }
+      );
+      window.addEventListener(
+        "touchmove",
+        (e) => {
+          if (!this.touchActive || e.touches.length === 0) return;
+          const touch = e.touches[0];
+          this.touchCurrent = [touch.clientX, touch.clientY];
+        },
+        { passive: true }
+      );
+      const endTouch = () => {
+        this.touchActive = false;
+      };
+      window.addEventListener("touchend", endTouch);
+      window.addEventListener("touchcancel", endTouch);
     }
   }
   updateJoyTouch(clientX, clientY) {
@@ -31841,10 +32114,20 @@ var InputManager = class {
     if (this.joyActive) {
       screenX = this.joyKnob[0];
       screenY = this.joyKnob[1];
+    } else if (this.touchActive) {
+      const dx = this.touchCurrent[0] - this.touchStart[0];
+      const dy = this.touchCurrent[1] - this.touchStart[1];
+      const maxDrag = 80;
+      const tLen = Math.sqrt(dx * dx + dy * dy);
+      if (tLen > 5) {
+        const factor = Math.min(1, tLen / maxDrag);
+        screenX = dx / tLen * factor;
+        screenY = dy / tLen * factor;
+      }
     }
     let tiltDeg = 0;
     let usingTilt = false;
-    const keyboardOrPointer = kLen > 0 || this.isMouseDown || this.joyActive;
+    const keyboardOrPointer = kLen > 0 || this.isMouseDown || this.joyActive || this.touchActive;
     if (this.tiltEnabled && this.hasOrientation && !keyboardOrPointer) {
       const maxAngle = 32;
       const dx = this.rawX - this.restX;
@@ -32195,6 +32478,33 @@ var GameManager = class {
     }
   }
   bindEvents() {
+    const splashEl = document.getElementById("splash-screen");
+    const splashBtn = document.getElementById("splash-start-btn");
+    const startFromSplash = async () => {
+      this.startAudio();
+      await this.input.requestDeviceOrientationPermission();
+      this.input.calibrateNow();
+      if (splashEl) {
+        splashEl.classList.add("fade-out");
+        setTimeout(() => splashEl.remove(), 700);
+      }
+      if (this.state === "TITLE") {
+        this.state = "PLAYING";
+        this.hud.hideMenu();
+        this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2e3);
+      }
+    };
+    if (splashBtn) {
+      splashBtn.addEventListener("click", () => {
+        void startFromSplash();
+      });
+    }
+    if (splashEl) {
+      splashEl.addEventListener("click", (e) => {
+        if (e.target === splashBtn) return;
+        void startFromSplash();
+      });
+    }
     this.input.onRestart = () => this.restartCurrentStage();
     this.input.onToggleMenu = () => {
       if (this.hud.isMenuOpen()) {

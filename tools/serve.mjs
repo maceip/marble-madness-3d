@@ -23,6 +23,9 @@ const MIME_TYPES = {
   '.wav': 'audio/wav',
   '.mp3': 'audio/mpeg',
   '.ogg': 'audio/ogg',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.ico': 'image/x-icon',
   '.wasm': 'application/wasm',
 };
 
@@ -33,6 +36,14 @@ const server = http.createServer((req, res) => {
   if (reqPath === '/') reqPath = '/index.html';
 
   let filePath = path.join(root, reqPath);
+
+  // Fallback to www/ folder if not found directly under root
+  if (!fs.existsSync(filePath)) {
+    const wwwPath = path.join(root, 'www', reqPath);
+    if (fs.existsSync(wwwPath)) {
+      filePath = wwwPath;
+    }
+  }
 
   // Security check: ensure within root
   if (!filePath.startsWith(root)) {

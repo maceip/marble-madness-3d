@@ -41,27 +41,46 @@ const STAGE_PALETTES: Record<number, StagePalette> = {
   },
   3: {
     ...PALETTE_BASE,
+    path: [0x5478b0, 0x2c4870, 0x162438],
+    wall: [0x283854, 0x162030, 0x0a1018],
+    glass: [0x50f0e0, 0x249080, 0x124840],
+    rock: [0x405470, 0x243244, 0x121a24],
+    water: [0x162848, 0x0c1628, 0x060c14],
+  },
+  4: {
+    ...PALETTE_BASE,
+    path: [0xdca44a, 0x94682a, 0x543814],
+    sand: [0xf2d27a, 0xb89848, 0x745820],
+    rock: [0xa07844, 0x6c4c28, 0x3e2814],
+    wall: [0x1a1a20, 0x0e0e12, 0x06060a],
+    metal: [0x282830, 0x16161c, 0x0a0a0e],
+    tree: [0x247c38, 0x144c20, 0x0a2810],
+    water: [0x20a8d8, 0x10688c, 0x083448],
+    glass: [0xf0cc40, 0xa88420, 0x584010],
+  },
+  5: {
+    ...PALETTE_BASE,
     path: [0x7a48a8, 0x3a2060, 0x1a1030],
     wall: [0x2a1438, 0x180a24, 0x0c0614],
     glass: [0x66ffe8, 0x2aa090, 0x185860],
     holo: [0xff55cc, 0x882050, 0x4a1028],
     water: [0x33ee66, 0x148838, 0x0a4020],
   },
-  4: {
+  6: {
     ...PALETTE_BASE,
     path: [0xd4a05a, 0x8a6030, 0x4a3018],
     sand: [0xe8c878, 0xa08040, 0x604818],
     metal: [0xc4a070, 0x7a6038, 0x3a2c18],
     wall: [0x8a5a30, 0x5a3818, 0x2a1c0c],
   },
-  5: {
+  7: {
     ...PALETTE_BASE,
     path: [0x8a6a58, 0x5a4030, 0x2a2018],
     metal: [0xb8c0c8, 0x5a6068, 0x2a3038],
     wall: [0x3a2a28, 0x241818, 0x140c0c],
     sand: [0x6a5040, 0x443028, 0x241818],
   },
-  6: {
+  8: {
     ...PALETTE_BASE,
     path: [0x4a5aa8, 0x243068, 0x101838],
     cloud: [0xd0e8ff, 0x88a8c8, 0x486888],
@@ -350,13 +369,28 @@ export class GameRenderer {
 
         // Add 3D scenery props per surface
         if (cell.surf === 'tree') {
-          const treeGroup = this.createTreeProp();
+          const treeGroup = stageId === 4 ? this.createPalmTreeProp() : this.createTreeProp();
           treeGroup.position.set(c + 0.5, columnHeight, r + 0.5);
           this.terrainGroup.add(treeGroup);
         } else if (cell.surf === 'rock') {
-          const rock = this.createRockProp();
-          rock.position.set(c + 0.5, columnHeight, r + 0.5);
-          this.terrainGroup.add(rock);
+          let rockProp: THREE.Object3D;
+          if (stageId === 4) {
+            rockProp = c % 2 === 0 ? this.createPyramidObstacleProp() : this.createRockProp();
+          } else if (stageId === 3) {
+            rockProp = this.createReliefMuralProp();
+          } else {
+            rockProp = this.createRockProp();
+          }
+          rockProp.position.set(c + 0.5, columnHeight, r + 0.5);
+          this.terrainGroup.add(rockProp);
+        } else if (cell.surf === 'wall' && stageId === 4 && (c === 5 || c === 11)) {
+          const obelisk = this.createObeliskProp();
+          obelisk.position.set(c + 0.5, columnHeight, r + 0.5);
+          this.terrainGroup.add(obelisk);
+        } else if (cell.surf === 'wall' && stageId === 3 && (c === 6 || c === 14)) {
+          const starProp = this.createStarProp();
+          starProp.position.set(c + 0.5, columnHeight + 0.6, r + 0.5);
+          this.terrainGroup.add(starProp);
         } else if (cell.surf === 'water') {
           const waterGeom = new THREE.PlaneGeometry(1, 1, 4, 4);
           waterGeom.rotateX(-Math.PI / 2);
@@ -459,7 +493,27 @@ export class GameRenderer {
         this.buildArcticBackdrop();
         break;
 
-      case 3: // Edgy Maze
+      case 3: // Astral Spire (Image #1)
+        fogColor = 0x0e1428;
+        skyColorTop = 0x1e3260;
+        skyColorBottom = 0x080c1a;
+        this.sunLight.color.setHex(0xffea9f);
+        this.hemiLight.color.setHex(0x90c0ff);
+        this.hemiLight.groundColor.setHex(0x141e32);
+        this.buildCelestialBackdrop();
+        break;
+
+      case 4: // Pyramid Oasis (Image #2)
+        fogColor = 0x2a1a0c;
+        skyColorTop = 0x643c18;
+        skyColorBottom = 0x1c1006;
+        this.sunLight.color.setHex(0xfff0cc);
+        this.hemiLight.color.setHex(0xffd488);
+        this.hemiLight.groundColor.setHex(0x381e08);
+        this.buildEgyptianBackdrop();
+        break;
+
+      case 5: // Edgy Maze
         fogColor = 0x140a24;
         skyColorTop = 0x3b1566;
         skyColorBottom = 0x0d0618;
@@ -469,7 +523,7 @@ export class GameRenderer {
         this.buildCyberGridBackdrop();
         break;
 
-      case 4: // Dusty Trail
+      case 6: // Dusty Trail
         fogColor = 0x24140a;
         skyColorTop = 0x5a2d12;
         skyColorBottom = 0x180c04;
@@ -479,7 +533,7 @@ export class GameRenderer {
         this.buildDesertBackdrop();
         break;
 
-      case 5: // Drillin' Rye
+      case 7: // Drillin' Rye
         fogColor = 0x180c10;
         skyColorTop = 0x3d141e;
         skyColorBottom = 0x10080a;
@@ -489,7 +543,7 @@ export class GameRenderer {
         this.buildMineCavernBackdrop();
         break;
 
-      case 6: // Space Dementia
+      case 8: // Space Dementia
         fogColor = 0x040614;
         skyColorTop = 0x121438;
         skyColorBottom = 0x020308;
@@ -555,6 +609,66 @@ export class GameRenderer {
       mesh.position.set(Math.cos(angle) * 80, h / 2 - 8, Math.sin(angle) * 80);
       this.environmentGroup.add(mesh);
     }
+  }
+
+  private buildCelestialBackdrop(): void {
+    // 3D Starlight Tower Citadel backdrop with pillars and constellations
+    const towerMat = new THREE.MeshStandardMaterial({
+      color: 0x24385c,
+      roughness: 0.6,
+      metalness: 0.3,
+    });
+    for (let i = 0; i < 16; i++) {
+      const radius = 3 + Math.random() * 3;
+      const height = 30 + Math.random() * 40;
+      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 1.2, height, 8), towerMat);
+      const angle = (i / 16) * Math.PI * 2;
+      cyl.position.set(Math.cos(angle) * 85, height / 2 - 15, Math.sin(angle) * 85);
+      this.environmentGroup.add(cyl);
+    }
+
+    // Distant floating gold star clusters
+    const starMat = new THREE.MeshStandardMaterial({
+      color: 0xffd23f,
+      emissive: 0x886600,
+      metalness: 0.8,
+      roughness: 0.2,
+    });
+    for (let i = 0; i < 18; i++) {
+      const star = new THREE.Mesh(new THREE.OctahedronGeometry(2 + Math.random() * 2, 0), starMat);
+      star.position.set(-80 + Math.random() * 160, 20 + Math.random() * 40, -60 + Math.random() * 80);
+      this.animatedProps.push(star);
+      this.environmentGroup.add(star);
+    }
+  }
+
+  private buildEgyptianBackdrop(): void {
+    // Giant Great Pyramid backdrop with dark cavern entrance
+    const pyrMat = new THREE.MeshStandardMaterial({
+      color: 0xa87848,
+      roughness: 0.9,
+    });
+    const greatPyr = new THREE.Mesh(new THREE.ConeGeometry(55, 45, 4), pyrMat);
+    greatPyr.rotateY(Math.PI / 4);
+    greatPyr.position.set(20, 18, -75);
+    this.environmentGroup.add(greatPyr);
+
+    // Cavern tomb entrance
+    const archMat = new THREE.MeshBasicMaterial({ color: 0x0a0604 });
+    const arch = new THREE.Mesh(new THREE.BoxGeometry(10, 14, 2), archMat);
+    arch.position.set(20, 4, -48);
+    this.environmentGroup.add(arch);
+
+    // Distant secondary pyramids & dunes
+    const sidePyr1 = new THREE.Mesh(new THREE.ConeGeometry(30, 25, 4), pyrMat);
+    sidePyr1.rotateY(Math.PI / 4);
+    sidePyr1.position.set(-65, 8, -60);
+    this.environmentGroup.add(sidePyr1);
+
+    const sidePyr2 = new THREE.Mesh(new THREE.ConeGeometry(24, 20, 4), pyrMat);
+    sidePyr2.rotateY(Math.PI / 4);
+    sidePyr2.position.set(75, 6, -50);
+    this.environmentGroup.add(sidePyr2);
   }
 
   private buildCyberGridBackdrop(): void {
@@ -682,6 +796,106 @@ export class GameRenderer {
     rock.position.y = 0.35;
     rock.castShadow = true;
     return rock;
+  }
+
+  private createPalmTreeProp(): THREE.Group {
+    const group = new THREE.Group();
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6e4e32, roughness: 0.9 });
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 1.2, 7), trunkMat);
+    trunk.position.y = 0.6;
+    trunk.rotation.z = 0.08;
+    group.add(trunk);
+
+    const frondMat = new THREE.MeshStandardMaterial({
+      color: 0x228838,
+      roughness: 0.6,
+      side: THREE.DoubleSide,
+    });
+    for (let i = 0; i < 6; i++) {
+      const frond = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.25), frondMat);
+      const angle = (i / 6) * Math.PI * 2;
+      frond.position.set(Math.cos(angle) * 0.35, 1.25, Math.sin(angle) * 0.35);
+      frond.rotation.y = angle;
+      frond.rotation.x = 0.45;
+      group.add(frond);
+    }
+    return group;
+  }
+
+  private createObeliskProp(): THREE.Group {
+    const group = new THREE.Group();
+    const obeliskMat = new THREE.MeshStandardMaterial({
+      color: 0x141418,
+      roughness: 0.15,
+      metalness: 0.7,
+    });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 1.8, 4), obeliskMat);
+    shaft.position.y = 0.9;
+    shaft.rotation.y = Math.PI / 4;
+    group.add(shaft);
+
+    const capMat = new THREE.MeshStandardMaterial({
+      color: 0xffd23f,
+      emissive: 0xaa8800,
+      metalness: 0.8,
+      roughness: 0.2,
+    });
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.45, 4), capMat);
+    cap.position.y = 1.95;
+    cap.rotation.y = Math.PI / 4;
+    group.add(cap);
+
+    return group;
+  }
+
+  private createPyramidObstacleProp(): THREE.Mesh {
+    const geom = new THREE.ConeGeometry(0.65, 0.9, 4);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xc89858,
+      roughness: 0.85,
+    });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.y = 0.45;
+    mesh.rotation.y = Math.PI / 4;
+    mesh.castShadow = true;
+    return mesh;
+  }
+
+  private createReliefMuralProp(): THREE.Group {
+    const group = new THREE.Group();
+    const slabMat = new THREE.MeshStandardMaterial({
+      color: 0x3d5070,
+      roughness: 0.7,
+    });
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.9, 0.3), slabMat);
+    slab.position.y = 0.45;
+    slab.castShadow = true;
+    group.add(slab);
+
+    const faceMat = new THREE.MeshStandardMaterial({
+      color: 0x7090c0,
+      roughness: 0.5,
+    });
+    const face = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), faceMat);
+    face.scale.set(1, 1.3, 0.4);
+    face.position.set(0, 0.48, 0.16);
+    group.add(face);
+
+    return group;
+  }
+
+  private createStarProp(): THREE.Mesh {
+    const geom = new THREE.OctahedronGeometry(0.35, 0);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xffd23f,
+      emissive: 0xaa7700,
+      metalness: 0.7,
+      roughness: 0.2,
+    });
+    const star = new THREE.Mesh(geom, mat);
+    star.position.y = 0.35;
+    this.animatedProps.push(star);
+    return star;
   }
 
   // =========================================================================
