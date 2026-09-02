@@ -45,10 +45,13 @@ if (!process.env.GAME_URL) {
 let browser;
 try {
   await waitForServer();
+  const defaultChrome = process.platform === 'darwin'
+    ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    : '/snap/bin/chromium';
   browser = await chromium.launch({
-    executablePath: process.env.CHROMIUM_PATH || '/snap/bin/chromium',
+    executablePath: process.env.CHROMIUM_PATH || defaultChrome,
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--use-gl=swiftshader'],
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));

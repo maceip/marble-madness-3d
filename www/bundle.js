@@ -773,24 +773,17 @@ var LEVELS = DEFS.map((def) => buildLevel(def));
 
 // src/audio.ts
 var BGM_TABLE = {
-  intro: "marble-056.mp3",
-  // Title / attract theme
-  "1": "marble-073.mp3",
-  // Practice Race (Stage 1)
-  "2": "marble-075.mp3",
-  // Beginner Race / Arctic (Stage 2)
-  "3": "marble-069.mp3",
-  // Intermediate / Astral Spire (Stage 3)
-  "4": "marble-066.mp3",
-  // Aerial / Pyramid Oasis (Stage 4)
-  "5": "marble-077.mp3",
-  // Edgy Maze (Stage 5)
-  "6": "marble-079.mp3",
-  // Dusty Trail (Stage 6)
-  "7": "marble-081.mp3",
-  // Drillin' Rye (Stage 7)
-  "8": "marble-067.mp3"
-  // Space Dementia / Ultimate Race (Stage 8)
+  intro: "bgm/practice-race.mp3",
+  "1": "bgm/practice-race.mp3",
+  "2": "bgm/beginner-race.mp3",
+  "3": "bgm/aerial-race.mp3",
+  // Astral Spire intentionally reuses Aerial
+  "4": "bgm/practice-race.mp3",
+  // Pyramid Oasis intentionally reuses Practice
+  "5": "bgm/intermediate-race.mp3",
+  "6": "bgm/aerial-race.mp3",
+  "7": "bgm/silly-race.mp3",
+  "8": "bgm/ultimate-race.mp3"
 };
 var SFX_TABLE = {
   roll: "marble-049.mp3",
