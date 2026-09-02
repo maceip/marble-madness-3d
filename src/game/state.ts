@@ -52,6 +52,8 @@ export class GameManager {
   private respawnTimer = 0;
   private countdownTimer = 3.0;
   private isAudioStarted = false;
+  private physicsAccumulator = 0;
+  private readonly physicsStep = 1 / 60;
 
   constructor() {
     this.currentLevel = LEVELS[0];
@@ -186,6 +188,8 @@ export class GameManager {
 
     // HUD callbacks
     this.hud.onSelectCourse = (stage) => this.setupStage(stage - 1);
+    this.hud.musicVolume = soundManager.getMusicVolume();
+    this.hud.onMusicVolumeChange = (volume) => soundManager.setMusicVolume(volume);
     this.hud.onResumeGame = () => {
       this.startAudio();
       if (this.state === 'TITLE') {
@@ -381,6 +385,7 @@ export class GameManager {
     this.itemsTotal = this.currentLevel.props.filter((p) => p.kind === 'item').length;
 
     this.physics.setLevel(this.currentLevel);
+    this.physicsAccumulator = 0;
     this.hazards.initLevel(this.currentLevel);
     this.renderer.buildLevelMesh(this.currentLevel);
     this.renderer.syncHazards(this.hazards.hazards);
@@ -527,8 +532,13 @@ export class GameManager {
         this.handleDeath('time');
       }
 
-      // Physics update
-      this.physics.update(inputSample);
+      // A fixed simulation clock makes movement identical at 60/120/144 Hz.
+      this.physicsAccumulator = Math.min(this.physicsAccumulator + dt, this.physicsStep * 4);
+      while (this.physicsAccumulator >= this.physicsStep) {
+        this.physics.update(inputSample);
+        this.hazards.update(this.physicsStep, this.physics.marble);
+        this.physicsAccumulator -= this.physicsStep;
+      }
 
       // Check marble-on-marble multiplayer collisions
       this.multiplayer.checkPlayerCollisions(
@@ -554,8 +564,6 @@ export class GameManager {
         soundManager.setRollVolume(0);
       }
 
-      // Hazards update
-      this.hazards.update(dt, this.physics.marble);
     } else if (this.state === 'RESPAWNING') {
       soundManager.setRollVolume(0);
       this.respawnTimer -= dt;

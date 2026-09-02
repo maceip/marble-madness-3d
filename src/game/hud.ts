@@ -3,6 +3,7 @@ import type { BuiltLevel } from '../data/build.js';
 import type { HazardInstance } from './hazards.js';
 import type { MarbleState } from './physics.js';
 import type { RemotePlayer } from './multiplayer.js';
+import { retroLogo, retroSpriteStrip, retroText } from './retro-assets.js';
 
 export interface LeaderboardEntry {
   rank?: number;
@@ -54,6 +55,8 @@ export class HudManager {
   public onResumeGame?: () => void;
   public onRestartGame?: () => void;
   public onNameSubmitted?: (initials: string) => void;
+  public onMusicVolumeChange?: (volume: number) => void;
+  public musicVolume = 0.16;
 
   constructor() {
     this.scoreEl = document.getElementById('score');
@@ -334,10 +337,12 @@ export class HudManager {
     if (!this.menuEl) return;
     this.menuEl.classList.remove('hidden');
 
+    const courseNames = ['PINK GARDENS', 'ARCTIC ADVENTURE', 'ASTRAL SPIRE', 'PYRAMID OASIS', 'EDGY MAZE', 'DUSTY TRAIL', "DRILLIN' RYE", 'SPACE DEMENTIA'];
     let courseButtons = '';
     for (let i = 1; i <= stageCount; i++) {
       const isCurrent = i === currentStage;
-      courseButtons += `<button class="click" data-stage="${i}" ${isCurrent ? 'aria-current="true"' : ''}>STAGE ${i}</button>`;
+      const label = `${i} ${courseNames[i - 1] ?? `STAGE ${i}`}`;
+      courseButtons += `<button class="click" data-stage="${i}" aria-label="${label}" ${isCurrent ? 'aria-current="true"' : ''}>${retroText(label)}</button>`;
     }
 
     const musicPct = Math.round(soundManager.musicVolume * 100);
@@ -431,6 +436,14 @@ export class HudManager {
       } else {
         if (this.onResumeGame) this.onResumeGame();
       }
+    });
+
+    const volume = this.menuEl.querySelector('#menu-music-volume') as HTMLInputElement | null;
+    const output = this.menuEl.querySelector('#menu-music-output');
+    volume?.addEventListener('input', () => {
+      this.musicVolume = Number(volume.value) / 100;
+      if (output) output.textContent = `${volume.value}%`;
+      this.onMusicVolumeChange?.(this.musicVolume);
     });
   }
 

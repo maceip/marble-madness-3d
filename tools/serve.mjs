@@ -8,7 +8,8 @@ import { WebSocketServer, WebSocket } from 'ws';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
-const LEADERBOARD_FILE = path.join(root, 'data', 'leaderboard.json');
+const BUNDLED_LEADERBOARD_FILE = path.join(root, 'data', 'leaderboard.json');
+const LEADERBOARD_FILE = process.env.LEADERBOARD_FILE || BUNDLED_LEADERBOARD_FILE;
 const SERVER_SECRET = crypto.randomBytes(32).toString('hex');
 
 const MIME_TYPES = {
@@ -33,6 +34,15 @@ const MIME_TYPES = {
 };
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
+const HOST = process.env.HOST || '127.0.0.1';
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.length > 0) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket.remoteAddress || '127.0.0.1';
+}
 
 // =========================================================================
 // LEADERBOARD STORE (Top 50 with AI vs Natural Intelligence)
@@ -42,8 +52,11 @@ let leaderboardCache = [];
 
 function loadLeaderboard() {
   try {
-    if (fs.existsSync(LEADERBOARD_FILE)) {
-      const data = fs.readFileSync(LEADERBOARD_FILE, 'utf-8');
+    const sourceFile = fs.existsSync(LEADERBOARD_FILE)
+      ? LEADERBOARD_FILE
+      : BUNDLED_LEADERBOARD_FILE;
+    if (fs.existsSync(sourceFile)) {
+      const data = fs.readFileSync(sourceFile, 'utf-8');
       leaderboardCache = JSON.parse(data);
     } else {
       leaderboardCache = [];
@@ -140,7 +153,7 @@ function verifySessionToken(token, ip) {
 // =========================================================================
 
 const server = http.createServer((req, res) => {
-  const clientIp = req.socket.remoteAddress || '127.0.0.1';
+  const clientIp = getClientIp(req);
   let reqPath = decodeURIComponent(req.url?.split('?')[0] || '/');
 
   // 1. Session Token Challenge Endpoint
@@ -359,7 +372,7 @@ setInterval(() => {
 }, TICK_INTERVAL);
 
 wss.on('connection', (ws, req) => {
-  const clientIp = req.socket.remoteAddress || '127.0.0.1';
+  const clientIp = getClientIp(req);
 
   // Flood protection: IP rate limiting
   if (!checkIpRateLimit(clientIp, 40)) {
@@ -537,8 +550,8 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`[serve] Marble Madness hosted server running at http://localhost:${PORT}/`);
-  console.log(`[serve] Multiplayer WebSocket active at ws://localhost:${PORT}/ws`);
+server.listen(PORT, HOST, () => {
+  console.log(`[serve] Marble Madness hosted server running at http://${HOST}:${PORT}/`);
+  console.log(`[serve] Multiplayer WebSocket active at ws://${HOST}:${PORT}/ws`);
   console.log(`[serve] Top 50 Leaderboard loaded (${leaderboardCache.length} records)`);
 });

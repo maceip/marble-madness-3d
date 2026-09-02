@@ -5,9 +5,12 @@
   "type": "module",
   "description": "Marble Madness (1984) remade as a playable WebGL/three.js isometric marble run using the bundled arcade/Master System reference art.",
   "scripts": {
-    "build": "node tools/build.mjs",
+    "assets:retro": "python3 tools/extract-retro-assets.py",
+    "audit:audio": "node tools/audit-audio.mjs",
+    "build": "npm run assets:retro && node tools/build.mjs",
     "serve": "node tools/serve.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
+    "test:gameplay": "node tools/browser-gameplay.mjs",
     "start": "npm run build && npm run serve"
   },
   "dependencies": {
@@ -18,6 +21,7 @@
     "@types/three": "^0.185.0",
     "@types/ws": "^8.18.1",
     "esbuild": "^0.25.0",
+    "playwright-core": "1.62.1",
     "typescript": "^5.0.0"
   }
 }

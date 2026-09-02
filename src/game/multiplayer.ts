@@ -105,6 +105,7 @@ export class MultiplayerClient {
 
           if (Array.isArray(msg.players)) {
             for (const p of msg.players) {
+              if (p.id === this.localId) continue;
               this.addOrUpdateRemotePlayer(p);
             }
           }
@@ -390,6 +391,6 @@ export class MultiplayerClient {
   }
 
   public getOnlinePlayers(): RemotePlayer[] {
-    return Array.from(this.remotePlayers.values());
+    return Array.from(this.remotePlayers.values()).filter((player) => player.id !== this.localId);
   }
 }

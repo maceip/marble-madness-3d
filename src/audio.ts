@@ -50,6 +50,7 @@ export class SoundManager {
   currentBgm: HTMLAudioElement | null = null;
   currentBgmKey: string = '';
   isMuted: boolean = false;
+  private musicVolume = this.loadMusicVolume();
 
   // Dedicated Music and SFX volume sliders (default pleasant non-deafening mix)
   public musicVolume = 0.35;
@@ -170,6 +171,22 @@ export class SoundManager {
     });
 
     this.currentBgm = el;
+  }
+
+  private loadMusicVolume(): number {
+    const raw = globalThis.localStorage?.getItem('marble_music_volume');
+    const stored = raw === null || raw === undefined ? Number.NaN : Number(raw);
+    return Number.isFinite(stored) ? Math.max(0, Math.min(1, stored)) : 0.16;
+  }
+
+  getMusicVolume(): number {
+    return this.musicVolume;
+  }
+
+  setMusicVolume(volume: number): void {
+    this.musicVolume = Math.max(0, Math.min(1, volume));
+    globalThis.localStorage?.setItem('marble_music_volume', String(this.musicVolume));
+    if (this.currentBgm) this.currentBgm.volume = this.musicVolume;
   }
 
   /** Stop and dispose of the current background music playback. */
