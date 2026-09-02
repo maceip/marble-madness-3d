@@ -268,8 +268,8 @@ export class HazardManager {
         }
       }
 
-      // Check collision with marble
-      if (h.active && !marble.dead) {
+      // Check collision with marble (immune while in tube)
+      if (h.active && !marble.dead && !marble.inTube) {
         const dx = h.x - marble.x;
         const dy = h.y - marble.y;
         const dz = h.z - marble.z;

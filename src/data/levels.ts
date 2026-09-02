@@ -417,7 +417,7 @@ export const DEFS: LevelDef[] = [
         tubeColor: "#8833cc",
       },
       { kind: "steelie", x: 12, z: 12, h: 12, range: 3.0 },
-      { kind: "muncher", x: 12, z: 21, h: 9 },
+      { kind: "muncher", x: 9, z: 22, h: 9 },
     ],
   },
 

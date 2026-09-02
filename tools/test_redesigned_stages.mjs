@@ -110,18 +110,19 @@ try {
       window.game.physics.marble.grounded = true;
     }
   });
-  await page.waitForTimeout(200);
 
-  // Check if funnel caught marble and entered tube
+  // Wait for funnel suction to capture marble
+  await page.waitForFunction(() => window.game.physics.marble.inTube === true, { timeout: 3000 });
   const inTube = await page.evaluate(() => window.game.physics.marble.inTube);
   console.log('Marble inStage4 funnel tube:', inTube);
   assert(inTube === true, 'Marble must be captured by the Stage 4 purple funnel');
 
-  // Wait for tube travel to complete and check exit position
-  await page.waitForTimeout(1000);
+  // Wait for tube travel to complete and emerge downstream
+  await page.waitForFunction(() => !window.game.physics.marble.inTube && window.game.physics.marble.z >= 20, { timeout: 4000 });
   const postFunnelSnap = await page.evaluate(() => window.__marbleHarness.snapshot());
   console.log(`Post-funnel position: (${postFunnelSnap.x.toFixed(1)}, ${postFunnelSnap.y.toFixed(1)}, ${postFunnelSnap.z.toFixed(1)}), inTube=${await page.evaluate(() => window.game.physics.marble.inTube)}`);
   assert(postFunnelSnap.z >= 20, 'Marble must have exited the purple funnel tube downstream');
+  assert(postFunnelSnap.dead === false, 'Marble must not have died during tube transport');
   testResults.push({ name: 'Stage 4: Purple Funnel Tube Suction & Transport', pass: true });
 
   // ---------------------------------------------------------------------------
@@ -136,33 +137,18 @@ try {
     const spigot = window.game.hazards.hazards.find((h) => h.def.kind === 'spigot');
     if (spigot) window.__marbleHarness.setMarblePos(spigot.x, spigot.y, spigot.z);
   });
-  await page.waitForTimeout(100);
 
-  const debugSpigot = await page.evaluate(() => {
-    const spigot = window.game.hazards.hazards.find((h) => h.def.kind === 'spigot');
-    const marble = window.game.physics.marble;
-    const dx = (spigot ? spigot.x : 0) - marble.x;
-    const dy = (spigot ? spigot.y : 0) - marble.y;
-    const dz = (spigot ? spigot.z : 0) - marble.z;
-    return {
-      gameState: window.game.state,
-      spigot: spigot ? { x: spigot.x, y: spigot.y, z: spigot.z, active: spigot.active } : null,
-      marble: { x: marble.x, y: marble.y, z: marble.z, inTube: marble.inTube, dead: marble.dead },
-      dist2D: Math.hypot(dx, dz),
-      dy: Math.abs(dy),
-    };
-  });
-  console.log('Debug spigot:', debugSpigot);
+  await page.waitForFunction(() => window.game.physics.marble.inTube === true, { timeout: 3000 });
   const inSpigot = await page.evaluate(() => window.game.physics.marble.inTube);
   console.log('Marble inStage5 spigot drop pipe:', inSpigot);
   assert(inSpigot === true, 'Marble must enter the Stage 5 drop pipe hopper');
 
   // Wait for drop pipe travel
-  await page.waitForTimeout(900);
+  await page.waitForFunction(() => !window.game.physics.marble.inTube && window.game.physics.marble.z >= 19, { timeout: 4000 });
   const postSpigotSnap = await page.evaluate(() => window.__marbleHarness.snapshot());
   console.log(`Post-spigot position: (${postSpigotSnap.x.toFixed(1)}, ${postSpigotSnap.y.toFixed(1)}, ${postSpigotSnap.z.toFixed(1)})`);
-  assert(postSpigotSnap.z >= 19, "Marble must have launched out the bottom elbow onto lower catwalk");
-  testResults.push({ name: "Stage 5: Vertical Drop Pipe Spigot Dynamics", pass: true });
+  assert(postSpigotSnap.z >= 19, 'Marble must have launched out the bottom elbow onto lower catwalk');
+  testResults.push({ name: 'Stage 5: Vertical Drop Pipe Spigot Dynamics', pass: true });
 
   // ---------------------------------------------------------------------------
   // TEST 4: Stage 7 Central Rotating 4-Paddle Windmill

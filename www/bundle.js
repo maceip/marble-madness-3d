@@ -1152,7 +1152,7 @@ var DEFS2 = [
         tubeColor: "#8833cc"
       },
       { kind: "steelie", x: 12, z: 12, h: 12, range: 3 },
-      { kind: "muncher", x: 12, z: 21, h: 9 }
+      { kind: "muncher", x: 9, z: 22, h: 9 }
     ]
   },
   // =====================================================================
@@ -2345,7 +2345,7 @@ var HazardManager = class {
           break;
         }
       }
-      if (h.active && !marble.dead) {
+      if (h.active && !marble.dead && !marble.inTube) {
         const dx = h.x - marble.x;
         const dy = h.y - marble.y;
         const dz = h.z - marble.z;
