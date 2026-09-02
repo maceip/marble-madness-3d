@@ -1,3 +1,4 @@
+import { soundManager } from '../audio.js';
 import type { BuiltLevel } from '../data/build.js';
 import type { HazardInstance } from './hazards.js';
 import type { MarbleState } from './physics.js';
@@ -194,6 +195,7 @@ export class HudManager {
 
   public showCountdown(seconds: number, stageName: string): void {
     if (!this.countdownOverlay) return;
+    this.countdownOverlay.style.display = 'flex';
     this.countdownOverlay.classList.add('show');
     if (this.countdownTitleEl) this.countdownTitleEl.textContent = stageName.toUpperCase();
     this.updateCountdown(seconds);
@@ -210,7 +212,9 @@ export class HudManager {
   }
 
   public hideCountdown(): void {
-    this.countdownOverlay?.classList.remove('show');
+    if (!this.countdownOverlay) return;
+    this.countdownOverlay.classList.remove('show');
+    this.countdownOverlay.style.display = 'none';
   }
 
   public showNameEntry(score: number, rank: number, isAI: boolean, onSubmit: (name: string) => void): void {
@@ -336,17 +340,79 @@ export class HudManager {
       courseButtons += `<button class="click" data-stage="${i}" ${isCurrent ? 'aria-current="true"' : ''}>STAGE ${i}</button>`;
     }
 
+    const musicPct = Math.round(soundManager.musicVolume * 100);
+    const sfxPct = Math.round(soundManager.sfxVolume * 100);
+
     this.menuEl.innerHTML = `
-      <img src="/images/marbletriangle.png" style="width:52px;height:auto;margin-bottom:8px;filter:drop-shadow(0 0 10px rgba(255,59,92,0.6));" alt="Marble Logo" />
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:4px">
+        <img src="/sprites/retro_logo.png" style="max-width:280px;height:auto;image-rendering:pixelated;filter:drop-shadow(0 0 12px rgba(255,59,92,0.7));" alt="Marble Madness Arcade" />
+      </div>
       <h1 class="title">${isGameOver ? 'GAME OVER' : 'MARBLE MADNESS'}</h1>
       <div class="sub">${isGameOver ? `FINAL SCORE: ${finalScore}` : '3D ISOMETRIC ARCADE RUN · MULTIPLAYER SHARED WORLD'}</div>
+      
+      <!-- Retro Sprite Showcase (Blue Marble & Red Rival & Enemies) -->
+      <div class="retro-marquee">
+        <img src="/sprites/marbles_blue/frame_00.png" class="retro-marble-anim" id="menu-marble-b" alt="Player Marble" />
+        <span style="font-size:10.5px;color:var(--cool);letter-spacing:0.1em">ORIGINAL 1986 ARCADE SPRITE PHYSICS</span>
+        <img src="/sprites/marbles_red/frame_00.png" class="retro-marble-anim" id="menu-marble-r" alt="Rival Marble" />
+      </div>
+
       <div class="courses">${courseButtons}</div>
+
+      <!-- In-Game Audio Volume Sliders -->
+      <div class="volume-group click">
+        <div class="vol-control">
+          <span>🎵 MUSIC</span>
+          <input type="range" id="menu-music-vol" min="0" max="100" value="${musicPct}" />
+          <span class="vol-val" id="menu-music-val">${musicPct}%</span>
+        </div>
+        <div class="vol-control">
+          <span>🔊 SFX</span>
+          <input type="range" id="menu-sfx-vol" min="0" max="100" value="${sfxPct}" />
+          <span class="vol-val" id="menu-sfx-val">${sfxPct}%</span>
+        </div>
+      </div>
+
       <button class="go click" id="menu-resume">${isGameOver ? 'PLAY AGAIN' : 'PRESS START'}</button>
       <div class="fine">
         Steer with Device Tilt (Mobile Rotameter), Touch Joystick, or Arrow Keys / WASD.<br>
         Multiplayer: Bump into other marbles to knock them off balance (+250 pts) or off ledges (+2500 pts vs Opposing Intelligence)!
       </div>
     `;
+
+    // Setup animated marble spinning frames
+    let animFrame = 0;
+    const mbImg = this.menuEl.querySelector('#menu-marble-b') as HTMLImageElement | null;
+    const mrImg = this.menuEl.querySelector('#menu-marble-r') as HTMLImageElement | null;
+    const interval = setInterval(() => {
+      if (!this.isMenuOpen()) {
+        clearInterval(interval);
+        return;
+      }
+      animFrame = (animFrame + 1) % 14;
+      const fStr = animFrame.toString().padStart(2, '0');
+      if (mbImg) mbImg.src = `/sprites/marbles_blue/frame_${fStr}.png`;
+      if (mrImg) mrImg.src = `/sprites/marbles_red/frame_${fStr}.png`;
+    }, 90);
+
+    // Bind volume sliders
+    const musicSlider = this.menuEl.querySelector('#menu-music-vol') as HTMLInputElement | null;
+    const musicVal = this.menuEl.querySelector('#menu-music-val');
+    const sfxSlider = this.menuEl.querySelector('#menu-sfx-vol') as HTMLInputElement | null;
+    const sfxVal = this.menuEl.querySelector('#menu-sfx-val');
+
+    musicSlider?.addEventListener('input', (e) => {
+      const val = parseInt((e.target as HTMLInputElement).value, 10);
+      soundManager.setMusicVolume(val / 100);
+      if (musicVal) musicVal.textContent = `${val}%`;
+    });
+
+    sfxSlider?.addEventListener('input', (e) => {
+      const val = parseInt((e.target as HTMLInputElement).value, 10);
+      soundManager.setSfxVolume(val / 100);
+      if (sfxVal) sfxVal.textContent = `${val}%`;
+      soundManager.playSfx('bounce', 1.0);
+    });
 
     // Bind menu buttons
     this.menuEl.querySelectorAll('button[data-stage]').forEach((btn) => {

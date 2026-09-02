@@ -1,8 +1,15 @@
 import { GameManager } from './game/state.js';
 
+declare global {
+  interface Window {
+    game?: GameManager;
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   console.log('[Marble Madness] Starting game engine...');
   const game = new GameManager();
+  window.game = game;
 
   let lastTime = performance.now();
 

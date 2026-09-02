@@ -1440,8 +1440,8 @@ export class GameRenderer {
     this.localLabelSprite.position.set(marble.x, marble.y + 0.65, marble.z);
 
     // Speed particles trail when going fast
-    if (marble.speed > 0.22 && marble.grounded) {
-      this.emitSkidMarks([marble.x, marble.y, marble.z], marble.speed / 0.32);
+    if (marble.speed > 0.11 && marble.grounded) {
+      this.emitSkidMarks([marble.x, marble.y, marble.z], marble.speed / 0.16);
     }
 
     // 2. Sync multiplayer remote players

@@ -87,10 +87,10 @@ export class PhysicsEngine {
   public marble: MarbleState;
   public events: PhysicsEvents = {};
 
-  private readonly GRAVITY = -0.015;
-  private readonly ACCEL = 0.014;
-  private readonly BRAKE_DRAG = 0.86;
-  private readonly SHATTER_VELOCITY = -0.42; // Falling faster than this splatters marble!
+  private readonly GRAVITY = -0.011;
+  private readonly ACCEL = 0.007; // Tuned for responsive, authentic arcade trackball momentum
+  private readonly BRAKE_DRAG = 0.88;
+  private readonly SHATTER_VELOCITY = -0.36; // Falling faster than this splatters marble!
 
   constructor(level: BuiltLevel) {
     this.level = level;
@@ -254,7 +254,7 @@ export class PhysicsEngine {
       const [nx, ny, nz] = groundInfo.normal;
       if (ny < 0.99) {
         // Ramps / banked slopes accelerate marble downhill
-        const slopeGravity = 0.018;
+        const slopeGravity = 0.009;
         m.vx += nx * slopeGravity * (1.0 - ny);
         m.vz += nz * slopeGravity * (1.0 - ny);
       }

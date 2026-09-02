@@ -230,21 +230,37 @@
         background: radial-gradient(120% 120% at 50% 0%, #1b2033ee, #05060bee);
         text-align: center;
         padding: 20px;
+        z-index: 1500;
+        pointer-events: auto;
       }
       .overlay.hidden {
-        display: none;
+        display: none !important;
       }
+      /* Authentic Retro Arcade Pixel Font Styles */
+      @font-face {
+        font-family: 'PressStart2P';
+        src: local('Press Start 2P'), local('Courier New'), monospace;
+      }
+      
+      .retro-font {
+        font-family: 'PressStart2P', ui-monospace, 'Courier New', monospace;
+        letter-spacing: 0.08em;
+        image-rendering: pixelated;
+      }
+
       .title {
-        font-size: clamp(22px, 7vw, 54px);
-        letter-spacing: 0.06em;
+        font-family: 'PressStart2P', ui-monospace, 'Courier New', monospace;
+        font-size: clamp(16px, 4.5vw, 32px);
+        letter-spacing: 0.12em;
         margin: 0;
-        color: #fff;
-        text-shadow: 0 2px 0 #ff3b5c, 0 4px 0 #b3143a, 0 8px 18px #000c;
+        color: #ffd23f;
+        text-shadow: 0 3px 0 #b3143a, 0 6px 0 #000, 0 0 20px rgba(255, 210, 63, 0.6);
       }
       .sub {
+        font-family: 'PressStart2P', ui-monospace, monospace;
         color: var(--cool);
-        letter-spacing: 0.22em;
-        font-size: clamp(9px, 2.4vw, 13px);
+        letter-spacing: 0.14em;
+        font-size: clamp(8px, 1.8vw, 11px);
       }
       .courses {
         display: flex;
@@ -292,7 +308,68 @@
         font-size: 11px;
         max-width: 560px;
       }
-      #banner {
+      /* Sliders for Volume in Menu */
+      .volume-group {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        justify-content: center;
+        background: rgba(14, 18, 30, 0.9);
+        border: 1px solid var(--edge);
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 11px;
+        color: var(--dim);
+        margin: 4px 0;
+      }
+      .vol-control {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .vol-control input[type="range"] {
+        width: 90px;
+        accent-color: var(--cool);
+        cursor: pointer;
+      }
+      .vol-val {
+        color: var(--ink);
+        font-weight: bold;
+        width: 28px;
+        text-align: right;
+      }
+
+      /* Animated Marble Retro Showcase in Menu */
+      .retro-marquee {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 6px 12px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 1px dashed var(--edge);
+        border-radius: 6px;
+      }
+      .retro-marble-anim {
+        width: 32px;
+        height: 32px;
+        image-rendering: pixelated;
+        object-fit: contain;
+      }
+
+      /* Overlay Z-Index Fix */
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: radial-gradient(120% 120% at 50% 0%, #1b2033f2, #05060bf2);
+        text-align: center;
+        padding: 20px;
+        z-index: 1500;
+      }
         position: absolute;
         left: 50%;
         top: 34%;
@@ -733,11 +810,18 @@
         <div class="splash-scanlines"></div>
       </div>
       <div class="splash-content">
-        <img src="/images/marbletriangle.png" alt="Marble Madness 3D" class="splash-logo" />
-        <h1 class="splash-title">MARBLE MADNESS 3D</h1>
-        <div class="splash-subtitle">3D ISOMETRIC ARCADE RUN · MULTIPLAYER SHARED WORLD</div>
-        <button id="splash-start-btn" class="splash-btn click">PRESS START / TAP TO PLAY</button>
-        <div class="splash-tip">Calibrates device tilt rotameter & initializes 3D spatial audio</div>
+        <img src="/sprites/retro_logo.png" alt="Marble Madness" style="max-width:320px;width:90%;image-rendering:pixelated;filter:drop-shadow(0 0 16px rgba(255,59,92,0.8));margin-bottom:6px" />
+        <h1 class="splash-title" style="display:none">MARBLE MADNESS 3D</h1>
+        <div class="splash-subtitle" style="font-family:'PressStart2P',monospace;font-size:10px;color:var(--cool)">1986 ARCADE PHYSICS · MULTIPLAYER SHARED WORLD</div>
+        <button id="splash-start-btn" class="splash-btn click" style="font-family:'PressStart2P',monospace;font-size:11px;padding:14px 28px">PRESS START / TAP TO PLAY</button>
+        <div class="splash-tip" style="font-family:'PressStart2P',monospace;font-size:8px">CALIBRATES ROTAMETER & 3D SPATIAL AUDIO</div>
+
+        <!-- Animated Retro Marble Sprite Showcase on Splash -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:8px 0;">
+          <img src="/sprites/marbles_blue/frame_00.png" id="splash-marble-b" style="width:24px;height:24px;image-rendering:pixelated;" alt="Blue Marble" />
+          <span style="font-family:'PressStart2P',monospace;font-size:8px;color:var(--warn);letter-spacing:0.1em">ORIGINAL 1986 ATARI ARCADE SPRITES</span>
+          <img src="/sprites/marbles_red/frame_00.png" id="splash-marble-r" style="width:24px;height:24px;image-rendering:pixelated;" alt="Red Marble" />
+        </div>
 
         <!-- Top 50 Hall of Fame Leaderboard -->
         <div class="lb-container click">
@@ -825,6 +909,6 @@
         <div class="overlay hidden" id="menu"></div>
       </div>
     </div>
-    <script type="module" src="./src/main.ts"></script>
+    <script type="module" src="/bundle.js"></script>
   </body>
 </html>

@@ -774,14 +774,23 @@ var LEVELS = DEFS.map((def) => buildLevel(def));
 // src/audio.ts
 var BGM_TABLE = {
   intro: "marble-056.mp3",
+  // Title / attract theme
   "1": "marble-073.mp3",
+  // Practice Race (Stage 1)
   "2": "marble-075.mp3",
+  // Beginner Race / Arctic (Stage 2)
   "3": "marble-069.mp3",
+  // Intermediate / Astral Spire (Stage 3)
   "4": "marble-066.mp3",
+  // Aerial / Pyramid Oasis (Stage 4)
   "5": "marble-077.mp3",
+  // Edgy Maze (Stage 5)
   "6": "marble-079.mp3",
+  // Dusty Trail (Stage 6)
   "7": "marble-081.mp3",
+  // Drillin' Rye (Stage 7)
   "8": "marble-067.mp3"
+  // Space Dementia / Ultimate Race (Stage 8)
 };
 var SFX_TABLE = {
   roll: "marble-049.mp3",
@@ -799,11 +808,37 @@ var SoundManager = class {
   audioCtx = null;
   sounds = /* @__PURE__ */ new Map();
   currentBgm = null;
+  currentBgmKey = "";
   isMuted = false;
+  // Dedicated Music and SFX volume sliders (default pleasant non-deafening mix)
+  musicVolume = 0.35;
+  sfxVolume = 0.55;
   // Rolling-marble loop plumbing
   rollSource = null;
   rollGain = null;
   rollPlaying = false;
+  constructor() {
+    this.loadSettings();
+  }
+  loadSettings() {
+    const savedMusic = localStorage.getItem("mm_music_volume");
+    if (savedMusic !== null) this.musicVolume = Math.max(0, Math.min(1, parseFloat(savedMusic)));
+    const savedSfx = localStorage.getItem("mm_sfx_volume");
+    if (savedSfx !== null) this.sfxVolume = Math.max(0, Math.min(1, parseFloat(savedSfx)));
+    const savedMute = localStorage.getItem("mm_is_muted");
+    if (savedMute !== null) this.isMuted = savedMute === "true";
+  }
+  setMusicVolume(vol) {
+    this.musicVolume = Math.max(0, Math.min(1, vol));
+    localStorage.setItem("mm_music_volume", String(this.musicVolume));
+    if (this.currentBgm) {
+      this.currentBgm.volume = this.isMuted ? 0 : this.musicVolume;
+    }
+  }
+  setSfxVolume(vol) {
+    this.sfxVolume = Math.max(0, Math.min(1, vol));
+    localStorage.setItem("mm_sfx_volume", String(this.sfxVolume));
+  }
   /** Initialize AudioContext; must be called from a user-gesture handler. */
   init() {
     if (this.audioCtx) {
@@ -821,17 +856,6 @@ var SoundManager = class {
       this.audioCtx = null;
       return;
     }
-    const toDecode = [
-      "roll",
-      "bounce",
-      "fall",
-      "shatter",
-      "muncher",
-      "checkpoint",
-      "goal",
-      "springboard",
-      "item"
-    ];
     for (const [name, file] of Object.entries(SFX_TABLE)) {
       void this.loadBuffer(name, `${AUDIO_ROOT}${file}`);
     }
@@ -857,20 +881,20 @@ var SoundManager = class {
     const key = String(stageId);
     const file = BGM_TABLE[key];
     if (!file) return;
-    if (this.currentBgm && this.currentBgm.src.endsWith(file) && !this.currentBgm.paused) {
+    if (this.currentBgm && this.currentBgmKey === key && !this.currentBgm.paused) {
       return;
     }
     this.stopBgm();
-    if (this.isMuted) return;
+    this.currentBgmKey = key;
     const mapKey = `bgm:${file}`;
     let el = this.sounds.get(mapKey);
     if (!el) {
       el = new Audio(AUDIO_ROOT + file);
       el.loop = true;
       el.preload = "auto";
-      el.volume = 0.5;
       this.sounds.set(mapKey, el);
     }
+    el.volume = this.isMuted ? 0 : this.musicVolume;
     el.currentTime = 0;
     void el.play().catch((err) => {
       console.warn("[SoundManager] bgm play blocked:", err);
@@ -888,17 +912,15 @@ var SoundManager = class {
       this.currentBgm.currentTime = 0;
       this.currentBgm = null;
     }
+    this.currentBgmKey = "";
   }
   /**
-   * Play a one-shot sound effect. `volume` (0..1) scales the default
-   * full-scale mix. No-ops when muted or before init().
+   * Play a one-shot sound effect. `volume` (0..1) scales the default mix.
    */
   playSfx(name, volume = 1) {
     if (this.isMuted) return;
-    if (name === "roll") {
-      return;
-    }
-    this.playBuffer(name, volume);
+    if (name === "roll") return;
+    this.playBuffer(name, volume * this.sfxVolume);
   }
   playBuffer(key, volume) {
     const ctx = this.audioCtx;
@@ -963,13 +985,12 @@ var SoundManager = class {
   }
   /**
    * Drive the looping roll sound from marble speed.
-   * @param speedRatio 0 = stopped (silence), 1 = full roll speed.
    */
   setRollVolume(speedRatio) {
     const ctx = this.audioCtx;
     if (!ctx) return;
     const clamped = Math.max(0, Math.min(1, speedRatio));
-    const wanted = !this.isMuted && clamped > 0.02;
+    const wanted = !this.isMuted && clamped > 0.02 && this.sfxVolume > 0.01;
     if (!this.rollPlaying && wanted) {
       this.startRollLoop();
       return;
@@ -982,7 +1003,7 @@ var SoundManager = class {
       this.stopRollLoop();
       return;
     }
-    const targetGain = 0.15 + clamped * 0.55;
+    const targetGain = (0.12 + clamped * 0.48) * this.sfxVolume;
     if (this.rollGain) {
       const now = ctx.currentTime;
       this.rollGain.gain.cancelScheduledValues(now);
@@ -1004,7 +1025,7 @@ var SoundManager = class {
     if (!ctx) return;
     const buf = this.sounds.get("roll");
     if (!buf || !(buf instanceof AudioBuffer)) {
-      void this.loadBuffer("roll", `${AUDIO_ROOT}roll.mp3`);
+      void this.loadBuffer("roll", `${AUDIO_ROOT}marble-049.mp3`);
       return;
     }
     const src = ctx.createBufferSource();
@@ -1012,7 +1033,7 @@ var SoundManager = class {
     src.buffer = buf;
     src.loop = true;
     src.playbackRate.value = 1;
-    gain.gain.value = 0.25;
+    gain.gain.value = 0.2 * this.sfxVolume;
     src.connect(gain).connect(ctx.destination);
     src.start(0);
     this.rollSource = src;
@@ -1037,13 +1058,17 @@ var SoundManager = class {
   setMuted(muted) {
     if (this.isMuted === muted) return;
     this.isMuted = muted;
+    localStorage.setItem("mm_is_muted", String(muted));
     if (muted) {
-      this.stopBgm();
+      if (this.currentBgm) this.currentBgm.volume = 0;
       this.stopRollLoop();
     } else {
-      if (this.currentBgm && this.currentBgm.paused) {
-        void this.currentBgm.play().catch(() => {
-        });
+      if (this.currentBgm) {
+        this.currentBgm.volume = this.musicVolume;
+        if (this.currentBgm.paused) {
+          void this.currentBgm.play().catch(() => {
+          });
+        }
       }
     }
   }
@@ -1062,11 +1087,6 @@ var SoundManager = class {
       }
     }
     this.sounds.clear();
-    if (this.audioCtx && this.audioCtx.state !== "closed") {
-      void this.audioCtx.close().catch(() => {
-      });
-    }
-    this.audioCtx = null;
   }
 };
 var soundManager = new SoundManager();
@@ -1077,9 +1097,9 @@ var CAM_YAW = -45;
 var FOV = 30;
 var CAM_BACK = 62;
 var DT = 1 / 60;
-var MAX_SPEED = 0.32;
-var MAX_SPEED_AIR = 0.65;
-var TERMINAL_FALL = 1.05;
+var MAX_SPEED = 0.16;
+var MAX_SPEED_AIR = 0.28;
+var TERMINAL_FALL = 0.65;
 var SPIKE_BOUNCE = 0.42;
 var CHECKPOINT_BONUS = 1e3;
 var ITEM_BONUS = 500;
@@ -1114,10 +1134,11 @@ var PhysicsEngine = class {
   level;
   marble;
   events = {};
-  GRAVITY = -0.015;
-  ACCEL = 0.014;
-  BRAKE_DRAG = 0.86;
-  SHATTER_VELOCITY = -0.42;
+  GRAVITY = -0.011;
+  ACCEL = 7e-3;
+  // Tuned for responsive, authentic arcade trackball momentum
+  BRAKE_DRAG = 0.88;
+  SHATTER_VELOCITY = -0.36;
   // Falling faster than this splatters marble!
   constructor(level) {
     this.level = level;
@@ -1251,7 +1272,7 @@ var PhysicsEngine = class {
       m.vz += input.steerZ * steerForce;
       const [nx, ny, nz] = groundInfo.normal;
       if (ny < 0.99) {
-        const slopeGravity = 0.018;
+        const slopeGravity = 9e-3;
         m.vx += nx * slopeGravity * (1 - ny);
         m.vz += nz * slopeGravity * (1 - ny);
       }
@@ -1794,6 +1815,7 @@ var HudManager = class {
   }
   showCountdown(seconds, stageName) {
     if (!this.countdownOverlay) return;
+    this.countdownOverlay.style.display = "flex";
     this.countdownOverlay.classList.add("show");
     if (this.countdownTitleEl) this.countdownTitleEl.textContent = stageName.toUpperCase();
     this.updateCountdown(seconds);
@@ -1808,7 +1830,9 @@ var HudManager = class {
     }
   }
   hideCountdown() {
-    this.countdownOverlay?.classList.remove("show");
+    if (!this.countdownOverlay) return;
+    this.countdownOverlay.classList.remove("show");
+    this.countdownOverlay.style.display = "none";
   }
   showNameEntry(score, rank, isAI, onSubmit) {
     if (!this.nameEntryModal) return;
@@ -1901,17 +1925,72 @@ var HudManager = class {
       const isCurrent = i === currentStage;
       courseButtons += `<button class="click" data-stage="${i}" ${isCurrent ? 'aria-current="true"' : ""}>STAGE ${i}</button>`;
     }
+    const musicPct = Math.round(soundManager.musicVolume * 100);
+    const sfxPct = Math.round(soundManager.sfxVolume * 100);
     this.menuEl.innerHTML = `
-      <img src="/images/marbletriangle.png" style="width:52px;height:auto;margin-bottom:8px;filter:drop-shadow(0 0 10px rgba(255,59,92,0.6));" alt="Marble Logo" />
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:4px">
+        <img src="/sprites/retro_logo.png" style="max-width:280px;height:auto;image-rendering:pixelated;filter:drop-shadow(0 0 12px rgba(255,59,92,0.7));" alt="Marble Madness Arcade" />
+      </div>
       <h1 class="title">${isGameOver ? "GAME OVER" : "MARBLE MADNESS"}</h1>
       <div class="sub">${isGameOver ? `FINAL SCORE: ${finalScore}` : "3D ISOMETRIC ARCADE RUN \xB7 MULTIPLAYER SHARED WORLD"}</div>
+      
+      <!-- Retro Sprite Showcase (Blue Marble & Red Rival & Enemies) -->
+      <div class="retro-marquee">
+        <img src="/sprites/marbles_blue/frame_00.png" class="retro-marble-anim" id="menu-marble-b" alt="Player Marble" />
+        <span style="font-size:10.5px;color:var(--cool);letter-spacing:0.1em">ORIGINAL 1986 ARCADE SPRITE PHYSICS</span>
+        <img src="/sprites/marbles_red/frame_00.png" class="retro-marble-anim" id="menu-marble-r" alt="Rival Marble" />
+      </div>
+
       <div class="courses">${courseButtons}</div>
+
+      <!-- In-Game Audio Volume Sliders -->
+      <div class="volume-group click">
+        <div class="vol-control">
+          <span>\u{1F3B5} MUSIC</span>
+          <input type="range" id="menu-music-vol" min="0" max="100" value="${musicPct}" />
+          <span class="vol-val" id="menu-music-val">${musicPct}%</span>
+        </div>
+        <div class="vol-control">
+          <span>\u{1F50A} SFX</span>
+          <input type="range" id="menu-sfx-vol" min="0" max="100" value="${sfxPct}" />
+          <span class="vol-val" id="menu-sfx-val">${sfxPct}%</span>
+        </div>
+      </div>
+
       <button class="go click" id="menu-resume">${isGameOver ? "PLAY AGAIN" : "PRESS START"}</button>
       <div class="fine">
         Steer with Device Tilt (Mobile Rotameter), Touch Joystick, or Arrow Keys / WASD.<br>
         Multiplayer: Bump into other marbles to knock them off balance (+250 pts) or off ledges (+2500 pts vs Opposing Intelligence)!
       </div>
     `;
+    let animFrame = 0;
+    const mbImg = this.menuEl.querySelector("#menu-marble-b");
+    const mrImg = this.menuEl.querySelector("#menu-marble-r");
+    const interval = setInterval(() => {
+      if (!this.isMenuOpen()) {
+        clearInterval(interval);
+        return;
+      }
+      animFrame = (animFrame + 1) % 14;
+      const fStr = animFrame.toString().padStart(2, "0");
+      if (mbImg) mbImg.src = `/sprites/marbles_blue/frame_${fStr}.png`;
+      if (mrImg) mrImg.src = `/sprites/marbles_red/frame_${fStr}.png`;
+    }, 90);
+    const musicSlider = this.menuEl.querySelector("#menu-music-vol");
+    const musicVal = this.menuEl.querySelector("#menu-music-val");
+    const sfxSlider = this.menuEl.querySelector("#menu-sfx-vol");
+    const sfxVal = this.menuEl.querySelector("#menu-sfx-val");
+    musicSlider?.addEventListener("input", (e) => {
+      const val = parseInt(e.target.value, 10);
+      soundManager.setMusicVolume(val / 100);
+      if (musicVal) musicVal.textContent = `${val}%`;
+    });
+    sfxSlider?.addEventListener("input", (e) => {
+      const val = parseInt(e.target.value, 10);
+      soundManager.setSfxVolume(val / 100);
+      if (sfxVal) sfxVal.textContent = `${val}%`;
+      soundManager.playSfx("bounce", 1);
+    });
     this.menuEl.querySelectorAll("button[data-stage]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const stage = parseInt(e.currentTarget.getAttribute("data-stage") || "1", 10);
@@ -32412,8 +32491,8 @@ var GameRenderer = class {
     }
     this.marbleShadow.position.set(marble.x, Math.max(0, marble.y - MABLE_R + 0.01), marble.z);
     this.localLabelSprite.position.set(marble.x, marble.y + 0.65, marble.z);
-    if (marble.speed > 0.22 && marble.grounded) {
-      this.emitSkidMarks([marble.x, marble.y, marble.z], marble.speed / 0.32);
+    if (marble.speed > 0.11 && marble.grounded) {
+      this.emitSkidMarks([marble.x, marble.y, marble.z], marble.speed / 0.16);
     }
     this.syncRemotePlayers(remotePlayers, stageId);
     for (const h of hazards) {
@@ -33610,12 +33689,17 @@ var GameManager = class {
     const splashEl = document.getElementById("splash-screen");
     const splashBtn = document.getElementById("splash-start-btn");
     const startFromSplash = async () => {
-      this.startAudio();
-      await this.input.requestDeviceOrientationPermission();
-      this.input.calibrateNow();
+      try {
+        this.startAudio();
+        await this.input.requestDeviceOrientationPermission();
+        this.input.calibrateNow();
+      } catch (err) {
+        console.warn("[Splash] Audio/orientation init err:", err);
+      }
       if (splashEl) {
         splashEl.classList.add("fade-out");
-        setTimeout(() => splashEl.remove(), 600);
+        splashEl.style.display = "none";
+        splashEl.remove();
       }
       this.startCountdownSequence();
     };
@@ -33626,6 +33710,19 @@ var GameManager = class {
       });
     }
     if (splashEl) {
+      let splashFrame = 0;
+      const spB = document.getElementById("splash-marble-b");
+      const spR = document.getElementById("splash-marble-r");
+      const splashInterval = setInterval(() => {
+        if (!document.getElementById("splash-screen")) {
+          clearInterval(splashInterval);
+          return;
+        }
+        splashFrame = (splashFrame + 1) % 14;
+        const fStr = splashFrame.toString().padStart(2, "0");
+        if (spB) spB.src = `/sprites/marbles_blue/frame_${fStr}.png`;
+        if (spR) spR.src = `/sprites/marbles_red/frame_${fStr}.png`;
+      }, 90);
       splashEl.addEventListener("click", (e) => {
         const target = e.target;
         if (target.closest(".lb-container") || target.closest("button") || target.closest("table")) {
@@ -33959,7 +34056,7 @@ var GameManager = class {
         }
       );
       if (this.physics.marble.grounded) {
-        soundManager.setRollVolume(this.physics.marble.speed / 0.32);
+        soundManager.setRollVolume(this.physics.marble.speed / 0.16);
       } else {
         soundManager.setRollVolume(0);
       }
@@ -34011,6 +34108,7 @@ var GameManager = class {
 window.addEventListener("DOMContentLoaded", () => {
   console.log("[Marble Madness] Starting game engine...");
   const game = new GameManager();
+  window.game = game;
   let lastTime = performance.now();
   function loop(now) {
     const dt = Math.min(0.1, (now - lastTime) / 1e3);

@@ -121,18 +121,23 @@ export class GameManager {
     const splashEl = document.getElementById('splash-screen');
     const splashBtn = document.getElementById('splash-start-btn');
 
-    const startFromSplash = async () => {
-      this.startAudio();
-      await this.input.requestDeviceOrientationPermission();
-      this.input.calibrateNow();
+      const startFromSplash = async () => {
+        try {
+          this.startAudio();
+          await this.input.requestDeviceOrientationPermission();
+          this.input.calibrateNow();
+        } catch (err) {
+          console.warn('[Splash] Audio/orientation init err:', err);
+        }
 
-      if (splashEl) {
-        splashEl.classList.add('fade-out');
-        setTimeout(() => splashEl.remove(), 600);
-      }
+        if (splashEl) {
+          splashEl.classList.add('fade-out');
+          splashEl.style.display = 'none';
+          splashEl.remove();
+        }
 
-      this.startCountdownSequence();
-    };
+        this.startCountdownSequence();
+      };
 
     if (splashBtn) {
       splashBtn.addEventListener('click', (e) => {
@@ -141,6 +146,21 @@ export class GameManager {
       });
     }
     if (splashEl) {
+      // Splash marble animation
+      let splashFrame = 0;
+      const spB = document.getElementById('splash-marble-b') as HTMLImageElement | null;
+      const spR = document.getElementById('splash-marble-r') as HTMLImageElement | null;
+      const splashInterval = setInterval(() => {
+        if (!document.getElementById('splash-screen')) {
+          clearInterval(splashInterval);
+          return;
+        }
+        splashFrame = (splashFrame + 1) % 14;
+        const fStr = splashFrame.toString().padStart(2, '0');
+        if (spB) spB.src = `/sprites/marbles_blue/frame_${fStr}.png`;
+        if (spR) spR.src = `/sprites/marbles_red/frame_${fStr}.png`;
+      }, 90);
+
       splashEl.addEventListener('click', (e) => {
         const target = e.target as HTMLElement;
         if (target.closest('.lb-container') || target.closest('button') || target.closest('table')) {
@@ -529,7 +549,7 @@ export class GameManager {
 
       // Audio roll pitch & volume
       if (this.physics.marble.grounded) {
-        soundManager.setRollVolume(this.physics.marble.speed / 0.32);
+        soundManager.setRollVolume(this.physics.marble.speed / 0.16);
       } else {
         soundManager.setRollVolume(0);
       }

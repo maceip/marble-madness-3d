@@ -1,10 +1,10 @@
 /**
- * SoundManager — centralized audio for marble stages.
+ * SoundManager — centralized audio for marble stages with custom Music & SFX sliders.
  *
  * Bgm is streamed via HTMLAudioElement (mp3 files under www/audio/).
  * Sfx are decoded into AudioBuffers and played through WebAudio for
  * low-latency, overlapping playback. A looping roll sound is managed
- * via a persistent AudioBufferSourceNode whose gain tracks marble speed.
+ * via a persistent AudioBufferSourceNode whose gain tracks marble speed and SFX volume.
  */
 
 export type SfxName =
@@ -19,15 +19,15 @@ export type SfxName =
   | 'item';
 
 const BGM_TABLE: Record<string, string> = {
-  intro: 'marble-056.mp3',
-  '1': 'marble-073.mp3',
-  '2': 'marble-075.mp3',
-  '3': 'marble-069.mp3',
-  '4': 'marble-066.mp3',
-  '5': 'marble-077.mp3',
-  '6': 'marble-079.mp3',
-  '7': 'marble-081.mp3',
-  '8': 'marble-067.mp3',
+  intro: 'marble-056.mp3', // Title / attract theme
+  '1': 'marble-073.mp3',   // Practice Race (Stage 1)
+  '2': 'marble-075.mp3',   // Beginner Race / Arctic (Stage 2)
+  '3': 'marble-069.mp3',   // Intermediate / Astral Spire (Stage 3)
+  '4': 'marble-066.mp3',   // Aerial / Pyramid Oasis (Stage 4)
+  '5': 'marble-077.mp3',   // Edgy Maze (Stage 5)
+  '6': 'marble-079.mp3',   // Dusty Trail (Stage 6)
+  '7': 'marble-081.mp3',   // Drillin' Rye (Stage 7)
+  '8': 'marble-067.mp3',   // Space Dementia / Ultimate Race (Stage 8)
 };
 
 const SFX_TABLE: Record<SfxName, string> = {
@@ -48,12 +48,45 @@ export class SoundManager {
   audioCtx: AudioContext | null = null;
   sounds: Map<string, HTMLAudioElement | AudioBuffer> = new Map();
   currentBgm: HTMLAudioElement | null = null;
+  currentBgmKey: string = '';
   isMuted: boolean = false;
+
+  // Dedicated Music and SFX volume sliders (default pleasant non-deafening mix)
+  public musicVolume = 0.35;
+  public sfxVolume = 0.55;
 
   // Rolling-marble loop plumbing
   private rollSource: AudioBufferSourceNode | null = null;
   private rollGain: GainNode | null = null;
   private rollPlaying = false;
+
+  constructor() {
+    this.loadSettings();
+  }
+
+  private loadSettings(): void {
+    const savedMusic = localStorage.getItem('mm_music_volume');
+    if (savedMusic !== null) this.musicVolume = Math.max(0, Math.min(1, parseFloat(savedMusic)));
+
+    const savedSfx = localStorage.getItem('mm_sfx_volume');
+    if (savedSfx !== null) this.sfxVolume = Math.max(0, Math.min(1, parseFloat(savedSfx)));
+
+    const savedMute = localStorage.getItem('mm_is_muted');
+    if (savedMute !== null) this.isMuted = savedMute === 'true';
+  }
+
+  public setMusicVolume(vol: number): void {
+    this.musicVolume = Math.max(0, Math.min(1, vol));
+    localStorage.setItem('mm_music_volume', String(this.musicVolume));
+    if (this.currentBgm) {
+      this.currentBgm.volume = this.isMuted ? 0 : this.musicVolume;
+    }
+  }
+
+  public setSfxVolume(vol: number): void {
+    this.sfxVolume = Math.max(0, Math.min(1, vol));
+    localStorage.setItem('mm_sfx_volume', String(this.sfxVolume));
+  }
 
   /** Initialize AudioContext; must be called from a user-gesture handler. */
   init(): void {
@@ -77,25 +110,10 @@ export class SoundManager {
       return;
     }
 
-    // Pre-decode looping / short sfx sources. 'roll' is the loop source;
-    // everything else is a one-shot.
-    const toDecode: SfxName[] = [
-      'roll',
-      'bounce',
-      'fall',
-      'shatter',
-      'muncher',
-      'checkpoint',
-      'goal',
-      'springboard',
-      'item',
-    ];
-
+    // Pre-decode looping / short sfx sources
     for (const [name, file] of Object.entries(SFX_TABLE)) {
       void this.loadBuffer(name, `${AUDIO_ROOT}${file}`);
     }
-
-    // Fire-fetch BGM elements lazily in playBgm; nothing else to preload.
   }
 
   private async loadBuffer(key: string, path: string): Promise<void> {
@@ -121,18 +139,16 @@ export class SoundManager {
     const file = BGM_TABLE[key];
     if (!file) return;
 
-    // Already playing the same track? Keep it.
     if (
       this.currentBgm &&
-      this.currentBgm.src.endsWith(file) &&
+      this.currentBgmKey === key &&
       !this.currentBgm.paused
     ) {
       return;
     }
 
     this.stopBgm();
-
-    if (this.isMuted) return;
+    this.currentBgmKey = key;
 
     const mapKey = `bgm:${file}`;
     let el = this.sounds.get(mapKey) as HTMLAudioElement | undefined;
@@ -141,13 +157,12 @@ export class SoundManager {
       el = new Audio(AUDIO_ROOT + file);
       el.loop = true;
       el.preload = 'auto';
-      el.volume = 0.5;
       this.sounds.set(mapKey, el);
     }
 
+    el.volume = this.isMuted ? 0 : this.musicVolume;
     el.currentTime = 0;
     void el.play().catch((err) => {
-      // Autoplay may be blocked until a gesture; retry after resume.
       console.warn('[SoundManager] bgm play blocked:', err);
       if (this.audioCtx?.state === 'suspended') {
         void this.audioCtx.resume().then(() => el!.play().catch(() => {}));
@@ -164,19 +179,16 @@ export class SoundManager {
       this.currentBgm.currentTime = 0;
       this.currentBgm = null;
     }
+    this.currentBgmKey = '';
   }
 
   /**
-   * Play a one-shot sound effect. `volume` (0..1) scales the default
-   * full-scale mix. No-ops when muted or before init().
+   * Play a one-shot sound effect. `volume` (0..1) scales the default mix.
    */
   playSfx(name: SfxName, volume = 1.0): void {
     if (this.isMuted) return;
-    if (name === 'roll') {
-      // roll is a loop; use setRollVolume / start-stop helpers instead.
-      return;
-    }
-    this.playBuffer(name, volume);
+    if (name === 'roll') return;
+    this.playBuffer(name, volume * this.sfxVolume);
   }
 
   private playBuffer(key: string, volume: number): void {
@@ -248,14 +260,13 @@ export class SoundManager {
 
   /**
    * Drive the looping roll sound from marble speed.
-   * @param speedRatio 0 = stopped (silence), 1 = full roll speed.
    */
   setRollVolume(speedRatio: number): void {
     const ctx = this.audioCtx;
     if (!ctx) return;
 
     const clamped = Math.max(0, Math.min(1, speedRatio));
-    const wanted = !this.isMuted && clamped > 0.02;
+    const wanted = !this.isMuted && clamped > 0.02 && this.sfxVolume > 0.01;
 
     if (!this.rollPlaying && wanted) {
       this.startRollLoop();
@@ -272,15 +283,13 @@ export class SoundManager {
       return;
     }
 
-    // Gain tracks speed: quiet when slow, louder when fast.
-    const targetGain = 0.15 + clamped * 0.55;
+    const targetGain = (0.12 + clamped * 0.48) * this.sfxVolume;
     if (this.rollGain) {
       const now = ctx.currentTime;
       this.rollGain.gain.cancelScheduledValues(now);
       this.rollGain.gain.setTargetAtTime(targetGain, now, 0.05);
     }
 
-    // Pitch the loop slightly with speed for a rolling feel.
     if (this.rollSource) {
       try {
         this.rollSource.playbackRate.setTargetAtTime(
@@ -289,7 +298,7 @@ export class SoundManager {
           0.1,
         );
       } catch {
-        /* older impls lack setTargetAtTime on AudioParam — ignore */
+        /* ignore */
       }
     }
   }
@@ -300,8 +309,7 @@ export class SoundManager {
 
     const buf = this.sounds.get('roll');
     if (!buf || !(buf instanceof AudioBuffer)) {
-      // Not loaded yet; try the fallback mp3 name, else skip this frame.
-      void this.loadBuffer('roll', `${AUDIO_ROOT}roll.mp3`);
+      void this.loadBuffer('roll', `${AUDIO_ROOT}marble-049.mp3`);
       return;
     }
 
@@ -310,7 +318,7 @@ export class SoundManager {
     src.buffer = buf;
     src.loop = true;
     src.playbackRate.value = 1;
-    gain.gain.value = 0.25;
+    gain.gain.value = 0.2 * this.sfxVolume;
     src.connect(gain).connect(ctx.destination);
     src.start(0);
 
@@ -339,14 +347,17 @@ export class SoundManager {
   setMuted(muted: boolean): void {
     if (this.isMuted === muted) return;
     this.isMuted = muted;
+    localStorage.setItem('mm_is_muted', String(muted));
 
     if (muted) {
-      this.stopBgm();
+      if (this.currentBgm) this.currentBgm.volume = 0;
       this.stopRollLoop();
     } else {
-      // Resume bgm on the last-known track if we still hold the element.
-      if (this.currentBgm && this.currentBgm.paused) {
-        void this.currentBgm.play().catch(() => {});
+      if (this.currentBgm) {
+        this.currentBgm.volume = this.musicVolume;
+        if (this.currentBgm.paused) {
+          void this.currentBgm.play().catch(() => {});
+        }
       }
     }
   }
@@ -367,12 +378,7 @@ export class SoundManager {
       }
     }
     this.sounds.clear();
-    if (this.audioCtx && this.audioCtx.state !== 'closed') {
-      void this.audioCtx.close().catch(() => {});
-    }
-    this.audioCtx = null;
   }
 }
 
 export const soundManager = new SoundManager();
-export default SoundManager;
