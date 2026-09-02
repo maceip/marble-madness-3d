@@ -3,6 +3,7 @@ import type { BuiltLevel } from '../data/build.js';
 import type { HazardInstance } from './hazards.js';
 import type { MarbleState } from './physics.js';
 import type { RemotePlayer } from './multiplayer.js';
+import type { RadarIndicator } from './renderer.js';
 import { retroLogo, retroSpriteStrip, retroText } from './retro-assets.js';
 
 export interface LeaderboardEntry {
@@ -29,8 +30,14 @@ export class HudManager {
   private fpsEl: HTMLElement | null;
   private mpCountEl: HTMLElement | null;
   private mpFeedEl: HTMLElement | null;
+  private zeroTiltBtn: HTMLElement | null;
+  private radarContainerEl: HTMLElement | null;
   private minimapCanvas: HTMLCanvasElement | null;
   private minimapCtx: CanvasRenderingContext2D | null;
+
+  // Offscreen canvas cache for minimap static terrain
+  public cachedMinimapCanvas: HTMLCanvasElement | null = null;
+  public cachedMinimapStage = -1;
 
   // Leaderboard and Countdown UI elements
   private lbTableBody: HTMLElement | null;
@@ -42,6 +49,13 @@ export class HudManager {
   private nameEntrySubtitle: HTMLElement | null;
   private initialsInput: HTMLInputElement | null;
   private initialsSubmitBtn: HTMLElement | null;
+
+  // Spectator Mode UI elements
+  private spectatorOverlay: HTMLElement | null;
+  private spectatorTargetName: HTMLElement | null;
+  private specPrevBtn: HTMLElement | null;
+  private specNextBtn: HTMLElement | null;
+  private specRespawnBtn: HTMLElement | null;
 
   private leaderboardData: LeaderboardEntry[] = [];
   private activeFilter: 'ALL' | 'NI' | 'AI' = 'ALL';
@@ -56,6 +70,10 @@ export class HudManager {
   public onRestartGame?: () => void;
   public onNameSubmitted?: (initials: string) => void;
   public onMusicVolumeChange?: (volume: number) => void;
+  public onZeroTilt?: () => void;
+  public onSpectatorPrev?: () => void;
+  public onSpectatorNext?: () => void;
+  public onSpectatorRespawn?: () => void;
   public musicVolume = 0.16;
 
   constructor() {
@@ -71,6 +89,8 @@ export class HudManager {
     this.fpsEl = document.getElementById('fps');
     this.mpCountEl = document.getElementById('mp-count');
     this.mpFeedEl = document.getElementById('mp-feed');
+    this.zeroTiltBtn = document.getElementById('btn-zero-tilt');
+    this.radarContainerEl = document.getElementById('mp-radar');
     this.minimapCanvas = document.getElementById('minimap') as HTMLCanvasElement | null;
     this.minimapCtx = this.minimapCanvas?.getContext('2d') ?? null;
 
@@ -83,6 +103,21 @@ export class HudManager {
     this.nameEntrySubtitle = document.getElementById('name-entry-subtitle');
     this.initialsInput = document.getElementById('player-initials-input') as HTMLInputElement | null;
     this.initialsSubmitBtn = document.getElementById('player-initials-submit');
+
+    this.spectatorOverlay = document.getElementById('spectator-overlay');
+    this.spectatorTargetName = document.getElementById('spectator-target-name');
+    this.specPrevBtn = document.getElementById('spec-prev-btn');
+    this.specNextBtn = document.getElementById('spec-next-btn');
+    this.specRespawnBtn = document.getElementById('spec-respawn-btn');
+
+    this.zeroTiltBtn?.addEventListener('click', () => {
+      this.onZeroTilt?.();
+      this.showBanner('🎯 TILT RE-CENTERED', 'NEUTRAL POSITION SET', 1200);
+    });
+
+    this.specPrevBtn?.addEventListener('click', () => this.onSpectatorPrev?.());
+    this.specNextBtn?.addEventListener('click', () => this.onSpectatorNext?.());
+    this.specRespawnBtn?.addEventListener('click', () => this.onSpectatorRespawn?.());
 
     this.bindLeaderboardTabs();
     this.bindNameEntry();
@@ -337,7 +372,16 @@ export class HudManager {
     if (!this.menuEl) return;
     this.menuEl.classList.remove('hidden');
 
-    const courseNames = ['PINK GARDENS', 'ARCTIC ADVENTURE', 'ASTRAL SPIRE', 'PYRAMID OASIS', 'EDGY MAZE', 'DUSTY TRAIL', "DRILLIN' RYE", 'SPACE DEMENTIA'];
+    const courseNames = [
+      'PRACTICE RACE',
+      'PYRAMID OASIS',
+      'ASTRAL SPIRE',
+      'BEGINNER RACE',
+      'AERIAL RACE',
+      'SILLY RACE',
+      'ULTIMATE RACE',
+      'SPACE DEMENTIA',
+    ];
     let courseButtons = '';
     for (let i = 1; i <= stageCount; i++) {
       const isCurrent = i === currentStage;
@@ -468,51 +512,75 @@ export class HudManager {
 
     const W = level.layout.W;
     const H = level.layout.H;
+    const targetHeight = Math.round((H / W) * 120);
 
-    canvas.width = 120;
-    canvas.height = Math.round((H / W) * 120);
+    // Prerender static course terrain once per level change to an offscreen canvas
+    if (
+      this.cachedMinimapStage !== currentStage ||
+      !this.cachedMinimapCanvas ||
+      this.cachedMinimapCanvas.width !== 120 ||
+      this.cachedMinimapCanvas.height !== targetHeight
+    ) {
+      if (canvas.width !== 120) canvas.width = 120;
+      if (canvas.height !== targetHeight) canvas.height = targetHeight;
 
-    ctx.fillStyle = '#0b0e18dd';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+      if (!this.cachedMinimapCanvas) {
+        this.cachedMinimapCanvas = document.createElement('canvas');
+      }
+      this.cachedMinimapCanvas.width = 120;
+      this.cachedMinimapCanvas.height = targetHeight;
+
+      const offCtx = this.cachedMinimapCanvas.getContext('2d');
+      if (offCtx) {
+        offCtx.fillStyle = '#0b0e18dd';
+        offCtx.fillRect(0, 0, 120, targetHeight);
+
+        const cellW = 120 / W;
+        const cellH = targetHeight / H;
+
+        // Draw static terrain tiles
+        for (let r = 0; r < H; r++) {
+          for (let c = 0; c < W; c++) {
+            const cell = level.layout.cells[r * W + c];
+            if (!cell || cell.surf === 'void') continue;
+
+            switch (cell.surf) {
+              case 'wall':
+              case 'rock':
+              case 'tree':
+                offCtx.fillStyle = '#3a4466';
+                break;
+              case 'water':
+                offCtx.fillStyle = '#2277cc';
+                break;
+              case 'sand':
+                offCtx.fillStyle = '#c2a649';
+                break;
+              case 'snow':
+                offCtx.fillStyle = '#cde2f5';
+                break;
+              case 'glass':
+              case 'holo':
+                offCtx.fillStyle = '#44eecc';
+                break;
+              default:
+                offCtx.fillStyle = '#1e263d';
+                break;
+            }
+            offCtx.fillRect(c * cellW, r * cellH, cellW - 0.5, cellH - 0.5);
+          }
+        }
+      }
+      this.cachedMinimapStage = currentStage;
+    }
+
+    // Fast single blit of pre-rendered terrain buffer
+    ctx.drawImage(this.cachedMinimapCanvas, 0, 0);
 
     const cellW = canvas.width / W;
     const cellH = canvas.height / H;
 
-    // Draw terrain
-    for (let r = 0; r < H; r++) {
-      for (let c = 0; c < W; c++) {
-        const cell = level.layout.cells[r * W + c];
-        if (!cell || cell.surf === 'void') continue;
-
-        switch (cell.surf) {
-          case 'wall':
-          case 'rock':
-          case 'tree':
-            ctx.fillStyle = '#3a4466';
-            break;
-          case 'water':
-            ctx.fillStyle = '#2277cc';
-            break;
-          case 'sand':
-            ctx.fillStyle = '#c2a649';
-            break;
-          case 'snow':
-            ctx.fillStyle = '#cde2f5';
-            break;
-          case 'glass':
-          case 'holo':
-            ctx.fillStyle = '#44eecc';
-            break;
-          default:
-            ctx.fillStyle = '#1e263d';
-            break;
-        }
-
-        ctx.fillRect(c * cellW, r * cellH, cellW - 0.5, cellH - 0.5);
-      }
-    }
-
-    // Draw hazards and pickups
+    // Draw dynamic hazards and pickups
     for (const h of hazards) {
       if (!h.active) continue;
       if (h.def.kind === 'goal') {
@@ -547,5 +615,50 @@ export class HudManager {
     ctx.arc(marble.x * cellW, marble.z * cellH, 3.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
+  }
+
+  public updateRadarIndicators(indicators: RadarIndicator[]): void {
+    if (!this.radarContainerEl) return;
+    if (indicators.length === 0) {
+      if (this.radarContainerEl.children.length > 0) {
+        this.radarContainerEl.innerHTML = '';
+      }
+      return;
+    }
+
+    let html = '';
+    for (const ind of indicators) {
+      const isAI = ind.intelligence === 'AI';
+      const intelBadge = isAI ? '🤖' : '🧠';
+      const alertClass = ind.isAlert ? ' alert' : '';
+      const tagColor = ind.color;
+      html += `
+        <div class="radar-marker${alertClass}" style="left:${ind.screenX}px;top:${ind.screenY}px">
+          <div class="radar-chevron" style="transform:rotate(${ind.angle}rad);border-bottom-color:${tagColor}"></div>
+          <div class="radar-tag" style="border-color:${tagColor}">
+            <span>${intelBadge} ${ind.name}</span>
+            <span style="color:var(--warn);margin-left:3px">${ind.distance}m</span>
+          </div>
+        </div>
+      `;
+    }
+    this.radarContainerEl.innerHTML = html;
+  }
+
+  public showSpectatorMode(targetName: string, intel: 'AI' | 'NI' = 'NI'): void {
+    if (!this.spectatorOverlay) return;
+    this.spectatorOverlay.classList.remove('hidden');
+    this.updateSpectatorTarget(targetName, intel);
+  }
+
+  public hideSpectatorMode(): void {
+    this.spectatorOverlay?.classList.add('hidden');
+  }
+
+  public updateSpectatorTarget(targetName: string, intel: 'AI' | 'NI' = 'NI'): void {
+    if (this.spectatorTargetName) {
+      const badge = intel === 'AI' ? '🤖' : '🧠';
+      this.spectatorTargetName.textContent = `${badge} ${targetName}`;
+    }
   }
 }

@@ -71,6 +71,7 @@ export class InputManager {
   public onToggleMenu?: () => void;
   public onToggleCamera?: () => void;
   public onToggleMute?: () => void;
+  public onCalibrate?: () => void;
 
   private joyEl: HTMLElement | null = null;
   private knobEl: HTMLElement | null = null;
@@ -104,6 +105,10 @@ export class InputManager {
       if (e.code === 'Escape' && this.onToggleMenu) this.onToggleMenu();
       if (e.code === 'KeyC' && this.onToggleCamera) this.onToggleCamera();
       if (e.code === 'KeyM' && this.onToggleMute) this.onToggleMute();
+      if (e.code === 'KeyT') {
+        this.calibrateNow();
+        if (this.onCalibrate) this.onCalibrate();
+      }
     });
 
     window.addEventListener('keyup', (e) => {
@@ -146,6 +151,36 @@ export class InputManager {
 
     if (this.joyEl) {
       this.joyEl.classList.add('on');
+
+      // Floating dynamic joystick: repositions to thumb touch on left half of screen
+      window.addEventListener(
+        'touchstart',
+        (e) => {
+          const touch = e.touches[0];
+          if (!touch) return;
+          const target = e.target as HTMLElement | null;
+          if (
+            target?.closest &&
+            (target.closest('#hud button') ||
+              target.closest('.click') ||
+              target.closest('#spectator-overlay') ||
+              target.closest('#brake'))
+          ) {
+            return;
+          }
+
+          if (touch.clientX < window.innerWidth * 0.65) {
+            this.joyEl!.style.left = `${touch.clientX}px`;
+            this.joyEl!.style.top = `${touch.clientY}px`;
+            this.joyEl!.style.bottom = 'auto';
+            this.joyEl!.style.transform = 'translate(-50%, -50%)';
+            this.joyCenter = [touch.clientX, touch.clientY];
+            this.joyActive = true;
+            this.updateJoyTouch(touch.clientX, touch.clientY);
+          }
+        },
+        { passive: true },
+      );
 
       this.joyEl.addEventListener('touchstart', (e) => {
         e.preventDefault();

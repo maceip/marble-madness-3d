@@ -51,7 +51,12 @@ export type HazardKind =
   | 'springboard'
   | 'checkpoint'
   | 'goal'
-  | 'item';
+  | 'item'
+  | 'funnel' // Funnel hopper / curved suction pipe
+  | 'tube' // Enclosed pipe / transport chute
+  | 'spigot' // Vertical drop hopper pipe with launch elbow
+  | 'windmill' // Rotating 4-paddle mechanical hazard
+  | 'canopy'; // 3D tunnel canopy with occlusion
 
 export interface HazardDef {
   kind: HazardKind;
@@ -78,6 +83,24 @@ export interface HazardDef {
   points?: number;
   /** follow a course path (snakes, in course 3/5) */
   path?: [number, number][];
+  /** Target exit cell coordinates for funnels/tubes/spigots */
+  targetX?: number;
+  targetY?: number;
+  targetZ?: number;
+  /** 3D spline trajectory for tube travel */
+  curvePath?: [number, number, number][];
+  /** Velocity vector when exiting the tube [vx, vy, vz] */
+  exitVelocity?: [number, number, number];
+  /** Rotation speed (rad/s) for rotating obstacles like the windmill */
+  rotationSpeed?: number;
+  /** Collision radius for radial obstacles like windmills */
+  radius?: number;
+  /** Number of blades / paddles (e.g. 4 for Stage 7 windmill) */
+  paddles?: number;
+  /** Custom tint color string */
+  tubeColor?: string;
+  /** Dimensions for canopies/archways [width, height, depth] */
+  dims?: [number, number, number];
 }
 
 export type SurfaceId = CellDef['surf'];

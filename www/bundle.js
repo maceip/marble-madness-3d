@@ -215,7 +215,7 @@ function axisStep(low, high) {
   return Math.max(-MAX_STEP, Math.min(MAX_STEP, Math.round((high - low) / 2)));
 }
 
-// src/data/levels.ts
+// src/data/levels_legacy.ts
 function pad(rows, fill = " ") {
   const w = Math.max(...rows.map((r) => r.length));
   return rows.map((r) => r.padEnd(w, fill));
@@ -771,6 +771,702 @@ var DEFS = [
 ];
 var LEVELS = DEFS.map((def) => buildLevel(def));
 
+// src/data/levels.ts
+function pad2(rows, fill = " ") {
+  const w = Math.max(...rows.map((r) => r.length));
+  return rows.map((r) => r.padEnd(w, fill));
+}
+var DEFS2 = [
+  // =====================================================================
+  // 1. PRACTICE RACE (Stage 1.png)
+  //    Checkered slopes, upper pits with red railings, twin spires with
+  //    stairs & tunnel, downward chicane, curved S-chute, and sunken GOAL tube.
+  // =====================================================================
+  {
+    id: 1,
+    name: "Practice Race",
+    subtitle: "The original downhill run \u2014 ride the waves",
+    theme: "practice",
+    sourceArt: "Stage 1.png",
+    baseHeight: 16,
+    time: 65,
+    start: [12.4, 2.4],
+    layout: pad2([
+      "       ffffffffffff       ",
+      "      f............f      ",
+      "     f......P.......f     ",
+      "     f..............f     ",
+      "    ff...##....##...ff    ",
+      "    f....##....##....f    ",
+      "    f................f    ",
+      "    f................f    ",
+      "    f....########....f    ",
+      "    f....#..P...#....f    ",
+      "    f....#......#....f    ",
+      "    f....########....f    ",
+      "    f................f    ",
+      "    f................f    ",
+      "    f....########....f    ",
+      "     f..............f     ",
+      "     f..............f     ",
+      "     f..............f     ",
+      "      ff..........ff      ",
+      "       f..........f       ",
+      "       f..........f       ",
+      "        f........f        ",
+      "        f........f        ",
+      "        f...bb...f        ",
+      "        f...bb...f        ",
+      "         f......f         ",
+      "         f......f         ",
+      "         f..ff..f         ",
+      "         f..ff..f         ",
+      "          f....f          ",
+      "          f....f          ",
+      "          f.bb.f          ",
+      "          f.bb.f          ",
+      "          f....f          ",
+      "          f....f          ",
+      "          f.$..f          ",
+      "           ffff           "
+    ]),
+    patches: {
+      cells: {
+        "8,1:16,3": { surf: "path", h: 10 },
+        "12,2": { surf: "path", h: 10, prop: "checkpoint" },
+        "9,4:10,5": { surf: "wall", h: 10, solid: true },
+        "15,4:16,5": { surf: "wall", h: 10, solid: true },
+        "8,6:17,8": { surf: "path", h: 9 },
+        // Twin spires courtyard & tunnel
+        "9,9:16,11": { surf: "path", h: 8 },
+        "12,9": { surf: "path", h: 8, prop: "checkpoint" },
+        "9,8:16,8": { surf: "metal", h: 9, solid: true },
+        "9,12:16,12": { surf: "metal", h: 9, solid: true },
+        // Mid plateau
+        "9,13:16,18": { surf: "path", h: 7 },
+        "8,14:8,18": { surf: "metal", h: 8, solid: true },
+        "17,14:17,18": { surf: "metal", h: 8, solid: true },
+        // Curved S-chute
+        "8,19:15,22": { surf: "path", h: 6, fall: "S" },
+        "9,23:14,26": { surf: "path", h: 5, fall: "SW" },
+        "10,24": { surf: "path", h: 5, prop: "checkpoint" },
+        "10,27:15,30": { surf: "path", h: 4, fall: "SE" },
+        "11,31:14,34": { surf: "path", h: 3, fall: "S" },
+        "11,33": { surf: "path", h: 3, prop: "checkpoint" },
+        // Sunken GOAL tube
+        "11,35:14,36": { surf: "metal", h: 2 },
+        "12,35": { surf: "metal", h: 2, prop: "goal" }
+      }
+    },
+    hazards: [
+      { kind: "steelie", x: 12, z: 16, h: 7, range: 2.5 },
+      { kind: "muncher", x: 12, z: 28, h: 4 }
+    ]
+  },
+  // =====================================================================
+  // 2. PYRAMID OASIS (Stage 2.png)
+  //    Great Pyramid tomb entrance, desert dunes, black hieroglyph obelisks,
+  //    sunken oasis pool, stepped bridge over deep blue water to dual finish pads.
+  // =====================================================================
+  {
+    id: 2,
+    name: "Pyramid Oasis",
+    subtitle: "Pharaohs sands \u2014 obelisks and the sunken oasis",
+    theme: "egyptian",
+    sourceArt: "Stage 2.png",
+    baseHeight: 18,
+    time: 100,
+    start: [14.4, 3.4],
+    layout: pad2([
+      "    kkkkkkkkkkkkkkkkkk    ",
+      "   k~~~~~~~~~~~~~~~~~~k   ",
+      "   k~~~~~~~~~~~~~~~~~~k   ",
+      "   k~~~~~~~P~~~~~~~~~~k   ",
+      "   k~~~~~~~~~~~~~~~~~~k   ",
+      "   k~~..kk......kk..~~k   ",
+      "   k~~..kk......kk..~~k   ",
+      "   k~~..............~~k   ",
+      "   k~~..jj......jj..~~k   ",
+      "   k~~..jj......jj..~~k   ",
+      "   k~~..............~~k   ",
+      "   k~~..##......##..~~k   ",
+      "   k~~..##......##..~~k   ",
+      "   k~~..............~~k   ",
+      "   k~~..............~~k   ",
+      "   k~~bbbb......ffff~~k   ",
+      "   k~~bbbb......ffff~~k   ",
+      "   k~~~~~~~~~~~~~~~~~~k   ",
+      "   k~~~~..P....P..~~~~k   ",
+      "   k~~~~..........~~~~k   ",
+      "   k~~~~...====...~~~~k   ",
+      "   k~~~~...====...~~~~k   ",
+      "   k~~~~...====...~~~~k   ",
+      "   k~~~~..........~~~~k   ",
+      "   k~~~~..........~~~~k   ",
+      "   k~~~~...ffff...~~~~k   ",
+      "   k~~~~...ffff...~~~~k   ",
+      "   k~~~~...mmmm...~~~~k   ",
+      "   k~~~~...mmmm...~~~~k   ",
+      "   k~~gg..........gg~~k   ",
+      "   k~~$g..........g$~~k   ",
+      "    kkkkkkkkkkkkkkkkkk    "
+    ]),
+    patches: {
+      cells: {
+        "4,1:19,4": { surf: "sand", h: 10 },
+        "14,3": { surf: "sand", h: 10, prop: "checkpoint" },
+        "7,5:9,6": { surf: "rock", h: 10, solid: true },
+        "15,5:17,6": { surf: "rock", h: 10, solid: true },
+        "7,8:9,9": { surf: "metal", h: 10 },
+        "15,8:17,9": { surf: "metal", h: 10 },
+        // Giant black obelisks with gold hieroglyphs
+        "7,11:9,12": { surf: "wall", h: 9, solid: true },
+        "15,11:17,12": { surf: "wall", h: 9, solid: true },
+        "5,15:8,16": { surf: "sand", h: 8, fall: "SW" },
+        "15,15:18,16": { surf: "sand", h: 8, fall: "SE" },
+        "6,18": { surf: "sand", h: 7, prop: "checkpoint" },
+        "16,18": { surf: "sand", h: 7, prop: "checkpoint" },
+        // Sunken oasis water pool
+        "9,20:14,22": { surf: "water", h: 0 },
+        "9,25:14,26": { surf: "sand", h: 5, fall: "SE" },
+        "9,27:14,28": { surf: "metal", h: 4 },
+        // Dual checkered finish pads over water
+        "5,29:7,30": { surf: "glass", h: 3 },
+        "16,29:18,30": { surf: "glass", h: 3 },
+        "6,30": { surf: "glass", h: 3, prop: "goal" },
+        "17,30": { surf: "glass", h: 3, prop: "goal" }
+      }
+    },
+    hazards: [
+      { kind: "steelie", x: 12, z: 10, h: 9, range: 3.5 },
+      { kind: "muncher", x: 14, z: 23, h: 6 },
+      { kind: "bomber", x: 12, z: 6, h: 14, period: 4.6, axis: "x", range: 4, speed: 0.28 }
+    ]
+  },
+  // =====================================================================
+  // 3. ASTRAL SPIRE (Stage 3.png)
+  //    Celestial blue citadel with carved stone face relief plaques, gold star murals,
+  //    pipe chute drop, stepped ziggurat terraces, and terrace maze.
+  // =====================================================================
+  {
+    id: 3,
+    name: "Astral Spire",
+    subtitle: "Celestial citadel \u2014 star murals and ziggurat terraces",
+    theme: "celestial",
+    sourceArt: "Stage 3.png",
+    baseHeight: 20,
+    time: 110,
+    start: [18.4, 2.4],
+    layout: pad2([
+      "       ########gggggg#       ",
+      "      #........gggggg.#      ",
+      "     #.........P.......#     ",
+      "     #........bbbbbb...#     ",
+      "    #.........bbbbbb....#    ",
+      "    #..##kkkkkkkk##.....#    ",
+      "    #..#..........#.....#    ",
+      "    #..#..........#.....#    ",
+      "    #..#..ffffffff#.....#    ",
+      "    #..#..ffffffff#.....#    ",
+      "    #..#..##....##......#    ",
+      "    #..#................#    ",
+      "    #..#..000000..#.....#    ",
+      "    #..#..000000..#.....#    ",
+      "    #..#..bbbbbb..#.....#    ",
+      "    #..#..bbbbbb..#.....#    ",
+      "    #..#..........#.....#    ",
+      "    #..#..P.......#.....#    ",
+      "    #..#..........#.....#    ",
+      "    #..#..ffffffff#.....#    ",
+      "    #..#..ffffffff#.....#    ",
+      "    #..##kkkkkkkk##.....#    ",
+      "    #...................#    ",
+      "    #..222222222222.....#    ",
+      "    #..244444444422.....#    ",
+      "    #..246666664422.....#    ",
+      "    #..246k..k64422.....#    ",
+      "    #..246k.$k64422.....#    ",
+      "    #..246666664422.....#    ",
+      "    #..244444444422.....#    ",
+      "    #..222222222222.....#    ",
+      "    #####################    "
+    ]),
+    patches: {
+      cells: {
+        "8,0:16,0": { surf: "wall", h: 14, solid: true },
+        "15,0:20,3": { surf: "glass", h: 14 },
+        "18,2": { surf: "path", h: 14, prop: "checkpoint" },
+        // Upper tier & chute drop hole
+        "6,3:17,4": { surf: "path", h: 12, fall: "SW" },
+        "7,5:16,5": { surf: "wall", h: 12, solid: true },
+        // Chute hole transport down to mid terrace
+        "20,8": { surf: "metal", h: 12, prop: "item" },
+        "6,8:16,9": { surf: "path", h: 10, fall: "SE" },
+        "7,12:14,13": { surf: "water", h: 0 },
+        "6,14:16,15": { surf: "path", h: 8, fall: "SW" },
+        "10,17": { surf: "path", h: 7, prop: "checkpoint" },
+        "7,19:16,20": { surf: "path", h: 6, fall: "SE" },
+        // Stepped ziggurat terraces & Goal
+        "5,23:18,30": { surf: "path", h: 4 },
+        "8,25:15,28": { surf: "path", h: 6 },
+        "10,26:13,27": { surf: "path", h: 8 },
+        "11,27": { surf: "path", h: 8, prop: "goal" }
+      }
+    },
+    hazards: [
+      { kind: "funnel", x: 20, z: 8, h: 12, targetX: 12, targetY: 7, targetZ: 17, period: 0.75 },
+      { kind: "steelie", x: 12, z: 10, h: 10, range: 3.5 },
+      { kind: "bat", x: 12, z: 6, h: 16, period: 3.6, axis: "x", range: 4, speed: 0.3 },
+      { kind: "blade", x: 9, z: 11, h: 10, period: 3.2, axis: "x", range: 3.5, speed: 0.28 },
+      { kind: "muncher", x: 10, z: 24, h: 5 }
+    ]
+  },
+  // =====================================================================
+  // 4. BEGINNER RACE (Stage 4.png)
+  //    4 square hazard pits, 3 pyramid spires, PURPLE FUNNEL PIPES with
+  //    suction & flared mouths, corrugated wave bridge, branched tube,
+  //    and translucent ice pond with GOAL ramp.
+  // =====================================================================
+  {
+    id: 4,
+    name: "Beginner Race",
+    subtitle: "The Funnel Chutes \u2014 tubes, wave bridges and ice pond",
+    theme: "funnels",
+    sourceArt: "Stage 4.png",
+    baseHeight: 22,
+    time: 90,
+    start: [12.4, 2.4],
+    layout: pad2([
+      "       ffffffffffff       ",
+      "      f............f      ",
+      "     f......P.......f     ",
+      "     f..##......##..f     ",
+      "     f..##......##..f     ",
+      "     f..............f     ",
+      "     f......##......f     ",
+      "     f......##......f     ",
+      "     f..............f     ",
+      "     f..............f     ",
+      "     f..##..##..##..f     ",
+      "     f..##..##..##..f     ",
+      "     f..............f     ",
+      "     f..............f     ",
+      "     f..ssss..ssss..f     ",
+      "     f..ssss..ssss..f     ",
+      "     f..............f     ",
+      "     f..............f     ",
+      "     f........mm....f     ",
+      "     f........mm....f     ",
+      "     f..............f     ",
+      "     f..ssssssssss..f     ",
+      "     f..ssssssssss..f     ",
+      "     f..............f     ",
+      "     f..............f     ",
+      "     f....mm..mm....f     ",
+      "     f....mm..mm....f     ",
+      "     f..............f     ",
+      "     f..iiiiiiiiii..f     ",
+      "     f..iiiiiiiiii..f     ",
+      "     f..iiii##iiii..f     ",
+      "     f..iiii##iiii..f     ",
+      "     f..iiiiiiiiii..f     ",
+      "     f..............f     ",
+      "     f......$.......f     ",
+      "      ffffffffffffff      "
+    ]),
+    patches: {
+      cells: {
+        "8,1:16,3": { surf: "path", h: 14 },
+        "12,2": { surf: "path", h: 14, prop: "checkpoint" },
+        // Top 4 pits
+        "9,3:10,4": { surf: "void" },
+        "15,3:16,4": { surf: "void" },
+        "12,6:13,7": { surf: "void" },
+        // 3 Pyramid spires
+        "9,10:10,11": { surf: "rock", h: 13, solid: true },
+        "12,10:13,11": { surf: "rock", h: 13, solid: true },
+        "15,10:16,11": { surf: "rock", h: 13, solid: true },
+        // Middle terrace
+        "8,12:16,13": { surf: "path", h: 12 },
+        "12,13": { surf: "path", h: 12, prop: "checkpoint" },
+        // Steep ramp
+        "9,14:15,15": { surf: "path", h: 11, fall: "S" },
+        // First Purple Funnel Pipe
+        "14,18:15,19": { surf: "metal", h: 10 },
+        // Corrugated wave bridge
+        "9,21:15,22": { surf: "path", h: 9, fall: "S" },
+        // Branched Purple Funnel Tube
+        "10,25:11,26": { surf: "metal", h: 7 },
+        "14,25:15,26": { surf: "metal", h: 7 },
+        // Translucent blue ice pond
+        "8,28:16,32": { surf: "snow", h: 4 },
+        "12,30:13,31": { surf: "rock", h: 5, solid: true },
+        // Exit runout & Goal
+        "9,33:15,34": { surf: "path", h: 3 },
+        "12,34": { surf: "path", h: 3, prop: "goal" }
+      }
+    },
+    hazards: [
+      // 1. Purple Funnel Pipe (hopper at 15,18 -> exit at 12,23)
+      {
+        kind: "funnel",
+        x: 15,
+        z: 18,
+        h: 10,
+        targetX: 12,
+        targetY: 9,
+        targetZ: 23,
+        period: 0.8,
+        exitVelocity: [0, -0.02, 0.18],
+        tubeColor: "#8833cc"
+      },
+      // 2. Branched Funnel Pipe (inlet 1 at 10,25 -> exit at 12,28)
+      {
+        kind: "tube",
+        x: 10.5,
+        z: 25.5,
+        h: 7,
+        targetX: 12,
+        targetY: 4,
+        targetZ: 28,
+        period: 0.7,
+        exitVelocity: [0.05, -0.05, 0.16],
+        tubeColor: "#8833cc"
+      },
+      // 3. Branched Funnel Pipe (inlet 2 at 14,25 -> exit at 12,28)
+      {
+        kind: "tube",
+        x: 14.5,
+        z: 25.5,
+        h: 7,
+        targetX: 12,
+        targetY: 4,
+        targetZ: 28,
+        period: 0.7,
+        exitVelocity: [-0.05, -0.05, 0.16],
+        tubeColor: "#8833cc"
+      },
+      { kind: "steelie", x: 12, z: 12, h: 12, range: 3 },
+      { kind: "muncher", x: 12, z: 21, h: 9 }
+    ]
+  },
+  // =====================================================================
+  // 5. AERIAL RACE / HIGH DIVE (Stage 5.png)
+  //    Twin high launch towers, High Dive chasm drop onto stepping stones,
+  //    vertical funnel drop pipe (spigot), acid pools, curved green ramps to GOAL.
+  // =====================================================================
+  {
+    id: 5,
+    name: "Aerial Race",
+    subtitle: "High Dive \u2014 launch towers, drop pipe and acid pools",
+    theme: "aerial",
+    sourceArt: "Stage 5.png",
+    baseHeight: 24,
+    time: 105,
+    start: [12.4, 2.4],
+    layout: pad2([
+      "   ##ffffffffffff##   ",
+      "   #..............#   ",
+      "   #......P.......#   ",
+      "   #..............#   ",
+      "   #..##########..#   ",
+      "   #..............#   ",
+      "   #..............#   ",
+      "   #..##########..#   ",
+      "   #..............#   ",
+      "   #......kk......#   ",
+      "   #......kk......#   ",
+      "   #..............#   ",
+      "   #....kk..kk....#   ",
+      "   #....kk..kk....#   ",
+      "   #..............#   ",
+      "   #......mm......#   ",
+      "   #......mm......#   ",
+      "   #..............#   ",
+      "   #..==========..#   ",
+      "   #..==========..#   ",
+      "   #..............#   ",
+      "   #..ssssssssss..#   ",
+      "   #..ssssssssss..#   ",
+      "   #..............#   ",
+      "   #......$.......#   ",
+      "    ##############    "
+    ]),
+    patches: {
+      cells: {
+        "4,1:19,3": { surf: "path", h: 18 },
+        "12,2": { surf: "path", h: 18, prop: "checkpoint" },
+        // Launch towers on left and right
+        "3,0:5,3": { surf: "wall", h: 22, solid: true },
+        "18,0:20,3": { surf: "wall", h: 22, solid: true },
+        // High Dive Chasm Drop onto stepping stones
+        "5,4:18,8": { surf: "void" },
+        "11,9:13,10": { surf: "rock", h: 12 },
+        // Stone 1
+        "8,12:10,13": { surf: "rock", h: 9 },
+        // Stone 2
+        "14,12:16,13": { surf: "rock", h: 9 },
+        // Stone 3
+        // Middle terrace with Funnel Drop Pipe (Spigot)
+        "9,15:15,17": { surf: "path", h: 7 },
+        "12,15": { surf: "metal", h: 7 },
+        "12,17": { surf: "path", h: 7, prop: "checkpoint" },
+        // Acid pool along bottom
+        "6,18:17,19": { surf: "water", h: 0 },
+        // 3 Curved sloped green ramps
+        "7,21:16,22": { surf: "path", h: 4, fall: "S" },
+        // Catwalk to GOAL
+        "8,23:15,24": { surf: "path", h: 2 },
+        "12,24": { surf: "path", h: 2, prop: "goal" }
+      }
+    },
+    hazards: [
+      // Funnel Drop Pipe (Spigot): drops from top hopper to bottom launch elbow
+      {
+        kind: "spigot",
+        x: 12.5,
+        z: 15.5,
+        h: 7,
+        targetX: 12.5,
+        targetY: 4,
+        targetZ: 21,
+        period: 0.75,
+        exitVelocity: [0, 0, 0.22],
+        tubeColor: "#aa5533"
+      },
+      { kind: "steelie", x: 12, z: 16, h: 7, range: 2.5 },
+      { kind: "muncher", x: 12, z: 23, h: 2 }
+    ]
+  },
+  // =====================================================================
+  // 6. SILLY RACE / THE RED CLIFFS (Stage 6.png)
+  //    Overhead suspension bridge between red cliffs, narrow zigzag ledges,
+  //    sloped black canopy tunnel (with 3D occlusion), and cliff archway tunnel.
+  // =====================================================================
+  {
+    id: 6,
+    name: "Silly Race",
+    subtitle: "The Red Cliffs \u2014 suspension bridge and cliff archways",
+    theme: "red_cliffs",
+    sourceArt: "Stage 6.png",
+    baseHeight: 24,
+    time: 110,
+    start: [11.4, 2.4],
+    layout: pad2([
+      "   ##ffffffffffff##   ",
+      "   #..............#   ",
+      "   #......P.......#   ",
+      "   #..mmmmmmmmmm..#   ",
+      "   #..mmmmmmmmmm..#   ",
+      "   #..............#   ",
+      "   #..ssssssssss..#   ",
+      "   #..ssssssssss..#   ",
+      "   #..............#   ",
+      "   #..bbbbbbbbbb..#   ",
+      "   #..bbbbbbbbbb..#   ",
+      "   #..............#   ",
+      "   #..ffffffffff..#   ",
+      "   #..ffffffffff..#   ",
+      "   #..............#   ",
+      "   #..ssssssssss..#   ",
+      "   #..ssssssssss..#   ",
+      "   #..............#   ",
+      "   #......$.......#   ",
+      "    ##############    "
+    ]),
+    patches: {
+      cells: {
+        "3,0:5,4": { surf: "wall", h: 22, solid: true },
+        "17,0:19,4": { surf: "wall", h: 22, solid: true },
+        // Overhead suspension bridge
+        "6,3:16,4": { surf: "metal", h: 20 },
+        "11,2": { surf: "metal", h: 20, prop: "checkpoint" },
+        // Steep ramps & narrow zigzag ledges
+        "6,6:16,7": { surf: "path", h: 16, fall: "S" },
+        "6,9:16,10": { surf: "path", h: 13, fall: "SW" },
+        "11,11": { surf: "path", h: 13, prop: "checkpoint" },
+        "6,12:16,13": { surf: "path", h: 10, fall: "SE" },
+        // Archway tunnel & canopy
+        "6,15:16,16": { surf: "path", h: 7, fall: "S" },
+        // Finish catwalk & GOAL
+        "8,17:15,18": { surf: "path", h: 4 },
+        "11,18": { surf: "path", h: 4, prop: "goal" }
+      }
+    },
+    hazards: [
+      // Canopy roof tunnel with 3D depth occlusion
+      {
+        kind: "canopy",
+        x: 11,
+        z: 9,
+        h: 14,
+        dims: [4, 1.4, 3],
+        tubeColor: "#1a1a20"
+      },
+      // Cliff archway tunnel with 3D depth occlusion
+      {
+        kind: "canopy",
+        x: 11,
+        z: 15,
+        h: 8,
+        dims: [4, 1.4, 3],
+        tubeColor: "#762110"
+      },
+      { kind: "steelie", x: 11, z: 12, h: 10, range: 3 },
+      { kind: "muncher", x: 11, z: 17, h: 4 }
+    ]
+  },
+  // =====================================================================
+  // 7. ULTIMATE RACE / SWISS CHEESE (Stage 7.png)
+  //    Yellow cliff walls with orange polka dots (Swiss cheese), crisscrossing
+  //    bridges, dark sunken maze, and the central ROTATING 4-PADDLE WINDMILL.
+  // =====================================================================
+  {
+    id: 7,
+    name: "Ultimate Race",
+    subtitle: "Swiss Cheese & The Windmill \u2014 mechanical chaos",
+    theme: "swiss_cheese",
+    sourceArt: "Stage 7.png",
+    baseHeight: 22,
+    time: 120,
+    start: [12.4, 24.4],
+    layout: pad2([
+      "       ffffffffffff       ",
+      "      f............f      ",
+      "     f......$.......f     ",
+      "     f..............f     ",
+      "     f..ffff..bbbb..f     ",
+      "     f..ffff..bbbb..f     ",
+      "     f..............f     ",
+      "     f..............f     ",
+      "     f..bbbb..ffff..f     ",
+      "     f..bbbb..ffff..f     ",
+      "     f..............f     ",
+      "     f..............f     ",
+      "     f..kkkk..kkkk..f     ",
+      "     f..k..k..k..k..f     ",
+      "     f..kkkk..kkkk..f     ",
+      "     f..............f     ",
+      "     f..............f     ",
+      "     f..ffff..bbbb..f     ",
+      "     f..ffff..bbbb..f     ",
+      "     f..............f     ",
+      "     f......P.......f     ",
+      "     f..............f     ",
+      "      ffffffffffffff      "
+    ]),
+    patches: {
+      cells: {
+        // Start at lower section
+        "8,20:16,22": { surf: "path", h: 4 },
+        "12,20": { surf: "path", h: 4, prop: "checkpoint" },
+        // Crisscrossing ramp bridges
+        "9,17:15,18": { surf: "path", h: 6, fall: "S" },
+        // Sunken maze courtyard
+        "8,12:16,14": { surf: "path", h: 8 },
+        "10,13:11,13": { surf: "rock", h: 9, solid: true },
+        "13,13:14,13": { surf: "rock", h: 9, solid: true },
+        // Mid terrace with windmill
+        "8,9:16,11": { surf: "path", h: 10 },
+        "12,10": { surf: "path", h: 10, prop: "checkpoint" },
+        // Upper bridges
+        "9,4:15,5": { surf: "path", h: 13, fall: "N" },
+        // Elevated GOAL platform at top
+        "9,1:15,3": { surf: "path", h: 15 },
+        "12,2": { surf: "path", h: 15, prop: "goal" }
+      }
+    },
+    hazards: [
+      // The Rotating 4-Paddle Red Windmill
+      {
+        kind: "windmill",
+        x: 12,
+        z: 10,
+        h: 10,
+        radius: 3.2,
+        rotationSpeed: 2.8,
+        paddles: 4
+      },
+      { kind: "steelie", x: 12, z: 16, h: 7, range: 3 },
+      { kind: "muncher", x: 12, z: 7, h: 11 }
+    ]
+  },
+  // =====================================================================
+  // 8. SPACE DEMENTIA (Stage 8.png)
+  //    Deep space starfield, floating gold platforms with red perimeter sides,
+  //    triangular canopy tunnels (with 3D occlusion), cyan ice, elevated GOAL.
+  // =====================================================================
+  {
+    id: 8,
+    name: "Space Dementia",
+    subtitle: "Cosmic Orbit \u2014 floating platforms, canopies and cyan ice",
+    theme: "space",
+    sourceArt: "Stage 8.png",
+    baseHeight: 20,
+    time: 115,
+    start: [12.4, 2.4],
+    layout: pad2([
+      "       ffffffffffff       ",
+      "      f............f      ",
+      "     f......P.......f     ",
+      "     f..............f     ",
+      "     f..ssss..ssss..f     ",
+      "     f..ssss..ssss..f     ",
+      "     f..............f     ",
+      "     f..iiii..iiii..f     ",
+      "     f..iiii..iiii..f     ",
+      "     f..............f     ",
+      "     f..##......##..f     ",
+      "     f..##..gg..##..f     ",
+      "     f..##..gg..##..f     ",
+      "     f..##......##..f     ",
+      "     f..............f     ",
+      "     f..mmmmmmmmmm..f     ",
+      "     f..mmmmmmmmmm..f     ",
+      "     f..............f     ",
+      "     f......$.......f     ",
+      "      ffffffffffffff      "
+    ]),
+    patches: {
+      cells: {
+        "8,1:16,3": { surf: "path", h: 14 },
+        "12,2": { surf: "path", h: 14, prop: "checkpoint" },
+        // Ramps under triangular canopies
+        "9,4:15,5": { surf: "path", h: 12, fall: "S" },
+        // Slippery cyan ice patches
+        "9,7:15,8": { surf: "snow", h: 10 },
+        "12,9": { surf: "path", h: 10, prop: "checkpoint" },
+        // Elevated cyan glass pool with 4 corner spires
+        "8,10:16,13": { surf: "glass", h: 8 },
+        "9,10": { surf: "rock", h: 9, solid: true },
+        "15,10": { surf: "rock", h: 9, solid: true },
+        "9,13": { surf: "rock", h: 9, solid: true },
+        "15,13": { surf: "rock", h: 9, solid: true },
+        // Suspended black bridge
+        "10,15:14,16": { surf: "metal", h: 6 },
+        // Final golden platform & elevated GOAL
+        "9,17:15,18": { surf: "path", h: 5 },
+        "12,18": { surf: "path", h: 5, prop: "goal" }
+      }
+    },
+    hazards: [
+      // Triangular canopy tunnel 1 with 3D depth occlusion
+      {
+        kind: "canopy",
+        x: 12,
+        z: 4.5,
+        h: 13,
+        dims: [4, 1.2, 2.5],
+        tubeColor: "#ffaa00"
+      },
+      { kind: "steelie", x: 12, z: 9, h: 10, range: 3 },
+      { kind: "bomber", x: 12, z: 12, h: 16, period: 4.5, axis: "x", range: 4, speed: 0.26 },
+      { kind: "muncher", x: 12, z: 17, h: 5 }
+    ]
+  }
+];
+var LEVELS2 = DEFS2.map(buildLevel);
+
 // src/audio.ts
 var BGM_TABLE = {
   intro: "bgm/practice-race.mp3",
@@ -1203,6 +1899,8 @@ var PhysicsEngine = class {
     this.marble.skidding = false;
     this.marble.fallHeight = 0;
     this.marble.lastAirY = this.marble.y;
+    this.marble.inTube = false;
+    this.marble.tubeProgress = 0;
   }
   getGroundHeightAt(x, z) {
     const c = Math.floor(x);
@@ -1233,6 +1931,37 @@ var PhysicsEngine = class {
   update(input) {
     if (this.marble.dead || this.marble.shattered) return;
     const m = this.marble;
+    if (m.inTube) {
+      const dur = m.tubeDuration || 0.8;
+      m.tubeProgress = (m.tubeProgress ?? 0) + 1 / 60 / dur;
+      const pts = m.tubePath;
+      if (pts && pts.length >= 2) {
+        const t = Math.min(1, Math.max(0, m.tubeProgress));
+        const numSegments = pts.length - 1;
+        const segIdx = Math.min(numSegments - 1, Math.floor(t * numSegments));
+        const segT = t * numSegments - segIdx;
+        const p0 = pts[segIdx];
+        const p1 = pts[segIdx + 1];
+        m.x = p0[0] + (p1[0] - p0[0]) * segT;
+        m.y = p0[1] + (p1[1] - p0[1]) * segT;
+        m.z = p0[2] + (p1[2] - p0[2]) * segT;
+      }
+      if (m.tubeProgress >= 1) {
+        m.inTube = false;
+        if (m.tubeExitVel) {
+          m.vx = m.tubeExitVel[0];
+          m.vy = m.tubeExitVel[1];
+          m.vz = m.tubeExitVel[2];
+        } else {
+          m.vx = 0.05;
+          m.vy = 0;
+          m.vz = 0.12;
+        }
+        m.grounded = false;
+        m.lastAirY = m.y;
+      }
+      return;
+    }
     const groundInfo = this.getGroundHeightAt(m.x, m.z);
     m.currentCell = groundInfo.cell;
     let surfaceFriction = 0.984;
@@ -1421,15 +2150,17 @@ var HazardManager = class {
   hazards = [];
   events = {};
   activeCheckpoint = null;
+  level;
   constructor(level) {
     this.initLevel(level);
   }
   initLevel(level) {
+    this.level = level;
     this.hazards = [];
     this.activeCheckpoint = null;
     const allDefs = [...level.props, ...level.def.hazards];
     for (const def of allDefs) {
-      const hSteps = def.h ?? level.def.baseHeight;
+      const hSteps = level.def.baseHeight + (def.h ?? 0);
       const y = hSteps * STEP_H + 0.3;
       this.hazards.push({
         def,
@@ -1576,6 +2307,33 @@ var HazardManager = class {
           }
           break;
         }
+        case "windmill": {
+          h.rotation += dt * (h.def.rotationSpeed ?? 2.8);
+          const rad = h.def.radius ?? 3.2;
+          const dist2D = Math.hypot(marble.x - h.x, marble.z - h.z);
+          const dy = Math.abs(marble.y - h.y);
+          if (dist2D < rad && dy < 0.9 && !marble.dead) {
+            const currentAngle = Math.atan2(marble.z - h.z, marble.x - h.x);
+            for (let b = 0; b < 4; b++) {
+              const bladeAngle = (h.rotation + b * Math.PI / 2) % (Math.PI * 2);
+              let angleDiff = Math.abs(currentAngle - bladeAngle);
+              if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+              if (angleDiff < 0.28) {
+                const now = performance.now();
+                if (now - (h.cooldown ?? 0) > 400) {
+                  h.cooldown = now;
+                  const pushAngle = bladeAngle + Math.PI / 2;
+                  const impulse = 0.42;
+                  marble.vx += Math.cos(pushAngle) * impulse;
+                  marble.vz += Math.sin(pushAngle) * impulse;
+                  marble.vy += 0.28;
+                  if (this.events.onHitBat) this.events.onHitBat();
+                }
+              }
+            }
+          }
+          break;
+        }
       }
       if (h.active && !marble.dead) {
         const dx = h.x - marble.x;
@@ -1653,6 +2411,34 @@ var HazardManager = class {
               if (this.events.onKill) this.events.onKill("snake");
             }
             break;
+          case "springboard":
+            if (dist2D < 0.75 && Math.abs(dy) < 0.7) {
+              const now = performance.now();
+              if (now - (h.cooldown ?? 0) > 600) {
+                h.cooldown = now;
+                marble.vy = 0.44;
+                marble.grounded = false;
+                if (this.events.onHitBat) this.events.onHitBat();
+              }
+            }
+            break;
+          case "funnel":
+          case "tube":
+          case "spigot":
+            if (dist3D < 1.1 && !marble.inTube && !marble.dead) {
+              marble.inTube = true;
+              marble.tubeProgress = 0;
+              marble.tubeDuration = h.def.period ?? 0.8;
+              const targetWorldY = (this.level.def.baseHeight + (h.def.targetY ?? (h.def.h ?? 0))) * STEP_H + 0.3;
+              marble.tubePath = h.def.curvePath ?? [
+                [h.x, h.y, h.z],
+                [h.def.targetX ?? h.x, (h.y + targetWorldY) / 2, (h.z + (h.def.targetZ ?? h.z)) / 2],
+                [h.def.targetX ?? h.x, targetWorldY, h.def.targetZ ?? h.z + 2]
+              ];
+              marble.tubeExitVel = h.def.exitVelocity ?? [0.06, 0.02, 0.16];
+              if (this.events.onHitBat) this.events.onHitBat();
+            }
+            break;
         }
       }
     }
@@ -1681,11 +2467,14 @@ var RETRO_OBJECT_SPRITES = {
   bomber: "/sprites/enemies/enemy_145_10x7.png",
   snake: "/sprites/enemies/enemy_131_14x9.png",
   item: "/sprites/enemies/enemy_078_12x11.png",
-  checkpoint: "/sprites/enemies/enemy_056_32x37.png",
-  goal: "/sprites/enemies/enemy_057_32x37.png",
   steelie: "/sprites/enemies/enemy_000_14x14.png",
   muncher: "/sprites/enemies/enemy_020_14x14.png",
-  acid: "/sprites/enemies/enemy_124_12x10.png"
+  acid: "/sprites/enemies/enemy_035_22x13.png",
+  canopy: "/sprites/enemies/enemy_056_32x37.png",
+  funnel: "/sprites/enemies/enemy_071_24x22.png",
+  tube: "/sprites/enemies/enemy_070_16x22.png",
+  spigot: "/sprites/enemies/enemy_069_15x23.png",
+  piston: "/sprites/enemies/enemy_068_7x24.png"
 };
 
 // src/game/hud.ts
@@ -1702,8 +2491,13 @@ var HudManager = class {
   fpsEl;
   mpCountEl;
   mpFeedEl;
+  zeroTiltBtn;
+  radarContainerEl;
   minimapCanvas;
   minimapCtx;
+  // Offscreen canvas cache for minimap static terrain
+  cachedMinimapCanvas = null;
+  cachedMinimapStage = -1;
   // Leaderboard and Countdown UI elements
   lbTableBody;
   countdownOverlay;
@@ -1714,6 +2508,12 @@ var HudManager = class {
   nameEntrySubtitle;
   initialsInput;
   initialsSubmitBtn;
+  // Spectator Mode UI elements
+  spectatorOverlay;
+  spectatorTargetName;
+  specPrevBtn;
+  specNextBtn;
+  specRespawnBtn;
   leaderboardData = [];
   activeFilter = "ALL";
   bannerTimeout = null;
@@ -1725,6 +2525,10 @@ var HudManager = class {
   onRestartGame;
   onNameSubmitted;
   onMusicVolumeChange;
+  onZeroTilt;
+  onSpectatorPrev;
+  onSpectatorNext;
+  onSpectatorRespawn;
   musicVolume = 0.16;
   constructor() {
     this.scoreEl = document.getElementById("score");
@@ -1739,6 +2543,8 @@ var HudManager = class {
     this.fpsEl = document.getElementById("fps");
     this.mpCountEl = document.getElementById("mp-count");
     this.mpFeedEl = document.getElementById("mp-feed");
+    this.zeroTiltBtn = document.getElementById("btn-zero-tilt");
+    this.radarContainerEl = document.getElementById("mp-radar");
     this.minimapCanvas = document.getElementById("minimap");
     this.minimapCtx = this.minimapCanvas?.getContext("2d") ?? null;
     this.lbTableBody = document.getElementById("lb-table-body");
@@ -1750,6 +2556,18 @@ var HudManager = class {
     this.nameEntrySubtitle = document.getElementById("name-entry-subtitle");
     this.initialsInput = document.getElementById("player-initials-input");
     this.initialsSubmitBtn = document.getElementById("player-initials-submit");
+    this.spectatorOverlay = document.getElementById("spectator-overlay");
+    this.spectatorTargetName = document.getElementById("spectator-target-name");
+    this.specPrevBtn = document.getElementById("spec-prev-btn");
+    this.specNextBtn = document.getElementById("spec-next-btn");
+    this.specRespawnBtn = document.getElementById("spec-respawn-btn");
+    this.zeroTiltBtn?.addEventListener("click", () => {
+      this.onZeroTilt?.();
+      this.showBanner("\u{1F3AF} TILT RE-CENTERED", "NEUTRAL POSITION SET", 1200);
+    });
+    this.specPrevBtn?.addEventListener("click", () => this.onSpectatorPrev?.());
+    this.specNextBtn?.addEventListener("click", () => this.onSpectatorNext?.());
+    this.specRespawnBtn?.addEventListener("click", () => this.onSpectatorRespawn?.());
     this.bindLeaderboardTabs();
     this.bindNameEntry();
   }
@@ -1952,7 +2770,16 @@ var HudManager = class {
   showMenu(stageCount, currentStage, isGameOver = false, finalScore = 0) {
     if (!this.menuEl) return;
     this.menuEl.classList.remove("hidden");
-    const courseNames = ["PINK GARDENS", "ARCTIC ADVENTURE", "ASTRAL SPIRE", "PYRAMID OASIS", "EDGY MAZE", "DUSTY TRAIL", "DRILLIN' RYE", "SPACE DEMENTIA"];
+    const courseNames = [
+      "PRACTICE RACE",
+      "PYRAMID OASIS",
+      "ASTRAL SPIRE",
+      "BEGINNER RACE",
+      "AERIAL RACE",
+      "SILLY RACE",
+      "ULTIMATE RACE",
+      "SPACE DEMENTIA"
+    ];
     let courseButtons = "";
     for (let i = 1; i <= stageCount; i++) {
       const isCurrent = i === currentStage;
@@ -2061,42 +2888,57 @@ var HudManager = class {
     if (!ctx || !canvas) return;
     const W = level.layout.W;
     const H = level.layout.H;
-    canvas.width = 120;
-    canvas.height = Math.round(H / W * 120);
-    ctx.fillStyle = "#0b0e18dd";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const targetHeight = Math.round(H / W * 120);
+    if (this.cachedMinimapStage !== currentStage || !this.cachedMinimapCanvas || this.cachedMinimapCanvas.width !== 120 || this.cachedMinimapCanvas.height !== targetHeight) {
+      if (canvas.width !== 120) canvas.width = 120;
+      if (canvas.height !== targetHeight) canvas.height = targetHeight;
+      if (!this.cachedMinimapCanvas) {
+        this.cachedMinimapCanvas = document.createElement("canvas");
+      }
+      this.cachedMinimapCanvas.width = 120;
+      this.cachedMinimapCanvas.height = targetHeight;
+      const offCtx = this.cachedMinimapCanvas.getContext("2d");
+      if (offCtx) {
+        offCtx.fillStyle = "#0b0e18dd";
+        offCtx.fillRect(0, 0, 120, targetHeight);
+        const cellW2 = 120 / W;
+        const cellH2 = targetHeight / H;
+        for (let r = 0; r < H; r++) {
+          for (let c = 0; c < W; c++) {
+            const cell = level.layout.cells[r * W + c];
+            if (!cell || cell.surf === "void") continue;
+            switch (cell.surf) {
+              case "wall":
+              case "rock":
+              case "tree":
+                offCtx.fillStyle = "#3a4466";
+                break;
+              case "water":
+                offCtx.fillStyle = "#2277cc";
+                break;
+              case "sand":
+                offCtx.fillStyle = "#c2a649";
+                break;
+              case "snow":
+                offCtx.fillStyle = "#cde2f5";
+                break;
+              case "glass":
+              case "holo":
+                offCtx.fillStyle = "#44eecc";
+                break;
+              default:
+                offCtx.fillStyle = "#1e263d";
+                break;
+            }
+            offCtx.fillRect(c * cellW2, r * cellH2, cellW2 - 0.5, cellH2 - 0.5);
+          }
+        }
+      }
+      this.cachedMinimapStage = currentStage;
+    }
+    ctx.drawImage(this.cachedMinimapCanvas, 0, 0);
     const cellW = canvas.width / W;
     const cellH = canvas.height / H;
-    for (let r = 0; r < H; r++) {
-      for (let c = 0; c < W; c++) {
-        const cell = level.layout.cells[r * W + c];
-        if (!cell || cell.surf === "void") continue;
-        switch (cell.surf) {
-          case "wall":
-          case "rock":
-          case "tree":
-            ctx.fillStyle = "#3a4466";
-            break;
-          case "water":
-            ctx.fillStyle = "#2277cc";
-            break;
-          case "sand":
-            ctx.fillStyle = "#c2a649";
-            break;
-          case "snow":
-            ctx.fillStyle = "#cde2f5";
-            break;
-          case "glass":
-          case "holo":
-            ctx.fillStyle = "#44eecc";
-            break;
-          default:
-            ctx.fillStyle = "#1e263d";
-            break;
-        }
-        ctx.fillRect(c * cellW, r * cellH, cellW - 0.5, cellH - 0.5);
-      }
-    }
     for (const h of hazards) {
       if (!h.active) continue;
       if (h.def.kind === "goal") {
@@ -2127,6 +2969,46 @@ var HudManager = class {
     ctx.arc(marble.x * cellW, marble.z * cellH, 3.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
+  }
+  updateRadarIndicators(indicators) {
+    if (!this.radarContainerEl) return;
+    if (indicators.length === 0) {
+      if (this.radarContainerEl.children.length > 0) {
+        this.radarContainerEl.innerHTML = "";
+      }
+      return;
+    }
+    let html = "";
+    for (const ind of indicators) {
+      const isAI = ind.intelligence === "AI";
+      const intelBadge = isAI ? "\u{1F916}" : "\u{1F9E0}";
+      const alertClass = ind.isAlert ? " alert" : "";
+      const tagColor = ind.color;
+      html += `
+        <div class="radar-marker${alertClass}" style="left:${ind.screenX}px;top:${ind.screenY}px">
+          <div class="radar-chevron" style="transform:rotate(${ind.angle}rad);border-bottom-color:${tagColor}"></div>
+          <div class="radar-tag" style="border-color:${tagColor}">
+            <span>${intelBadge} ${ind.name}</span>
+            <span style="color:var(--warn);margin-left:3px">${ind.distance}m</span>
+          </div>
+        </div>
+      `;
+    }
+    this.radarContainerEl.innerHTML = html;
+  }
+  showSpectatorMode(targetName, intel = "NI") {
+    if (!this.spectatorOverlay) return;
+    this.spectatorOverlay.classList.remove("hidden");
+    this.updateSpectatorTarget(targetName, intel);
+  }
+  hideSpectatorMode() {
+    this.spectatorOverlay?.classList.add("hidden");
+  }
+  updateSpectatorTarget(targetName, intel = "NI") {
+    if (this.spectatorTargetName) {
+      const badge = intel === "AI" ? "\u{1F916}" : "\u{1F9E0}";
+      this.spectatorTargetName.textContent = `${badge} ${targetName}`;
+    }
   }
 };
 
@@ -13908,12 +14790,12 @@ var Sprite = class extends Object3D {
     _uvA.set(0, 0);
     _uvB.set(1, 0);
     _uvC.set(1, 1);
-    let intersect = raycaster.ray.intersectTriangle(_vA$1, _vB$1, _vC$1, false, _intersectPoint);
-    if (intersect === null) {
+    let intersect2 = raycaster.ray.intersectTriangle(_vA$1, _vB$1, _vC$1, false, _intersectPoint);
+    if (intersect2 === null) {
       transformVertex(_vB$1.set(-0.5, 0.5, 0), _mvPosition, center, _worldScale, sin, cos);
       _uvB.set(0, 1);
-      intersect = raycaster.ray.intersectTriangle(_vA$1, _vC$1, _vB$1, false, _intersectPoint);
-      if (intersect === null) {
+      intersect2 = raycaster.ray.intersectTriangle(_vA$1, _vC$1, _vB$1, false, _intersectPoint);
+      if (intersect2 === null) {
         return;
       }
     }
@@ -14588,13 +15470,13 @@ var Mesh = class extends Object3D {
   }
 };
 function checkIntersection$1(object, material, raycaster, ray, pA, pB, pC, point) {
-  let intersect;
+  let intersect2;
   if (material.side === BackSide) {
-    intersect = ray.intersectTriangle(pC, pB, pA, true, point);
+    intersect2 = ray.intersectTriangle(pC, pB, pA, true, point);
   } else {
-    intersect = ray.intersectTriangle(pA, pB, pC, material.side === FrontSide, point);
+    intersect2 = ray.intersectTriangle(pA, pB, pC, material.side === FrontSide, point);
   }
-  if (intersect === null) return null;
+  if (intersect2 === null) return null;
   _intersectionPointWorld.copy(point);
   _intersectionPointWorld.applyMatrix4(object.matrixWorld);
   const distance = raycaster.ray.origin.distanceTo(_intersectionPointWorld);
@@ -14662,6 +15544,242 @@ var DataTexture = class extends Texture {
     this.generateMipmaps = false;
     this.flipY = false;
     this.unpackAlignment = 1;
+  }
+};
+var InstancedBufferAttribute = class extends BufferAttribute {
+  /**
+   * Constructs a new instanced buffer attribute.
+   *
+   * @param {TypedArray} array - The array holding the attribute data.
+   * @param {number} itemSize - The item size.
+   * @param {boolean} [normalized=false] - Whether the data are normalized or not.
+   * @param {number} [meshPerAttribute=1] - How often a value of this buffer attribute should be repeated.
+   */
+  constructor(array, itemSize, normalized, meshPerAttribute = 1) {
+    super(array, itemSize, normalized);
+    this.isInstancedBufferAttribute = true;
+    this.meshPerAttribute = meshPerAttribute;
+  }
+  copy(source) {
+    super.copy(source);
+    this.meshPerAttribute = source.meshPerAttribute;
+    return this;
+  }
+  toJSON() {
+    const data = super.toJSON();
+    data.meshPerAttribute = this.meshPerAttribute;
+    data.isInstancedBufferAttribute = true;
+    return data;
+  }
+};
+var _instanceLocalMatrix = /* @__PURE__ */ new Matrix4();
+var _instanceWorldMatrix = /* @__PURE__ */ new Matrix4();
+var _instanceIntersects = [];
+var _box3 = /* @__PURE__ */ new Box3();
+var _identity = /* @__PURE__ */ new Matrix4();
+var _mesh$1 = /* @__PURE__ */ new Mesh();
+var _sphere$4 = /* @__PURE__ */ new Sphere();
+var InstancedMesh = class extends Mesh {
+  /**
+   * Constructs a new instanced mesh.
+   *
+   * @param {BufferGeometry} [geometry] - The mesh geometry.
+   * @param {Material|Array<Material>} [material] - The mesh material.
+   * @param {number} count - The number of instances.
+   */
+  constructor(geometry, material, count) {
+    super(geometry, material);
+    this.isInstancedMesh = true;
+    this.instanceMatrix = new InstancedBufferAttribute(new Float32Array(count * 16), 16);
+    this.instanceColor = null;
+    this.morphTexture = null;
+    this.count = count;
+    this.boundingBox = null;
+    this.boundingSphere = null;
+    for (let i = 0; i < count; i++) {
+      this.setMatrixAt(i, _identity);
+    }
+  }
+  /**
+   * Computes the bounding box of the instanced mesh, and updates {@link InstancedMesh#boundingBox}.
+   * The bounding box is not automatically computed by the engine; this method must be called by your app.
+   * You may need to recompute the bounding box if an instance is transformed via {@link InstancedMesh#setMatrixAt}.
+   */
+  computeBoundingBox() {
+    const geometry = this.geometry;
+    const count = this.count;
+    if (this.boundingBox === null) {
+      this.boundingBox = new Box3();
+    }
+    if (geometry.boundingBox === null) {
+      geometry.computeBoundingBox();
+    }
+    this.boundingBox.makeEmpty();
+    for (let i = 0; i < count; i++) {
+      this.getMatrixAt(i, _instanceLocalMatrix);
+      _box3.copy(geometry.boundingBox).applyMatrix4(_instanceLocalMatrix);
+      this.boundingBox.union(_box3);
+    }
+  }
+  /**
+   * Computes the bounding sphere of the instanced mesh, and updates {@link InstancedMesh#boundingSphere}
+   * The engine automatically computes the bounding sphere when it is needed, e.g., for ray casting or view frustum culling.
+   * You may need to recompute the bounding sphere if an instance is transformed via {@link InstancedMesh#setMatrixAt}.
+   */
+  computeBoundingSphere() {
+    const geometry = this.geometry;
+    const count = this.count;
+    if (this.boundingSphere === null) {
+      this.boundingSphere = new Sphere();
+    }
+    if (geometry.boundingSphere === null) {
+      geometry.computeBoundingSphere();
+    }
+    this.boundingSphere.makeEmpty();
+    for (let i = 0; i < count; i++) {
+      this.getMatrixAt(i, _instanceLocalMatrix);
+      _sphere$4.copy(geometry.boundingSphere).applyMatrix4(_instanceLocalMatrix);
+      this.boundingSphere.union(_sphere$4);
+    }
+  }
+  copy(source, recursive) {
+    super.copy(source, recursive);
+    this.instanceMatrix.copy(source.instanceMatrix);
+    if (source.morphTexture !== null) this.morphTexture = source.morphTexture.clone();
+    if (source.instanceColor !== null) this.instanceColor = source.instanceColor.clone();
+    this.count = source.count;
+    if (source.boundingBox !== null) this.boundingBox = source.boundingBox.clone();
+    if (source.boundingSphere !== null) this.boundingSphere = source.boundingSphere.clone();
+    return this;
+  }
+  /**
+   * Gets the color of the defined instance.
+   *
+   * @param {number} index - The instance index.
+   * @param {Color} color - The target object that is used to store the method's result.
+   * @return {Color} A reference to the target color.
+   */
+  getColorAt(index, color) {
+    if (this.instanceColor === null) {
+      return color.setRGB(1, 1, 1);
+    } else {
+      return color.fromArray(this.instanceColor.array, index * 3);
+    }
+  }
+  /**
+   * Gets the local transformation matrix of the defined instance.
+   *
+   * @param {number} index - The instance index.
+   * @param {Matrix4} matrix - The target object that is used to store the method's result.
+   * @return {Matrix4} A reference to the target matrix.
+   */
+  getMatrixAt(index, matrix) {
+    return matrix.fromArray(this.instanceMatrix.array, index * 16);
+  }
+  /**
+   * Gets the morph target weights of the defined instance.
+   *
+   * @param {number} index - The instance index.
+   * @param {Mesh} object - The target object that is used to store the method's result.
+   */
+  getMorphAt(index, object) {
+    const objectInfluences = object.morphTargetInfluences;
+    const array = this.morphTexture.source.data.data;
+    const len = objectInfluences.length + 1;
+    const dataIndex = index * len + 1;
+    for (let i = 0; i < objectInfluences.length; i++) {
+      objectInfluences[i] = array[dataIndex + i];
+    }
+  }
+  raycast(raycaster, intersects) {
+    const matrixWorld = this.matrixWorld;
+    const raycastTimes = this.count;
+    _mesh$1.geometry = this.geometry;
+    _mesh$1.material = this.material;
+    if (_mesh$1.material === void 0) return;
+    if (this.boundingSphere === null) this.computeBoundingSphere();
+    _sphere$4.copy(this.boundingSphere);
+    _sphere$4.applyMatrix4(matrixWorld);
+    if (raycaster.ray.intersectsSphere(_sphere$4) === false) return;
+    for (let instanceId = 0; instanceId < raycastTimes; instanceId++) {
+      this.getMatrixAt(instanceId, _instanceLocalMatrix);
+      _instanceWorldMatrix.multiplyMatrices(matrixWorld, _instanceLocalMatrix);
+      _mesh$1.matrixWorld = _instanceWorldMatrix;
+      _mesh$1.raycast(raycaster, _instanceIntersects);
+      for (let i = 0, l = _instanceIntersects.length; i < l; i++) {
+        const intersect2 = _instanceIntersects[i];
+        intersect2.instanceId = instanceId;
+        intersect2.object = this;
+        intersects.push(intersect2);
+      }
+      _instanceIntersects.length = 0;
+    }
+  }
+  /**
+   * Sets the given color to the defined instance. Make sure you set the `needsUpdate` flag of
+   * {@link InstancedMesh#instanceColor} to `true` after updating all the colors.
+   *
+   * @param {number} index - The instance index.
+   * @param {Color} color - The instance color.
+   * @return {InstancedMesh} A reference to this instanced mesh.
+   */
+  setColorAt(index, color) {
+    if (this.instanceColor === null) {
+      this.instanceColor = new InstancedBufferAttribute(new Float32Array(this.instanceMatrix.count * 3).fill(1), 3);
+    }
+    color.toArray(this.instanceColor.array, index * 3);
+    return this;
+  }
+  /**
+   * Sets the given local transformation matrix to the defined instance. Make sure you set the `needsUpdate` flag of
+   * {@link InstancedMesh#instanceMatrix} to `true` after updating all the matrices.
+   *
+   * @param {number} index - The instance index.
+   * @param {Matrix4} matrix - The local transformation.
+   * @return {InstancedMesh} A reference to this instanced mesh.
+   */
+  setMatrixAt(index, matrix) {
+    matrix.toArray(this.instanceMatrix.array, index * 16);
+    return this;
+  }
+  /**
+   * Sets the morph target weights to the defined instance. Make sure you set the `needsUpdate` flag of
+   * {@link InstancedMesh#morphTexture} to `true` after updating all the influences.
+   *
+   * @param {number} index - The instance index.
+   * @param {Mesh} object -  A mesh which `morphTargetInfluences` property containing the morph target weights
+   * of a single instance.
+   * @return {InstancedMesh} A reference to this instanced mesh.
+   */
+  setMorphAt(index, object) {
+    const objectInfluences = object.morphTargetInfluences;
+    const len = objectInfluences.length + 1;
+    if (this.morphTexture === null) {
+      this.morphTexture = new DataTexture(new Float32Array(len * this.count), len, this.count, RedFormat, FloatType);
+    }
+    const array = this.morphTexture.source.data.data;
+    let morphInfluencesSum = 0;
+    for (let i = 0; i < objectInfluences.length; i++) {
+      morphInfluencesSum += objectInfluences[i];
+    }
+    const morphBaseInfluence = this.geometry.morphTargetsRelative ? 1 : 1 - morphInfluencesSum;
+    const dataIndex = len * index;
+    array[dataIndex] = morphBaseInfluence;
+    array.set(objectInfluences, dataIndex + 1);
+    return this;
+  }
+  updateMorphTargets() {
+  }
+  /**
+   * Frees the GPU-related resources allocated by this instance. Call this
+   * method whenever this instance is no longer used in your app.
+   */
+  dispose() {
+    this.dispatchEvent({ type: "dispose" });
+    if (this.morphTexture !== null) {
+      this.morphTexture.dispose();
+      this.morphTexture = null;
+    }
   }
 };
 var _vector1 = /* @__PURE__ */ new Vector3();
@@ -15201,32 +16319,32 @@ var Line = class extends Object3D {
       for (let i = start, l = end - 1; i < l; i += step) {
         const a = index.getX(i);
         const b = index.getX(i + 1);
-        const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b, i);
-        if (intersect) {
-          intersects.push(intersect);
+        const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b, i);
+        if (intersect2) {
+          intersects.push(intersect2);
         }
       }
       if (this.isLineLoop) {
         const a = index.getX(end - 1);
         const b = index.getX(start);
-        const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b, end - 1);
-        if (intersect) {
-          intersects.push(intersect);
+        const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b, end - 1);
+        if (intersect2) {
+          intersects.push(intersect2);
         }
       }
     } else {
       const start = Math.max(0, drawRange.start);
       const end = Math.min(positionAttribute.count, drawRange.start + drawRange.count);
       for (let i = start, l = end - 1; i < l; i += step) {
-        const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, i, i + 1, i);
-        if (intersect) {
-          intersects.push(intersect);
+        const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, i, i + 1, i);
+        if (intersect2) {
+          intersects.push(intersect2);
         }
       }
       if (this.isLineLoop) {
-        const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, end - 1, start, end - 1);
-        if (intersect) {
-          intersects.push(intersect);
+        const intersect2 = checkIntersection(this, raycaster, _ray$1, localThresholdSq, end - 1, start, end - 1);
+        if (intersect2) {
+          intersects.push(intersect2);
         }
       }
     }
@@ -19744,6 +20862,145 @@ PropertyBinding.prototype.SetterByBindingTypeAndVersioning = [
   ]
 ];
 var _controlInterpolantsResultBuffer = new Float32Array(1);
+var _matrix = /* @__PURE__ */ new Matrix4();
+var Raycaster = class {
+  /**
+   * Constructs a new raycaster.
+   *
+   * @param {Vector3} origin - The origin vector where the ray casts from.
+   * @param {Vector3} direction - The (normalized) direction vector that gives direction to the ray.
+   * @param {number} [near=0] - All results returned are further away than near. Near can't be negative.
+   * @param {number} [far=Infinity] - All results returned are closer than far. Far can't be lower than near.
+   */
+  constructor(origin, direction, near = 0, far = Infinity) {
+    this.ray = new Ray(origin, direction);
+    this.near = near;
+    this.far = far;
+    this.camera = null;
+    this.layers = new Layers();
+    this.params = {
+      Mesh: {},
+      Line: { threshold: 1 },
+      LOD: {},
+      Points: { threshold: 1 },
+      Sprite: {}
+    };
+  }
+  /**
+   * Updates the ray with a new origin and direction by copying the values from the arguments.
+   *
+   * @param {Vector3} origin - The origin vector where the ray casts from.
+   * @param {Vector3} direction - The (normalized) direction vector that gives direction to the ray.
+   */
+  set(origin, direction) {
+    this.ray.set(origin, direction);
+  }
+  /**
+   * Uses the given coordinates and camera to compute a new origin and direction for the internal ray.
+   *
+   * @param {Vector2} coords - 2D coordinates of the mouse, in normalized device coordinates (NDC).
+   * X and Y components should be between `-1` and `1`.
+   * @param {Camera} camera - The camera from which the ray should originate.
+   */
+  setFromCamera(coords, camera) {
+    if (camera.isPerspectiveCamera) {
+      this.ray.origin.setFromMatrixPosition(camera.matrixWorld);
+      this.ray.direction.set(coords.x, coords.y, 0.5).unproject(camera).sub(this.ray.origin).normalize();
+      this.camera = camera;
+    } else if (camera.isOrthographicCamera) {
+      this.ray.origin.set(coords.x, coords.y, camera.projectionMatrix.elements[14]).unproject(camera);
+      this.ray.direction.set(0, 0, -1).transformDirection(camera.matrixWorld);
+      this.camera = camera;
+    } else {
+      error("Raycaster: Unsupported camera type: " + camera.type);
+    }
+  }
+  /**
+   * Uses the given WebXR controller to compute a new origin and direction for the internal ray.
+   *
+   * @param {WebXRController} controller - The controller to copy the position and direction from.
+   * @return {Raycaster} A reference to this raycaster.
+   */
+  setFromXRController(controller) {
+    _matrix.identity().extractRotation(controller.matrixWorld);
+    this.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+    this.ray.direction.set(0, 0, -1).applyMatrix4(_matrix);
+    return this;
+  }
+  /**
+   * The intersection point of a raycaster intersection test.
+   * @typedef {Object} Raycaster~Intersection
+   * @property {number} distance - The distance from the ray's origin to the intersection point.
+   * @property {number} distanceToRay -  Some 3D objects e.g. {@link Points} provide the distance of the
+   * intersection to the nearest point on the ray. For other objects it will be `undefined`.
+   * @property {Vector3} point - The intersection point, in world coordinates.
+   * @property {Object} face - The face that has been intersected.
+   * @property {number} faceIndex - The face index.
+   * @property {Object3D} object - The 3D object that has been intersected.
+   * @property {Vector2} uv - U,V coordinates at point of intersection.
+   * @property {Vector2} uv1 - Second set of U,V coordinates at point of intersection.
+   * @property {Vector3} normal - Interpolated normal vector at point of intersection.
+   * @property {number} instanceId - The index number of the instance where the ray
+   * intersects the {@link InstancedMesh}.
+   */
+  /**
+   * Checks all intersection between the ray and the object with or without the
+   * descendants. Intersections are returned sorted by distance, closest first.
+   *
+   * `Raycaster` delegates to the `raycast()` method of the passed 3D object, when
+   * evaluating whether the ray intersects the object or not. This allows meshes to respond
+   * differently to ray casting than lines or points.
+   *
+   * Note that for meshes, faces must be pointed towards the origin of the ray in order
+   * to be detected; intersections of the ray passing through the back of a face will not
+   * be detected. To raycast against both faces of an object, you'll want to set  {@link Material#side}
+   * to `THREE.DoubleSide`.
+   *
+   * @param {Object3D} object - The 3D object to check for intersection with the ray.
+   * @param {boolean} [recursive=true] - If set to `true`, it also checks all descendants.
+   * Otherwise it only checks intersection with the object.
+   * @param {Array<Raycaster~Intersection>} [intersects=[]] The target array that holds the result of the method.
+   * @return {Array<Raycaster~Intersection>} An array holding the intersection points.
+   */
+  intersectObject(object, recursive = true, intersects = []) {
+    intersect(object, this, intersects, recursive);
+    intersects.sort(ascSort);
+    return intersects;
+  }
+  /**
+   * Checks all intersection between the ray and the objects with or without
+   * the descendants. Intersections are returned sorted by distance, closest first.
+   *
+   * @param {Array<Object3D>} objects - The 3D objects to check for intersection with the ray.
+   * @param {boolean} [recursive=true] - If set to `true`, it also checks all descendants.
+   * Otherwise it only checks intersection with the object.
+   * @param {Array<Raycaster~Intersection>} [intersects=[]] The target array that holds the result of the method.
+   * @return {Array<Raycaster~Intersection>} An array holding the intersection points.
+   */
+  intersectObjects(objects, recursive = true, intersects = []) {
+    for (let i = 0, l = objects.length; i < l; i++) {
+      intersect(objects[i], this, intersects, recursive);
+    }
+    intersects.sort(ascSort);
+    return intersects;
+  }
+};
+function ascSort(a, b) {
+  return a.distance - b.distance;
+}
+function intersect(object, raycaster, intersects, recursive) {
+  let propagate = true;
+  if (object.layers.test(raycaster.layers)) {
+    const result = object.raycast(raycaster, intersects);
+    if (result === false) propagate = false;
+  }
+  if (propagate === true && recursive === true) {
+    const children = object.children;
+    for (let i = 0, l = children.length; i < l; i++) {
+      intersect(children[i], raycaster, intersects, true);
+    }
+  }
+}
 var Matrix2 = class _Matrix2 {
   static {
     _Matrix2.prototype.isMatrix2 = true;
@@ -31455,68 +32712,74 @@ var PALETTE_BASE = {
 };
 var STAGE_PALETTES = {
   1: {
+    // Stage 1: Practice Race (Stage 1.png) - Grey checkerboard, yellow/orange striped cliffs, red rails
     ...PALETTE_BASE,
-    path: [13915786, 8004688, 4855856],
-    wall: [5910592, 3808296, 2363416],
-    tree: [3115592, 1727024, 929816],
-    rock: [6975096, 4474960, 2763826]
+    path: [14474460, 9408399, 4671303],
+    wall: [16706816, 15562240, 3092271],
+    metal: [16720435, 13373730, 6684689],
+    rock: [11088384, 7217664, 3346432]
   },
   2: {
+    // Stage 2: Pyramid Oasis (Stage 2.png) - Sandstone, dunes, obelisks, deep oasis water
     ...PALETTE_BASE,
-    path: [13165816, 6985912, 3825792],
-    snow: [15660799, 11061472, 6850720],
-    metal: [12112096, 6981792, 3821664],
-    wall: [14216952, 8958152, 4745336],
-    water: [3842269, 1599632, 798792]
+    path: [14204558, 11635785, 7032612],
+    sand: [15913594, 12097608, 7624736],
+    wall: [2762016, 1578258, 789e3],
+    water: [1924230, 1129304, 532528],
+    tree: [2391096, 1330208, 665616],
+    rock: [10516548, 7097384, 4073492]
   },
   3: {
+    // Stage 3: Astral Spire (Stage 3.png) - Celestial blue stone citadel, gold star relics
     ...PALETTE_BASE,
-    path: [5535920, 2902128, 1451064],
-    wall: [2635860, 1450032, 659480],
-    glass: [5304544, 2396288, 1198144],
-    rock: [4215920, 2372164, 1186340],
-    water: [1452104, 792104, 396308]
+    path: [12900590, 8236775, 4024478],
+    wall: [8236775, 2900293, 1318946],
+    glass: [16765503, 13146128, 6703104],
+    rock: [9341529, 5920312, 3025948],
+    water: [1916262, 925752, 397340]
   },
   4: {
+    // Stage 4: Beginner Race (Stage 4.png) - Cyan/blue striped cliffs, purple funnel tubes, ice pond
     ...PALETTE_BASE,
-    path: [14459978, 9725994, 5519380],
-    sand: [15913594, 12097608, 7624736],
-    rock: [10516548, 7097384, 4073492],
-    wall: [1710624, 921106, 394762],
-    metal: [2631728, 1447452, 657934],
-    tree: [2391096, 1330208, 665616],
-    water: [2140376, 1075340, 537672],
-    glass: [15780928, 11043872, 5783568]
+    path: [14474460, 9408399, 4671303],
+    wall: [47870, 26282, 10307],
+    metal: [10040285, 6689194, 3344486],
+    snow: [8974079, 3390446, 1140360],
+    rock: [35020, 21896, 8772]
   },
   5: {
+    // Stage 5: Aerial Race / High Dive (Stage 5.png) - Charcoal towers, copper drop pipe, green acid
     ...PALETTE_BASE,
-    path: [8013992, 3809376, 1708080],
-    wall: [2757688, 1575460, 787988],
-    glass: [6750184, 2793616, 1595488],
-    holo: [16733644, 8921168, 4853800],
-    water: [3403366, 1345592, 671776]
+    path: [14207146, 13348999, 9073232],
+    wall: [1710618, 986895, 394758],
+    water: [2289220, 1148962, 541713],
+    metal: [11162931, 7811864, 4069384],
+    rock: [5523768, 3682340, 1841170]
   },
   6: {
+    // Stage 6: Silly Race / Red Cliffs (Stage 6.png) - Vibrant red striped cliffs, black canopy tunnel
     ...PALETTE_BASE,
-    path: [13934682, 9068592, 4861976],
-    sand: [15255672, 10518592, 6309912],
-    metal: [12886128, 8020024, 3812376],
-    wall: [9067056, 5912600, 2759692]
+    path: [14474460, 9408399, 4671303],
+    wall: [16663346, 7741712, 2755590],
+    metal: [2236966, 1315864, 526346],
+    rock: [10035736, 5574924, 2229764]
   },
   7: {
+    // Stage 7: Ultimate Race / Swiss Cheese (Stage 7.png) - Yellow polka-dot cliffs, red windmill
     ...PALETTE_BASE,
-    path: [9071192, 5914672, 2760728],
-    metal: [12107976, 5922920, 2764856],
-    wall: [3811880, 2365464, 1313804],
-    sand: [6967360, 4468776, 2365464]
+    path: [14474460, 9408399, 4671303],
+    wall: [16702464, 9991680, 4732416],
+    metal: [15606323, 10031394, 4458512],
+    rock: [13408512, 8939008, 4469504]
   },
   8: {
+    // Stage 8: Space Dementia (Stage 8.png) - Gold platforms, red borders, triangular canopies, cyan ice
     ...PALETTE_BASE,
-    path: [4872872, 2371688, 1054776],
-    cloud: [13691135, 8956104, 4745352],
-    glass: [8978431, 2793664, 1331296],
-    holo: [16738030, 8921184, 4198448],
-    sand: [8952008, 4872312, 2633800]
+    path: [16755200, 13924352, 8402944],
+    wall: [16646144, 8847360, 3670016],
+    snow: [65535, 43212, 21879],
+    glass: [3399935, 1153484, 541798],
+    metal: [16763904, 12093440, 6702080]
   }
 };
 function stagePalette(stageId) {
@@ -31533,14 +32796,26 @@ var GameRenderer = class {
   remotePlayersGroup = new Group();
   particlesGroup = new Group();
   marbleMesh;
+  marbleSilhouetteMesh;
   marbleSprite;
   marbleSpriteFrames;
+  redMarbleSpriteFrames;
+  broomSpriteFrames;
   marbleShadow;
   localLabelSprite;
   hazardMeshes = /* @__PURE__ */ new Map();
   remotePlayerMeshes = /* @__PURE__ */ new Map();
-  particles = [];
+  particlePool = [];
+  MAX_PARTICLES = 160;
   // Optimized shared assets for high player count (100+ marbles)
+  sharedBoxGeom = new BoxGeometry(1, 1, 1);
+  instancedTerrainMeshes = [];
+  dustGeom = new TetrahedronGeometry(0.04);
+  dustMat = new MeshBasicMaterial({ color: 14739696, transparent: true, opacity: 0.6 });
+  sparkGeom = new OctahedronGeometry(0.06);
+  sparkMat = new MeshBasicMaterial({ color: 16765503 });
+  shardGeom = new TetrahedronGeometry(0.08);
+  shardMat = new MeshStandardMaterial({ color: 16726876, roughness: 0.2 });
   sharedSphereGeom = new SphereGeometry(MABLE_R, 24, 18);
   sharedShadowGeom = (() => {
     const g = new PlaneGeometry(MABLE_R * 2.2, MABLE_R * 2.2);
@@ -31561,6 +32836,11 @@ var GameRenderer = class {
   camInitialized = false;
   textureCache = /* @__PURE__ */ new Map();
   pixelTextureCache = /* @__PURE__ */ new Map();
+  occlusionRaycaster = new Raycaster();
+  spectateTarget = null;
+  setSpectateTarget(target) {
+    this.spectateTarget = target;
+  }
   constructor() {
     this.canvas = document.getElementById("gl");
     this.renderer = new WebGLRenderer({
@@ -31606,12 +32886,26 @@ var GameRenderer = class {
     this.scene.add(this.remotePlayersGroup);
     this.scene.add(this.particlesGroup);
     this.marbleMesh = this.createMarbleMesh("#ff3b5c", "#33e0ff");
+    const silhouetteMat = new MeshBasicMaterial({
+      color: 3399935,
+      wireframe: true,
+      depthTest: true,
+      depthFunc: GreaterDepth,
+      // Zero-overhead GPU X-Ray silhouette when occluded!
+      transparent: true,
+      opacity: 0.85
+    });
+    this.marbleSilhouetteMesh = new Mesh(this.sharedSphereGeom, silhouetteMat);
+    this.marbleSilhouetteMesh.renderOrder = 999;
     this.marbleSpriteFrames = [28, 29, 30].map((frame) => this.loadPixelTexture(`/sprites/retro-marble/blue-${frame}.png`));
+    this.redMarbleSpriteFrames = [28, 29, 30].map((frame) => this.loadPixelTexture(`/sprites/retro-marble/red-${frame}.png`));
+    this.broomSpriteFrames = [8, 9, 10, 11, 12, 13, 14].map((f) => this.loadPixelTexture(`/sprites/retro-marble/blue-${String(f).padStart(2, "0")}.png`));
     this.marbleSprite = this.createPixelSprite(this.marbleSpriteFrames[0], 0.74);
     this.marbleShadow = this.createShadowMesh();
     this.localLabelSprite = this.createPlayerLabel("YOU (P1)", "#ffd23f");
     this.localLabelSprite.position.set(0, 0.75, 0);
     this.scene.add(this.marbleMesh);
+    this.scene.add(this.marbleSilhouetteMesh);
     this.scene.add(this.marbleSprite);
     this.scene.add(this.marbleShadow);
     this.scene.add(this.localLabelSprite);
@@ -31621,6 +32915,14 @@ var GameRenderer = class {
     this.scene.remove(this.marbleMesh);
     this.scene.remove(this.localLabelSprite);
     this.marbleMesh = this.createMarbleMesh(color, "#ffffff");
+    this.marbleSilhouetteMesh.material = new MeshBasicMaterial({
+      color: new Color(color).getHex(),
+      wireframe: true,
+      depthTest: true,
+      depthFunc: GreaterDepth,
+      transparent: true,
+      opacity: 0.85
+    });
     this.localLabelSprite = this.createPlayerLabel(`${name} (YOU)`, "#ffd23f");
     this.scene.add(this.marbleMesh);
     this.scene.add(this.localLabelSprite);
@@ -31656,6 +32958,9 @@ var GameRenderer = class {
     return sprite;
   }
   createMarbleTexture(primaryColor, accentColor) {
+    const key = `${primaryColor}_${accentColor}`;
+    const cached = this.textureCache.get(key);
+    if (cached) return cached;
     const canvas = document.createElement("canvas");
     canvas.width = 512;
     canvas.height = 256;
@@ -31713,6 +33018,7 @@ var GameRenderer = class {
     const tex = new CanvasTexture(canvas);
     tex.wrapS = RepeatWrapping;
     tex.wrapT = RepeatWrapping;
+    this.textureCache.set(key, tex);
     return tex;
   }
   createMarbleMesh(primaryColor = "#ff3b5c", accentColor = "#33e0ff") {
@@ -31772,6 +33078,10 @@ var GameRenderer = class {
   // 3D ENVIRONMENT, SKYBOX & THEMATIC LEVEL SCENERY
   // =========================================================================
   buildLevelMesh(level) {
+    for (const mesh of this.instancedTerrainMeshes) {
+      mesh.dispose();
+    }
+    this.instancedTerrainMeshes = [];
     while (this.terrainGroup.children.length > 0) {
       this.terrainGroup.remove(this.terrainGroup.children[0]);
     }
@@ -31784,7 +33094,7 @@ var GameRenderer = class {
     this.setupThemedEnvironment(stageId, level.def.name);
     const materials = this.createSurfaceMaterials(stageId);
     const { W, H, cells } = level.layout;
-    const boxGeom = new BoxGeometry(1, 1, 1);
+    const standardBlocks = /* @__PURE__ */ new Map();
     for (let r = 0; r < H; r++) {
       for (let c = 0; c < W; c++) {
         const cell = cells[r * W + c];
@@ -31798,11 +33108,12 @@ var GameRenderer = class {
             wedge.receiveShadow = true;
             this.terrainGroup.add(wedge);
           } else {
-            const block = new Mesh(boxGeom, mat);
-            block.position.set(c + 0.5, columnHeight / 2, r + 0.5);
-            block.scale.set(0.98, columnHeight, 0.98);
-            block.receiveShadow = true;
-            this.terrainGroup.add(block);
+            let list = standardBlocks.get(cell.surf);
+            if (!list) {
+              list = [];
+              standardBlocks.set(cell.surf, list);
+            }
+            list.push({ x: c + 0.5, y: columnHeight / 2, z: r + 0.5, h: columnHeight });
           }
         }
         if (cell.surf === "tree") {
@@ -31837,6 +33148,22 @@ var GameRenderer = class {
           this.terrainGroup.add(waterMesh);
         }
       }
+    }
+    const dummy = new Object3D();
+    for (const [surf, blocks] of standardBlocks.entries()) {
+      const mat = materials[surf] || materials.path;
+      const instancedMesh = new InstancedMesh(this.sharedBoxGeom, mat, blocks.length);
+      instancedMesh.receiveShadow = true;
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        dummy.position.set(b.x, b.y, b.z);
+        dummy.scale.set(0.98, b.h, 0.98);
+        dummy.updateMatrix();
+        instancedMesh.setMatrixAt(i, dummy.matrix);
+      }
+      instancedMesh.instanceMatrix.needsUpdate = true;
+      this.terrainGroup.add(instancedMesh);
+      this.instancedTerrainMeshes.push(instancedMesh);
     }
   }
   createRampMesh(fall, height, mat) {
@@ -32275,13 +33602,38 @@ var GameRenderer = class {
         break;
       }
       case "wall": {
-        ctx.fillStyle = hex1;
-        ctx.fillRect(0, 0, 128, 128);
-        ctx.fillStyle = hex2;
-        ctx.fillRect(0, 64, 128, 64);
-        ctx.strokeStyle = hex3;
-        ctx.lineWidth = 4;
-        ctx.strokeRect(2, 2, 124, 124);
+        if (c1 === 16702464) {
+          ctx.fillStyle = "#fedc00";
+          ctx.fillRect(0, 0, 128, 128);
+          ctx.fillStyle = "#987600";
+          const dots = [
+            [32, 28, 14],
+            [86, 42, 18],
+            [24, 88, 20],
+            [92, 102, 12],
+            [58, 70, 8]
+          ];
+          for (const [dx, dy, dr] of dots) {
+            ctx.beginPath();
+            ctx.arc(dx, dy, dr, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.strokeStyle = "#483600";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(0, 0, 128, 128);
+        } else {
+          ctx.fillStyle = hex1;
+          ctx.fillRect(0, 0, 128, 128);
+          for (let x = 0; x < 128; x += 16) {
+            ctx.fillStyle = hex2;
+            ctx.fillRect(x, 0, 8, 128);
+            ctx.fillStyle = hex3;
+            ctx.fillRect(x + 8, 0, 2, 128);
+          }
+          ctx.strokeStyle = "rgba(0,0,0,0.35)";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(0, 0, 128, 128);
+        }
         break;
       }
       default: {
@@ -32632,15 +33984,131 @@ var GameRenderer = class {
       case "springboard": {
         const padGeom = new BoxGeometry(0.7, 0.1, 0.7);
         const padMat = new MeshStandardMaterial({ color: 16746496 });
-        const pad2 = new Mesh(padGeom, padMat);
-        group.add(pad2);
+        const pad3 = new Mesh(padGeom, padMat);
+        group.add(pad3);
+        break;
+      }
+      case "funnel": {
+        const purpleMat = new MeshStandardMaterial({
+          color: h.def.tubeColor ? parseInt(h.def.tubeColor.replace("#", "0x")) : 8926156,
+          roughness: 0.3,
+          metalness: 0.3,
+          side: DoubleSide
+        });
+        const hopperGeom = new ConeGeometry(0.7, 0.9, 16, 1, true);
+        hopperGeom.rotateX(Math.PI);
+        const hopper = new Mesh(hopperGeom, purpleMat);
+        hopper.position.y = 0.45;
+        group.add(hopper);
+        const tubeGeom = new CylinderGeometry(0.28, 0.28, 1.2, 12);
+        const tube = new Mesh(tubeGeom, purpleMat);
+        tube.position.set(0, -0.4, 0.4);
+        tube.rotation.x = Math.PI / 4;
+        group.add(tube);
+        break;
+      }
+      case "tube": {
+        const tubeMat = new MeshStandardMaterial({
+          color: h.def.tubeColor ? parseInt(h.def.tubeColor.replace("#", "0x")) : 8926156,
+          roughness: 0.3,
+          metalness: 0.3,
+          side: DoubleSide
+        });
+        const mouthGeom = new ConeGeometry(0.6, 0.8, 14, 1, true);
+        mouthGeom.rotateX(Math.PI);
+        const mouth = new Mesh(mouthGeom, tubeMat);
+        mouth.position.y = 0.4;
+        group.add(mouth);
+        const bodyGeom = new CylinderGeometry(0.26, 0.26, 1, 12);
+        const body = new Mesh(bodyGeom, tubeMat);
+        body.position.set(0, -0.3, 0.3);
+        body.rotation.x = Math.PI / 3;
+        group.add(body);
+        break;
+      }
+      case "spigot": {
+        const copperMat = new MeshStandardMaterial({
+          color: h.def.tubeColor ? parseInt(h.def.tubeColor.replace("#", "0x")) : 11162931,
+          roughness: 0.4,
+          metalness: 0.5,
+          side: DoubleSide
+        });
+        const hopperGeom = new ConeGeometry(0.65, 0.7, 14, 1, true);
+        hopperGeom.rotateX(Math.PI);
+        const hopper = new Mesh(hopperGeom, copperMat);
+        hopper.position.y = 0.35;
+        group.add(hopper);
+        const pipeGeom = new CylinderGeometry(0.25, 0.25, 2.8, 12);
+        const pipe = new Mesh(pipeGeom, copperMat);
+        pipe.position.y = -1.1;
+        group.add(pipe);
+        const elbowGeom = new TorusGeometry(0.35, 0.2, 8, 12, Math.PI / 2);
+        const elbow = new Mesh(elbowGeom, copperMat);
+        elbow.position.set(0, -2.5, 0.3);
+        elbow.rotation.y = Math.PI / 2;
+        group.add(elbow);
+        break;
+      }
+      case "windmill": {
+        const ironMat = new MeshStandardMaterial({ color: 4473936, metalness: 0.8, roughness: 0.3 });
+        const bladeMat = new MeshStandardMaterial({ color: 14492211, roughness: 0.25, metalness: 0.2 });
+        const postGeom = new CylinderGeometry(0.14, 0.18, 1.6, 8);
+        const post = new Mesh(postGeom, ironMat);
+        post.position.y = 0.8;
+        group.add(post);
+        const rotor = new Group();
+        rotor.name = "windmillRotor";
+        rotor.position.y = 1.3;
+        for (let b = 0; b < 4; b++) {
+          const angle = b * Math.PI / 2;
+          const armGeom = new CylinderGeometry(0.04, 0.04, 2.6, 6);
+          armGeom.rotateZ(Math.PI / 2);
+          const arm = new Mesh(armGeom, ironMat);
+          arm.position.set(Math.cos(angle) * 1.3, 0, Math.sin(angle) * 1.3);
+          arm.rotation.y = -angle;
+          rotor.add(arm);
+          const bladeGeom = new BoxGeometry(1.2, 0.48, 0.06);
+          const blade = new Mesh(bladeGeom, bladeMat);
+          blade.position.set(Math.cos(angle) * 1.8, 0, Math.sin(angle) * 1.8);
+          blade.rotation.y = -angle;
+          blade.rotation.x = 0.25;
+          rotor.add(blade);
+        }
+        group.add(rotor);
+        break;
+      }
+      case "canopy": {
+        const canopyMat = new MeshStandardMaterial({
+          color: h.def.tubeColor ? parseInt(h.def.tubeColor.replace("#", "0x")) : 2236970,
+          roughness: 0.5,
+          metalness: 0.2,
+          side: DoubleSide
+        });
+        const dims = h.def.dims ?? [3.8, 1.3, 2.8];
+        const roofGeom = new BoxGeometry(dims[0], 0.2, dims[2]);
+        const roof = new Mesh(roofGeom, canopyMat);
+        roof.position.y = dims[1];
+        roof.castShadow = true;
+        roof.receiveShadow = true;
+        group.add(roof);
+        const pillarGeom = new CylinderGeometry(0.08, 0.08, dims[1], 8);
+        const p1 = new Mesh(pillarGeom, canopyMat);
+        p1.position.set(-dims[0] / 2 + 0.15, dims[1] / 2, -dims[2] / 2 + 0.15);
+        const p2 = new Mesh(pillarGeom, canopyMat);
+        p2.position.set(dims[0] / 2 - 0.15, dims[1] / 2, -dims[2] / 2 + 0.15);
+        const p3 = new Mesh(pillarGeom, canopyMat);
+        p3.position.set(-dims[0] / 2 + 0.15, dims[1] / 2, dims[2] / 2 - 0.15);
+        const p4 = new Mesh(pillarGeom, canopyMat);
+        p4.position.set(dims[0] / 2 - 0.15, dims[1] / 2, dims[2] / 2 - 0.15);
+        group.add(p1, p2, p3, p4);
         break;
       }
     }
     const spritePath = RETRO_OBJECT_SPRITES[h.def.kind];
     if (spritePath) {
-      const sprite = this.createPixelSprite(this.loadPixelTexture(spritePath), h.def.kind === "goal" || h.def.kind === "checkpoint" ? 1.15 : 0.72);
-      sprite.position.y = h.def.kind === "goal" || h.def.kind === "checkpoint" ? 0.55 : 0.38;
+      const height = h.def.kind === "canopy" ? 1.4 : h.def.kind === "funnel" || h.def.kind === "spigot" ? 1 : 0.72;
+      const sprite = this.createPixelSprite(this.loadPixelTexture(spritePath), height);
+      sprite.position.y = h.def.kind === "canopy" ? 0.9 : h.def.kind === "funnel" || h.def.kind === "spigot" ? 0.5 : 0.38;
       sprite.name = "originalExtractedSprite";
       group.add(sprite);
     }
@@ -32659,10 +34127,12 @@ var GameRenderer = class {
         const mesh = this.createMarbleMesh(p.color, "#ffffff");
         const shadow = this.createShadowMesh();
         const label = this.createPlayerLabel(`${p.name} [${p.score}]`, p.color);
+        const sprite = this.createPixelSprite(this.redMarbleSpriteFrames[0], 0.74);
         this.remotePlayersGroup.add(mesh);
         this.remotePlayersGroup.add(shadow);
         this.remotePlayersGroup.add(label);
-        rpm = { mesh, shadow, label };
+        this.remotePlayersGroup.add(sprite);
+        rpm = { mesh, shadow, label, sprite };
         this.remotePlayerMeshes.set(p.id, rpm);
       }
       rpm.mesh.position.set(p.x, p.y, p.z);
@@ -32670,80 +34140,105 @@ var GameRenderer = class {
       rpm.mesh.rotation.z = p.rotZ;
       rpm.shadow.position.set(p.x, Math.max(0, p.y - MABLE_R + 0.01), p.z);
       rpm.label.position.set(p.x, p.y + 0.65, p.z);
+      rpm.sprite.position.set(p.x, p.y + 0.08, p.z);
+      const rFrame = Math.floor(this.totalTime * (4 + p.speed * 32)) % this.redMarbleSpriteFrames.length;
+      rpm.sprite.material.map = this.redMarbleSpriteFrames[rFrame];
     }
     for (const [id, rpm] of this.remotePlayerMeshes.entries()) {
       if (!activeIds.has(id)) {
         this.remotePlayersGroup.remove(rpm.mesh);
         this.remotePlayersGroup.remove(rpm.shadow);
         this.remotePlayersGroup.remove(rpm.label);
+        this.remotePlayersGroup.remove(rpm.sprite);
+        rpm.mesh.geometry.dispose();
+        if (Array.isArray(rpm.mesh.material)) {
+          rpm.mesh.material.forEach((m) => m.dispose());
+        } else {
+          rpm.mesh.material.dispose();
+        }
+        rpm.label.material.map?.dispose();
+        rpm.label.material.dispose();
+        rpm.sprite.material.map?.dispose();
+        rpm.sprite.material.dispose();
         this.remotePlayerMeshes.delete(id);
       }
     }
   }
   // =========================================================================
-  // PARTICLES & SPECIAL EFFECTS
+  // PARTICLES & SPECIAL EFFECTS (Zero-GC Object Pooling)
   // =========================================================================
+  spawnParticle(geom, mat, x, y, z, vx, vy, vz, maxLife) {
+    let p = this.particlePool.find((item) => !item.active);
+    if (!p) {
+      if (this.particlePool.length < this.MAX_PARTICLES) {
+        const mesh = new Mesh(geom, mat);
+        this.particlesGroup.add(mesh);
+        p = { mesh, vx, vy, vz, life: 0, maxLife, active: true };
+        this.particlePool.push(p);
+      } else {
+        p = this.particlePool[0];
+        this.particlePool.push(this.particlePool.shift());
+      }
+    }
+    p.mesh.geometry = geom;
+    p.mesh.material = mat;
+    p.mesh.position.set(x, y, z);
+    p.mesh.scale.set(1, 1, 1);
+    p.mesh.visible = true;
+    p.vx = vx;
+    p.vy = vy;
+    p.vz = vz;
+    p.life = 0;
+    p.maxLife = maxLife;
+    p.active = true;
+  }
   emitShatterParticles(pos) {
-    const shardGeom = new TetrahedronGeometry(0.08);
-    const shardMat = new MeshStandardMaterial({ color: 16726876, roughness: 0.2 });
     for (let i = 0; i < 22; i++) {
-      const mesh = new Mesh(shardGeom, shardMat);
-      mesh.position.set(pos[0], pos[1], pos[2]);
-      this.particlesGroup.add(mesh);
       const angle = Math.random() * Math.PI * 2;
       const speed = 0.06 + Math.random() * 0.16;
-      this.particles.push({
-        mesh,
-        vx: Math.cos(angle) * speed,
-        vy: 0.09 + Math.random() * 0.16,
-        vz: Math.sin(angle) * speed,
-        life: 0,
-        maxLife: 0.9 + Math.random() * 0.4
-      });
+      this.spawnParticle(
+        this.shardGeom,
+        this.shardMat,
+        pos[0],
+        pos[1],
+        pos[2],
+        Math.cos(angle) * speed,
+        0.09 + Math.random() * 0.16,
+        Math.sin(angle) * speed,
+        0.9 + Math.random() * 0.4
+      );
     }
   }
   emitBumpSparks(pos) {
-    const sparkGeom = new OctahedronGeometry(0.06);
-    const sparkMat = new MeshBasicMaterial({ color: 16765503 });
     for (let i = 0; i < 16; i++) {
-      const mesh = new Mesh(sparkGeom, sparkMat);
-      mesh.position.set(pos[0], pos[1], pos[2]);
-      this.particlesGroup.add(mesh);
       const angle = Math.random() * Math.PI * 2;
       const speed = 0.08 + Math.random() * 0.18;
-      this.particles.push({
-        mesh,
-        vx: Math.cos(angle) * speed,
-        vy: 0.05 + Math.random() * 0.14,
-        vz: Math.sin(angle) * speed,
-        life: 0,
-        maxLife: 0.5 + Math.random() * 0.3
-      });
+      this.spawnParticle(
+        this.sparkGeom,
+        this.sparkMat,
+        pos[0],
+        pos[1],
+        pos[2],
+        Math.cos(angle) * speed,
+        0.05 + Math.random() * 0.14,
+        Math.sin(angle) * speed,
+        0.5 + Math.random() * 0.3
+      );
     }
   }
-  emitSkidMarks(pos, intensity = 1) {
-    const dustGeom = new TetrahedronGeometry(0.04);
-    const dustMat = new MeshBasicMaterial({
-      color: 14739696,
-      transparent: true,
-      opacity: 0.6 * Math.min(1, intensity)
-    });
+  emitSkidMarks(pos, _intensity = 1) {
     for (let i = 0; i < 3; i++) {
-      const mesh = new Mesh(dustGeom, dustMat);
-      mesh.position.set(
+      this.spawnParticle(
+        this.dustGeom,
+        this.dustMat,
         pos[0] + (Math.random() - 0.5) * 0.1,
         pos[1] - MABLE_R + 0.02,
-        pos[2] + (Math.random() - 0.5) * 0.1
+        pos[2] + (Math.random() - 0.5) * 0.1,
+        (Math.random() - 0.5) * 0.04,
+        0.02 + Math.random() * 0.04,
+        (Math.random() - 0.5) * 0.04,
+        0.35 + Math.random() * 0.2
       );
-      this.particlesGroup.add(mesh);
-      this.particles.push({
-        mesh,
-        vx: (Math.random() - 0.5) * 0.04,
-        vy: 0.02 + Math.random() * 0.04,
-        vz: (Math.random() - 0.5) * 0.04,
-        life: 0,
-        maxLife: 0.35 + Math.random() * 0.2
-      });
     }
   }
   triggerScreenShake(amount = 0.3) {
@@ -32754,20 +34249,41 @@ var GameRenderer = class {
   // =========================================================================
   render(marble, hazards, remotePlayers, stageId, dt) {
     this.totalTime += dt;
-    this.marbleMesh.position.set(marble.x, marble.y, marble.z);
-    this.marbleSprite.position.set(marble.x, marble.y + 0.08, marble.z);
-    const marbleFrame = Math.floor(this.totalTime * (4 + marble.speed * 32)) % this.marbleSpriteFrames.length;
-    this.marbleSprite.material.map = this.marbleSpriteFrames[marbleFrame];
-    if (marble.quat) {
-      this.marbleMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
-    } else {
-      this.marbleMesh.rotation.x = marble.rotX;
-      this.marbleMesh.rotation.z = marble.rotZ;
-    }
-    this.marbleShadow.position.set(marble.x, Math.max(0, marble.y - MABLE_R + 0.01), marble.z);
-    this.localLabelSprite.position.set(marble.x, marble.y + 0.65, marble.z);
-    if (marble.speed > 0.11 && marble.grounded) {
-      this.emitSkidMarks([marble.x, marble.y, marble.z], marble.speed / 0.16);
+    const isSpectating = Boolean(this.spectateTarget);
+    this.marbleMesh.visible = !isSpectating && !marble.dead;
+    this.marbleSilhouetteMesh.visible = !isSpectating && !marble.dead;
+    this.marbleSprite.visible = !isSpectating;
+    this.marbleShadow.visible = !isSpectating && !marble.dead;
+    this.localLabelSprite.visible = !isSpectating && !marble.dead;
+    if (!isSpectating) {
+      if (marble.dead) {
+        this.marbleSprite.position.set(marble.x, marble.y + 0.35, marble.z);
+        const broomFrame = Math.floor(this.totalTime * 8) % this.broomSpriteFrames.length;
+        this.marbleSprite.material.map = this.broomSpriteFrames[broomFrame];
+        this.marbleSprite.scale.set(0.9, 1.2, 1);
+      } else {
+        this.marbleSprite.scale.set(0.74, 0.74, 1);
+        this.marbleMesh.position.set(marble.x, marble.y, marble.z);
+        this.marbleSilhouetteMesh.position.set(marble.x, marble.y, marble.z);
+        this.marbleSilhouetteMesh.scale.set(1.05, 1.05, 1.05);
+        this.marbleSprite.position.set(marble.x, marble.y + 0.08, marble.z);
+        const marbleFrame = Math.floor(this.totalTime * (4 + marble.speed * 32)) % this.marbleSpriteFrames.length;
+        this.marbleSprite.material.map = this.marbleSpriteFrames[marbleFrame];
+        if (marble.quat) {
+          this.marbleMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
+          this.marbleSilhouetteMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
+        } else {
+          this.marbleMesh.rotation.x = marble.rotX;
+          this.marbleMesh.rotation.z = marble.rotZ;
+          this.marbleSilhouetteMesh.rotation.x = marble.rotX;
+          this.marbleSilhouetteMesh.rotation.z = marble.rotZ;
+        }
+        this.marbleShadow.position.set(marble.x, Math.max(0, marble.y - MABLE_R + 0.01), marble.z);
+        this.localLabelSprite.position.set(marble.x, marble.y + 0.65, marble.z);
+      }
+      if (marble.speed > 0.11 && marble.grounded && !marble.dead) {
+        this.emitSkidMarks([marble.x, marble.y, marble.z], marble.speed / 0.16);
+      }
     }
     this.syncRemotePlayers(remotePlayers, stageId);
     for (const h of hazards) {
@@ -32805,6 +34321,9 @@ var GameRenderer = class {
           const s = 1 + Math.sin(this.totalTime * 6) * 0.05;
           pool.scale.set(s, 1, s);
         }
+      } else if (h.def.kind === "windmill") {
+        const rotor = obj.getObjectByName("windmillRotor");
+        if (rotor) rotor.rotation.y = h.rotation;
       }
     }
     for (const prop of this.animatedProps) {
@@ -32814,8 +34333,15 @@ var GameRenderer = class {
     for (const w of this.waterMeshes) {
       w.position.y += Math.sin(this.totalTime * 4) * 2e-3;
     }
-    for (const p of this.particles) {
+    for (let i = 0; i < this.particlePool.length; i++) {
+      const p = this.particlePool[i];
+      if (!p.active) continue;
       p.life += dt;
+      if (p.life >= p.maxLife) {
+        p.active = false;
+        p.mesh.visible = false;
+        continue;
+      }
       p.vy -= 7e-3;
       p.mesh.position.x += p.vx;
       p.mesh.position.y += p.vy;
@@ -32825,25 +34351,20 @@ var GameRenderer = class {
       const scale = Math.max(0.01, 1 - p.life / p.maxLife);
       p.mesh.scale.set(scale, scale, scale);
     }
-    this.particles = this.particles.filter((p) => {
-      if (p.life >= p.maxLife) {
-        this.particlesGroup.remove(p.mesh);
-        return false;
-      }
-      return true;
-    });
+    const followTarget = this.spectateTarget || {
+      x: marble.x + marble.vx * 12,
+      y: marble.y,
+      z: marble.z + marble.vz * 12
+    };
     if (!this.camInitialized) {
-      this.camFollowX = marble.x;
-      this.camFollowY = marble.y;
-      this.camFollowZ = marble.z;
+      this.camFollowX = followTarget.x;
+      this.camFollowY = followTarget.y;
+      this.camFollowZ = followTarget.z;
       this.camInitialized = true;
     } else {
-      const leadX = marble.x + marble.vx * 12;
-      const leadY = marble.y;
-      const leadZ = marble.z + marble.vz * 12;
-      this.camFollowX += (leadX - this.camFollowX) * Math.min(1, dt * 8);
-      this.camFollowY += (leadY - this.camFollowY) * Math.min(1, dt * 6);
-      this.camFollowZ += (leadZ - this.camFollowZ) * Math.min(1, dt * 8);
+      this.camFollowX += (followTarget.x - this.camFollowX) * Math.min(1, dt * 8);
+      this.camFollowY += (followTarget.y - this.camFollowY) * Math.min(1, dt * 6);
+      this.camFollowZ += (followTarget.z - this.camFollowZ) * Math.min(1, dt * 8);
     }
     let shakeX = 0;
     let shakeY = 0;
@@ -32863,6 +34384,52 @@ var GameRenderer = class {
     this.camera.position.set(camX, camY, camZ);
     this.camera.lookAt(this.camFollowX + 1.2, this.camFollowY + 0.5, this.camFollowZ + 1.2);
     this.renderer.render(this.scene, this.camera);
+  }
+  getRadarIndicators(remotePlayers, currentStage, localMarble) {
+    const indicators = [];
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const margin = 36;
+    const v = new Vector3();
+    for (const rp of remotePlayers) {
+      if (rp.stage !== currentStage) continue;
+      v.set(rp.x, rp.y, rp.z);
+      v.project(this.camera);
+      const isBehind = v.z > 1;
+      const isOffScreen = v.x < -0.88 || v.x > 0.88 || v.y < -0.88 || v.y > 0.88 || isBehind;
+      if (isOffScreen) {
+        let nx = v.x;
+        let ny = v.y;
+        if (isBehind) {
+          nx = -nx;
+          ny = -ny;
+        }
+        const angle = Math.atan2(-ny, nx);
+        const halfW = width / 2 - margin;
+        const halfH = height / 2 - margin;
+        const edgeX = Math.cos(angle);
+        const edgeY = Math.sin(angle);
+        const scaleX = halfW / Math.abs(edgeX || 1e-5);
+        const scaleY = halfH / Math.abs(edgeY || 1e-5);
+        const scale = Math.min(scaleX, scaleY);
+        const screenX = width / 2 + edgeX * scale;
+        const screenY = height / 2 + edgeY * scale;
+        const dist = Math.hypot(rp.x - localMarble.x, rp.z - localMarble.z);
+        const isApproaching = dist < 6 && rp.speed > 0.08;
+        indicators.push({
+          id: rp.id,
+          name: rp.name,
+          color: rp.color || "#33e0ff",
+          intelligence: rp.intelligence || "NI",
+          screenX: Math.round(screenX),
+          screenY: Math.round(screenY),
+          angle: angle + Math.PI / 2,
+          distance: Number(dist.toFixed(1)),
+          isAlert: isApproaching
+        });
+      }
+    }
+    return indicators;
   }
   onResize() {
     const width = window.innerWidth;
@@ -32915,6 +34482,7 @@ var InputManager = class {
   onToggleMenu;
   onToggleCamera;
   onToggleMute;
+  onCalibrate;
   joyEl = null;
   knobEl = null;
   brakeEl = null;
@@ -32943,6 +34511,10 @@ var InputManager = class {
       if (e.code === "Escape" && this.onToggleMenu) this.onToggleMenu();
       if (e.code === "KeyC" && this.onToggleCamera) this.onToggleCamera();
       if (e.code === "KeyM" && this.onToggleMute) this.onToggleMute();
+      if (e.code === "KeyT") {
+        this.calibrateNow();
+        if (this.onCalibrate) this.onCalibrate();
+      }
     });
     window.addEventListener("keyup", (e) => {
       this.keys.delete(e.code);
@@ -32978,6 +34550,27 @@ var InputManager = class {
     }
     if (this.joyEl) {
       this.joyEl.classList.add("on");
+      window.addEventListener(
+        "touchstart",
+        (e) => {
+          const touch = e.touches[0];
+          if (!touch) return;
+          const target = e.target;
+          if (target?.closest && (target.closest("#hud button") || target.closest(".click") || target.closest("#spectator-overlay") || target.closest("#brake"))) {
+            return;
+          }
+          if (touch.clientX < window.innerWidth * 0.65) {
+            this.joyEl.style.left = `${touch.clientX}px`;
+            this.joyEl.style.top = `${touch.clientY}px`;
+            this.joyEl.style.bottom = "auto";
+            this.joyEl.style.transform = "translate(-50%, -50%)";
+            this.joyCenter = [touch.clientX, touch.clientY];
+            this.joyActive = true;
+            this.updateJoyTouch(touch.clientX, touch.clientY);
+          }
+        },
+        { passive: true }
+      );
       this.joyEl.addEventListener("touchstart", (e) => {
         e.preventDefault();
         const touch = e.touches[0];
@@ -33321,7 +34914,13 @@ var MultiplayerClient = class {
                 this.remotePlayers.delete(id);
               }
             }
-            this.notifyPlayerCount();
+            if (typeof msg.count === "number") {
+              if (this.events.onPlayerCountChange) {
+                this.events.onPlayerCountChange(msg.count);
+              }
+            } else {
+              this.notifyPlayerCount();
+            }
           }
           break;
         }
@@ -33880,6 +35479,14 @@ var WebMCPController = class {
 };
 
 // src/game/state.ts
+function triggerHaptic(pattern) {
+  try {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(pattern);
+    }
+  } catch {
+  }
+}
 var GameManager = class {
   currentStageIndex = 0;
   currentLevel;
@@ -33906,8 +35513,10 @@ var GameManager = class {
   isAudioStarted = false;
   physicsAccumulator = 0;
   physicsStep = 1 / 60;
+  spectatedIndex = 0;
+  spectatedPlayerId = null;
   constructor() {
-    this.currentLevel = LEVELS[0];
+    this.currentLevel = LEVELS2[0];
     this.input = new InputManager();
     this.physics = new PhysicsEngine(this.currentLevel);
     this.hazards = new HazardManager(this.currentLevel);
@@ -33922,7 +35531,7 @@ var GameManager = class {
     this.bindMultiplayer();
     this.setupStage(0, false);
     this.state = "TITLE";
-    this.hud.showMenu(LEVELS.length, 1);
+    this.hud.showMenu(LEVELS2.length, 1);
   }
   async fetchSessionToken() {
     try {
@@ -34014,16 +35623,27 @@ var GameManager = class {
       if (this.hud.isMenuOpen()) {
         this.hud.hideMenu();
       } else {
-        this.hud.showMenu(LEVELS.length, this.currentStageIndex + 1);
+        this.hud.showMenu(LEVELS2.length, this.currentStageIndex + 1);
       }
     };
     this.input.onToggleMute = () => {
       const isMuted = soundManager.toggleMute();
       this.hud.showBanner(isMuted ? "MUTED" : "UNMUTED", "", 1200);
     };
+    this.input.onCalibrate = () => {
+      this.hud.showBanner("\u{1F3AF} TILT RE-CENTERED", "NEUTRAL POSITION SET", 1200);
+      triggerHaptic(20);
+    };
     this.hud.onSelectCourse = (stage) => this.setupStage(stage - 1);
     this.hud.musicVolume = soundManager.getMusicVolume();
     this.hud.onMusicVolumeChange = (volume) => soundManager.setMusicVolume(volume);
+    this.hud.onZeroTilt = () => {
+      this.input.calibrateNow();
+      triggerHaptic(20);
+    };
+    this.hud.onSpectatorPrev = () => this.cycleSpectator(-1);
+    this.hud.onSpectatorNext = () => this.cycleSpectator(1);
+    this.hud.onSpectatorRespawn = () => this.respawnFromSpectator();
     this.hud.onResumeGame = () => {
       this.startAudio();
       if (this.state === "TITLE") {
@@ -34040,10 +35660,12 @@ var GameManager = class {
     this.physics.events.onBounce = (force) => {
       soundManager.playSfx("bounce", Math.min(1, force * 1.5));
       this.renderer.triggerScreenShake(Math.min(0.32, force * 0.22));
+      triggerHaptic(15);
     };
     this.physics.events.onShatter = () => {
       soundManager.playSfx("shatter", 1);
       this.renderer.triggerScreenShake(0.48);
+      triggerHaptic([60, 40, 80]);
       this.handleDeath("shatter");
     };
     this.physics.events.onSkid = (intensity) => {
@@ -34055,9 +35677,11 @@ var GameManager = class {
     this.physics.events.onSpringboard = () => {
       soundManager.playSfx("springboard", 1);
       this.renderer.triggerScreenShake(0.18);
+      triggerHaptic([25, 30, 25]);
     };
     this.physics.events.onFall = () => {
       soundManager.playSfx("fall", 1);
+      triggerHaptic(40);
       this.handleDeath("fall");
     };
     this.hazards.events.onCollectItem = () => {
@@ -34124,6 +35748,7 @@ var GameManager = class {
     };
     this.multiplayer.events.onBumpReceived = (attackerName, impulse) => {
       soundManager.playSfx("bounce", 1);
+      triggerHaptic(30);
       this.renderer.emitBumpSparks([
         this.physics.marble.x,
         this.physics.marble.y,
@@ -34136,6 +35761,7 @@ var GameManager = class {
     };
     this.multiplayer.events.onBumpScored = (targetName, points) => {
       soundManager.playSfx("item", 0.9);
+      triggerHaptic(20);
       this.score += points;
       this.saveHiscore();
       this.renderer.emitBumpSparks([
@@ -34147,6 +35773,7 @@ var GameManager = class {
     };
     this.multiplayer.events.onKnockoutScored = (targetName, targetIntelligence, points) => {
       soundManager.playSfx("goal", 1);
+      triggerHaptic([40, 50, 60]);
       this.score += points;
       this.knockoutCount++;
       this.saveHiscore();
@@ -34189,8 +35816,10 @@ var GameManager = class {
     }
   }
   setupStage(index, autoPlay = true) {
-    this.currentStageIndex = Math.max(0, Math.min(LEVELS.length - 1, index));
-    this.currentLevel = LEVELS[this.currentStageIndex];
+    this.hud.hideSpectatorMode();
+    this.renderer.setSpectateTarget(null);
+    this.currentStageIndex = Math.max(0, Math.min(LEVELS2.length - 1, index));
+    this.currentLevel = LEVELS2[this.currentStageIndex];
     this.timeLeft = this.currentLevel.def.time || COURSE_TIME;
     this.itemsCollected = 0;
     this.itemsTotal = this.currentLevel.props.filter((p) => p.kind === "item").length;
@@ -34215,6 +35844,7 @@ var GameManager = class {
     this.state = "RESPAWNING";
     this.respawnTimer = 1.4;
     this.lives--;
+    this.physics.marble.dead = true;
     this.renderer.emitShatterParticles([
       this.physics.marble.x,
       this.physics.marble.y,
@@ -34255,7 +35885,7 @@ var GameManager = class {
         void this.submitHighScore(initials);
       });
     } else {
-      this.hud.showMenu(LEVELS.length, this.currentStageIndex + 1, true, this.score);
+      this.enterSpectatorMode();
     }
   }
   async submitHighScore(initials) {
@@ -34285,7 +35915,44 @@ var GameManager = class {
     } catch (err) {
       console.warn("[Leaderboard] Submission error:", err);
     }
-    this.hud.showMenu(LEVELS.length, this.currentStageIndex + 1, true, this.score);
+    this.enterSpectatorMode();
+  }
+  enterSpectatorMode() {
+    this.state = "SPECTATING";
+    this.hud.hideMenu();
+    this.hud.hideCountdown();
+    const onlinePlayers = this.multiplayer.getOnlinePlayers();
+    if (onlinePlayers.length > 0) {
+      this.spectatedIndex = 0;
+      const target = onlinePlayers[0];
+      this.spectatedPlayerId = target.id;
+      this.renderer.setSpectateTarget({ x: target.x, y: target.y, z: target.z });
+      this.hud.showSpectatorMode(target.name, target.intelligence || "NI");
+      this.hud.showBanner("\u{1F440} SPECTATING MULTIPLAYER", `${target.name} \xB7 COURSE ${target.stage}`, 2200);
+    } else {
+      this.spectatedPlayerId = null;
+      this.renderer.setSpectateTarget(null);
+      this.hud.showSpectatorMode("COURSE OVERVIEW", "NI");
+      this.hud.showBanner("SPECTATING COURSE", "TAP RESPAWN TO PLAY AGAIN", 2500);
+    }
+  }
+  cycleSpectator(direction) {
+    const onlinePlayers = this.multiplayer.getOnlinePlayers();
+    if (onlinePlayers.length === 0) return;
+    this.spectatedIndex = (this.spectatedIndex + direction + onlinePlayers.length) % onlinePlayers.length;
+    const target = onlinePlayers[this.spectatedIndex];
+    this.spectatedPlayerId = target.id;
+    this.renderer.setSpectateTarget({ x: target.x, y: target.y, z: target.z });
+    this.hud.updateSpectatorTarget(target.name, target.intelligence || "NI");
+    this.hud.showBanner("SPECTATING", `${target.name} \xB7 COURSE ${target.stage}`, 1200);
+  }
+  respawnFromSpectator() {
+    this.hud.hideSpectatorMode();
+    this.renderer.setSpectateTarget(null);
+    this.score = 0;
+    this.lives = START_LIVES;
+    this.setupStage(this.currentStageIndex, true);
+    this.hud.showBanner("RESPAWNED!", `STAGE ${this.currentStageIndex + 1}`, 1500);
   }
   handleStageClear() {
     this.state = "STAGE_CLEAR";
@@ -34295,7 +35962,7 @@ var GameManager = class {
     this.saveHiscore();
     this.hud.showBanner("STAGE CLEAR!", `TIME BONUS +${timeBonus}`, 2500);
     setTimeout(() => {
-      if (this.currentStageIndex + 1 < LEVELS.length) {
+      if (this.currentStageIndex + 1 < LEVELS2.length) {
         this.setupStage(this.currentStageIndex + 1);
       } else {
         this.state = "VICTORY";
@@ -34354,6 +36021,22 @@ var GameManager = class {
         this.physics.respawn(cp ?? void 0);
         this.state = "PLAYING";
       }
+    } else if (this.state === "SPECTATING") {
+      soundManager.setRollVolume(0);
+      const onlinePlayers2 = this.multiplayer.getOnlinePlayers();
+      if (onlinePlayers2.length > 0) {
+        let currentTarget = onlinePlayers2.find((p) => p.id === this.spectatedPlayerId);
+        if (!currentTarget) {
+          this.spectatedIndex = 0;
+          currentTarget = onlinePlayers2[0];
+          this.spectatedPlayerId = currentTarget.id;
+        }
+        this.renderer.setSpectateTarget({ x: currentTarget.x, y: currentTarget.y, z: currentTarget.z });
+        this.hud.updateSpectatorTarget(currentTarget.name, currentTarget.intelligence || "NI");
+      } else {
+        this.renderer.setSpectateTarget(null);
+        this.hud.updateSpectatorTarget("SOLO OVERVIEW", "NI");
+      }
     }
     this.multiplayer.updateInterpolation(dt);
     this.multiplayer.sendUpdate(
@@ -34372,6 +36055,16 @@ var GameManager = class {
       this.itemsTotal
     );
     const onlinePlayers = this.multiplayer.getOnlinePlayers();
+    if (this.state === "PLAYING") {
+      const radar = this.renderer.getRadarIndicators(
+        onlinePlayers,
+        this.currentStageIndex + 1,
+        this.physics.marble
+      );
+      this.hud.updateRadarIndicators(radar);
+    } else {
+      this.hud.updateRadarIndicators([]);
+    }
     this.hud.drawMinimap(
       this.currentLevel,
       this.physics.marble,
@@ -34408,11 +36101,53 @@ window.addEventListener("DOMContentLoaded", () => {
         speed: game.physics.marble.speed,
         grounded: game.physics.marble.grounded,
         dead: game.physics.marble.dead,
-        timeLeft: game.timeLeft
+        lives: game.lives,
+        timeLeft: game.timeLeft,
+        spectating: game.state === "SPECTATING",
+        spectatedId: game.spectatedPlayerId
       }),
       start: () => game.startGameDirect(),
       selectStage: (stage) => game.setupStage(stage - 1, false),
-      showEndgame: () => game.hud.showMenu(8, game.currentStageIndex + 1, true, game.score)
+      showEndgame: () => game.hud.showMenu(8, game.currentStageIndex + 1, true, game.score),
+      getStats: () => ({
+        instancedMeshCount: game.renderer.instancedTerrainMeshes.length,
+        instancedTotalInstances: game.renderer.instancedTerrainMeshes.reduce((acc, m) => acc + m.count, 0),
+        hasMinimapOffscreenCache: Boolean(game.hud.cachedMinimapCanvas),
+        minimapCanvasWidth: document.getElementById("minimap")?.width,
+        minimapCanvasHeight: document.getElementById("minimap")?.height,
+        particlePoolCount: game.renderer.particlePool.length,
+        activeParticles: game.renderer.particlePool.filter((p) => p.active).length,
+        hasSilhouette: Boolean(game.renderer.marbleSilhouetteMesh),
+        remotePlayerCount: game.multiplayer.remotePlayers.size,
+        radarMarkersCount: document.getElementById("mp-radar")?.children.length || 0,
+        spectatorOverlayVisible: !document.getElementById("spectator-overlay")?.classList.contains("hidden"),
+        spectatorTargetText: document.getElementById("spectator-target-name")?.textContent || ""
+      }),
+      triggerDeath: () => {
+        game.state = "PLAYING";
+        game.lives = 1;
+        game.score = 0;
+        game.handleDeath("fall");
+      },
+      triggerZeroTilt: () => {
+        document.getElementById("btn-zero-tilt")?.click();
+      },
+      cycleSpectator: (dir) => game.cycleSpectator(dir),
+      respawnFromSpectator: () => game.respawnFromSpectator(),
+      addMockRemotePlayer: (p) => {
+        game.multiplayer.addOrUpdateRemotePlayer(p);
+      },
+      setMarblePos: (x, y, z) => {
+        game.physics.marble.x = x;
+        game.physics.marble.y = y;
+        game.physics.marble.z = z;
+        game.physics.marble.vx = 0;
+        game.physics.marble.vy = 0;
+        game.physics.marble.vz = 0;
+      },
+      warpToStage: (stage) => {
+        game.setupStage(stage - 1, true);
+      }
     };
   }
   let lastTime = performance.now();

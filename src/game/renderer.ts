@@ -26,73 +26,91 @@ const PALETTE_BASE: StagePalette = {
 
 const STAGE_PALETTES: Record<number, StagePalette> = {
   1: {
+    // Stage 1: Practice Race (Stage 1.png) - Grey checkerboard, yellow/orange striped cliffs, red rails
     ...PALETTE_BASE,
-    path: [0xd4568a, 0x7a2450, 0x4a1830],
-    wall: [0x5a3040, 0x3a1c28, 0x241018],
-    tree: [0x2f8a48, 0x1a5a30, 0x0e3018],
-    rock: [0x6a6e78, 0x444850, 0x2a2c32],
+    path: [0xdcdcdc, 0x8f8f8f, 0x474747],
+    wall: [0xfeed00, 0xed7600, 0x2f2f2f],
+    metal: [0xff2233, 0xcc1122, 0x660011],
+    rock: [0xa93200, 0x6e2200, 0x331000],
   },
   2: {
+    // Stage 2: Pyramid Oasis (Stage 2.png) - Sandstone, dunes, obelisks, deep oasis water
     ...PALETTE_BASE,
-    path: [0xc8e4f8, 0x6a98b8, 0x3a6080],
-    snow: [0xeef6ff, 0xa8c8e0, 0x6888a0],
-    metal: [0xb8d0e0, 0x6a88a0, 0x3a5060],
-    wall: [0xd8eef8, 0x88b0c8, 0x486878],
-    water: [0x3aa0dd, 0x186890, 0x0c3048],
+    path: [0xd8be8e, 0xb18c49, 0x6b4f24],
+    sand: [0xf2d27a, 0xb89848, 0x745820],
+    wall: [0x2a2520, 0x181512, 0x0c0a08],
+    water: [0x1d5c86, 0x113b58, 0x082030],
+    tree: [0x247c38, 0x144c20, 0x0a2810],
+    rock: [0xa07844, 0x6c4c28, 0x3e2814],
   },
   3: {
+    // Stage 3: Astral Spire (Stage 3.png) - Celestial blue stone citadel, gold star relics
     ...PALETTE_BASE,
-    path: [0x5478b0, 0x2c4870, 0x162438],
-    wall: [0x283854, 0x162030, 0x0a1018],
-    glass: [0x50f0e0, 0x249080, 0x124840],
-    rock: [0x405470, 0x243244, 0x121a24],
-    water: [0x162848, 0x0c1628, 0x060c14],
+    path: [0xc4d8ee, 0x7daee7, 0x3d689e],
+    wall: [0x7daee7, 0x2c4145, 0x142022],
+    glass: [0xffd23f, 0xc89810, 0x664800],
+    rock: [0x8e8a59, 0x5a5638, 0x2e2c1c],
+    water: [0x1d3d66, 0x0e2038, 0x06101c],
   },
   4: {
+    // Stage 4: Beginner Race (Stage 4.png) - Cyan/blue striped cliffs, purple funnel tubes, ice pond
     ...PALETTE_BASE,
-    path: [0xdca44a, 0x94682a, 0x543814],
-    sand: [0xf2d27a, 0xb89848, 0x745820],
-    rock: [0xa07844, 0x6c4c28, 0x3e2814],
-    wall: [0x1a1a20, 0x0e0e12, 0x06060a],
-    metal: [0x282830, 0x16161c, 0x0a0a0e],
-    tree: [0x247c38, 0x144c20, 0x0a2810],
-    water: [0x20a8d8, 0x10688c, 0x083448],
-    glass: [0xf0cc40, 0xa88420, 0x584010],
+    path: [0xdcdcdc, 0x8f8f8f, 0x474747],
+    wall: [0x00bafe, 0x0066aa, 0x002843],
+    metal: [0x9933dd, 0x6611aa, 0x330866],
+    snow: [0x88eeff, 0x33bbee, 0x116688],
+    rock: [0x0088cc, 0x005588, 0x002244],
   },
   5: {
+    // Stage 5: Aerial Race / High Dive (Stage 5.png) - Charcoal towers, copper drop pipe, green acid
     ...PALETTE_BASE,
-    path: [0x7a48a8, 0x3a2060, 0x1a1030],
-    wall: [0x2a1438, 0x180a24, 0x0c0614],
-    glass: [0x66ffe8, 0x2aa090, 0x185860],
-    holo: [0xff55cc, 0x882050, 0x4a1028],
-    water: [0x33ee66, 0x148838, 0x0a4020],
+    path: [0xd8c8aa, 0xcbb087, 0x8a7250],
+    wall: [0x1a1a1a, 0x0f0f0f, 0x060606],
+    water: [0x22ee44, 0x118822, 0x084411],
+    metal: [0xaa5533, 0x773318, 0x3e1808],
+    rock: [0x544938, 0x383024, 0x1c1812],
   },
   6: {
+    // Stage 6: Silly Race / Red Cliffs (Stage 6.png) - Vibrant red striped cliffs, black canopy tunnel
     ...PALETTE_BASE,
-    path: [0xd4a05a, 0x8a6030, 0x4a3018],
-    sand: [0xe8c878, 0xa08040, 0x604818],
-    metal: [0xc4a070, 0x7a6038, 0x3a2c18],
-    wall: [0x8a5a30, 0x5a3818, 0x2a1c0c],
+    path: [0xdcdcdc, 0x8f8f8f, 0x474747],
+    wall: [0xfe4332, 0x762110, 0x2a0c06],
+    metal: [0x222226, 0x141418, 0x08080a],
+    rock: [0x992218, 0x55110c, 0x220604],
   },
   7: {
+    // Stage 7: Ultimate Race / Swiss Cheese (Stage 7.png) - Yellow polka-dot cliffs, red windmill
     ...PALETTE_BASE,
-    path: [0x8a6a58, 0x5a4030, 0x2a2018],
-    metal: [0xb8c0c8, 0x5a6068, 0x2a3038],
-    wall: [0x3a2a28, 0x241818, 0x140c0c],
-    sand: [0x6a5040, 0x443028, 0x241818],
+    path: [0xdcdcdc, 0x8f8f8f, 0x474747],
+    wall: [0xfedc00, 0x987600, 0x483600],
+    metal: [0xee2233, 0x991122, 0x440810],
+    rock: [0xcc9900, 0x886600, 0x443300],
   },
   8: {
+    // Stage 8: Space Dementia (Stage 8.png) - Gold platforms, red borders, triangular canopies, cyan ice
     ...PALETTE_BASE,
-    path: [0x4a5aa8, 0x243068, 0x101838],
-    cloud: [0xd0e8ff, 0x88a8c8, 0x486888],
-    glass: [0x88ffff, 0x2aa0c0, 0x145060],
-    holo: [0xff66ee, 0x882060, 0x401030],
-    sand: [0x8898c8, 0x4a5878, 0x283048],
+    path: [0xffaa00, 0xd47800, 0x803800],
+    wall: [0xfe0000, 0x870000, 0x380000],
+    snow: [0x00ffff, 0x00a8cc, 0x005577],
+    glass: [0x33e0ff, 0x1199cc, 0x084466],
+    metal: [0xffcc00, 0xb88800, 0x664400],
   },
 };
 
 function stagePalette(stageId: number): StagePalette {
   return STAGE_PALETTES[stageId] ?? PALETTE_BASE;
+}
+
+export interface RadarIndicator {
+  id: string;
+  name: string;
+  color: string;
+  intelligence: 'AI' | 'NI';
+  screenX: number;
+  screenY: number;
+  angle: number;
+  distance: number;
+  isAlert: boolean;
 }
 
 interface Particle {
@@ -102,12 +120,14 @@ interface Particle {
   vz: number;
   life: number;
   maxLife: number;
+  active: boolean;
 }
 
 interface RemotePlayerMesh {
   mesh: THREE.Mesh;
   shadow: THREE.Mesh;
   label: THREE.Sprite;
+  sprite: THREE.Sprite;
 }
 
 export class GameRenderer {
@@ -123,16 +143,30 @@ export class GameRenderer {
   private particlesGroup = new THREE.Group();
 
   private marbleMesh: THREE.Mesh;
+  private marbleSilhouetteMesh: THREE.Mesh;
   private marbleSprite: THREE.Sprite;
   private marbleSpriteFrames: THREE.Texture[];
+  private redMarbleSpriteFrames: THREE.Texture[];
+  private broomSpriteFrames: THREE.Texture[];
   private marbleShadow: THREE.Mesh;
   private localLabelSprite: THREE.Sprite;
 
   private hazardMeshes = new Map<HazardInstance, THREE.Object3D>();
   private remotePlayerMeshes = new Map<string, RemotePlayerMesh>();
-  private particles: Particle[] = [];
+  private particlePool: Particle[] = [];
+  private readonly MAX_PARTICLES = 160;
 
   // Optimized shared assets for high player count (100+ marbles)
+  private sharedBoxGeom = new THREE.BoxGeometry(1, 1, 1);
+  public instancedTerrainMeshes: THREE.InstancedMesh[] = [];
+
+  private dustGeom = new THREE.TetrahedronGeometry(0.04);
+  private dustMat = new THREE.MeshBasicMaterial({ color: 0xe0e8f0, transparent: true, opacity: 0.6 });
+  private sparkGeom = new THREE.OctahedronGeometry(0.06);
+  private sparkMat = new THREE.MeshBasicMaterial({ color: 0xffd23f });
+  private shardGeom = new THREE.TetrahedronGeometry(0.08);
+  private shardMat = new THREE.MeshStandardMaterial({ color: 0xff3b5c, roughness: 0.2 });
+
   private sharedSphereGeom = new THREE.SphereGeometry(MABLE_R, 24, 18);
   private sharedShadowGeom = (() => {
     const g = new THREE.PlaneGeometry(MABLE_R * 2.2, MABLE_R * 2.2);
@@ -155,6 +189,13 @@ export class GameRenderer {
   private camInitialized = false;
   private textureCache = new Map<string, THREE.CanvasTexture>();
   private pixelTextureCache = new Map<string, THREE.Texture>();
+  private occlusionRaycaster = new THREE.Raycaster();
+
+  public spectateTarget: { x: number; y: number; z: number } | null = null;
+
+  public setSpectateTarget(target: { x: number; y: number; z: number } | null): void {
+    this.spectateTarget = target;
+  }
 
   constructor() {
     this.canvas = document.getElementById('gl') as HTMLCanvasElement;
@@ -212,13 +253,28 @@ export class GameRenderer {
 
     // Local Marble
     this.marbleMesh = this.createMarbleMesh('#ff3b5c', '#33e0ff');
+
+    const silhouetteMat = new THREE.MeshBasicMaterial({
+      color: 0x33e0ff,
+      wireframe: true,
+      depthTest: true,
+      depthFunc: THREE.GreaterDepth, // Zero-overhead GPU X-Ray silhouette when occluded!
+      transparent: true,
+      opacity: 0.85,
+    });
+    this.marbleSilhouetteMesh = new THREE.Mesh(this.sharedSphereGeom, silhouetteMat);
+    this.marbleSilhouetteMesh.renderOrder = 999;
+
     this.marbleSpriteFrames = [28, 29, 30].map((frame) => this.loadPixelTexture(`/sprites/retro-marble/blue-${frame}.png`));
+    this.redMarbleSpriteFrames = [28, 29, 30].map((frame) => this.loadPixelTexture(`/sprites/retro-marble/red-${frame}.png`));
+    this.broomSpriteFrames = [8, 9, 10, 11, 12, 13, 14].map((f) => this.loadPixelTexture(`/sprites/retro-marble/blue-${String(f).padStart(2, '0')}.png`));
     this.marbleSprite = this.createPixelSprite(this.marbleSpriteFrames[0], 0.74);
     this.marbleShadow = this.createShadowMesh();
     this.localLabelSprite = this.createPlayerLabel('YOU (P1)', '#ffd23f');
     this.localLabelSprite.position.set(0, 0.75, 0);
 
     this.scene.add(this.marbleMesh);
+    this.scene.add(this.marbleSilhouetteMesh);
     this.scene.add(this.marbleSprite);
     this.scene.add(this.marbleShadow);
     this.scene.add(this.localLabelSprite);
@@ -231,6 +287,14 @@ export class GameRenderer {
     this.scene.remove(this.localLabelSprite);
 
     this.marbleMesh = this.createMarbleMesh(color, '#ffffff');
+    this.marbleSilhouetteMesh.material = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(color).getHex(),
+      wireframe: true,
+      depthTest: true,
+      depthFunc: THREE.GreaterDepth,
+      transparent: true,
+      opacity: 0.85,
+    });
     this.localLabelSprite = this.createPlayerLabel(`${name} (YOU)`, '#ffd23f');
 
     this.scene.add(this.marbleMesh);
@@ -267,6 +331,10 @@ export class GameRenderer {
   }
 
   private createMarbleTexture(primaryColor: string, accentColor: string): THREE.CanvasTexture {
+    const key = `${primaryColor}_${accentColor}`;
+    const cached = this.textureCache.get(key);
+    if (cached) return cached;
+
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 256;
@@ -338,6 +406,7 @@ export class GameRenderer {
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
+    this.textureCache.set(key, tex);
     return tex;
   }
 
@@ -408,7 +477,12 @@ export class GameRenderer {
   // =========================================================================
 
   public buildLevelMesh(level: BuiltLevel): void {
-    // Clear old terrain and environment
+    // Clear old terrain, instanced meshes, and environment
+    for (const mesh of this.instancedTerrainMeshes) {
+      mesh.dispose();
+    }
+    this.instancedTerrainMeshes = [];
+
     while (this.terrainGroup.children.length > 0) {
       this.terrainGroup.remove(this.terrainGroup.children[0]);
     }
@@ -425,7 +499,7 @@ export class GameRenderer {
     const materials = this.createSurfaceMaterials(stageId);
 
     const { W, H, cells } = level.layout;
-    const boxGeom = new THREE.BoxGeometry(1, 1, 1);
+    const standardBlocks = new Map<string, { x: number; y: number; z: number; h: number }[]>();
 
     for (let r = 0; r < H; r++) {
       for (let c = 0; c < W; c++) {
@@ -443,12 +517,13 @@ export class GameRenderer {
             wedge.receiveShadow = true;
             this.terrainGroup.add(wedge);
           } else {
-            // Standard column block with beveled appearance
-            const block = new THREE.Mesh(boxGeom, mat);
-            block.position.set(c + 0.5, columnHeight / 2, r + 0.5);
-            block.scale.set(0.98, columnHeight, 0.98);
-            block.receiveShadow = true;
-            this.terrainGroup.add(block);
+            // Batch standard box blocks by surface into InstancedMesh
+            let list = standardBlocks.get(cell.surf);
+            if (!list) {
+              list = [];
+              standardBlocks.set(cell.surf, list);
+            }
+            list.push({ x: c + 0.5, y: columnHeight / 2, z: r + 0.5, h: columnHeight });
           }
         }
 
@@ -485,6 +560,24 @@ export class GameRenderer {
           this.terrainGroup.add(waterMesh);
         }
       }
+    }
+
+    // Instantiate grouped box blocks into single InstancedMesh per material (reducing ~2,000 draw calls to <15)
+    const dummy = new THREE.Object3D();
+    for (const [surf, blocks] of standardBlocks.entries()) {
+      const mat = materials[surf] || materials.path;
+      const instancedMesh = new THREE.InstancedMesh(this.sharedBoxGeom, mat, blocks.length);
+      instancedMesh.receiveShadow = true;
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        dummy.position.set(b.x, b.y, b.z);
+        dummy.scale.set(0.98, b.h, 0.98);
+        dummy.updateMatrix();
+        instancedMesh.setMatrixAt(i, dummy.matrix);
+      }
+      instancedMesh.instanceMatrix.needsUpdate = true;
+      this.terrainGroup.add(instancedMesh);
+      this.instancedTerrainMeshes.push(instancedMesh);
     }
   }
 
@@ -915,14 +1008,40 @@ export class GameRenderer {
         break;
       }
       case 'wall': {
-        // Arcade tiered block facets
-        ctx.fillStyle = hex1;
-        ctx.fillRect(0, 0, 128, 128);
-        ctx.fillStyle = hex2;
-        ctx.fillRect(0, 64, 128, 64);
-        ctx.strokeStyle = hex3;
-        ctx.lineWidth = 4;
-        ctx.strokeRect(2, 2, 124, 124);
+        if (c1 === 0xfedc00) {
+          // Stage 7: Swiss cheese yellow cliff with organic orange polka-dot craters
+          ctx.fillStyle = '#fedc00';
+          ctx.fillRect(0, 0, 128, 128);
+          ctx.fillStyle = '#987600';
+          const dots = [
+            [32, 28, 14],
+            [86, 42, 18],
+            [24, 88, 20],
+            [92, 102, 12],
+            [58, 70, 8],
+          ];
+          for (const [dx, dy, dr] of dots) {
+            ctx.beginPath();
+            ctx.arc(dx, dy, dr, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.strokeStyle = '#483600';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(0, 0, 128, 128);
+        } else {
+          // Vertical striped arcade cliff columns & facets (Stage 1, 4, 6)
+          ctx.fillStyle = hex1;
+          ctx.fillRect(0, 0, 128, 128);
+          for (let x = 0; x < 128; x += 16) {
+            ctx.fillStyle = hex2;
+            ctx.fillRect(x, 0, 8, 128);
+            ctx.fillStyle = hex3;
+            ctx.fillRect(x + 8, 0, 2, 128);
+          }
+          ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(0, 0, 128, 128);
+        }
         break;
       }
       default: {
@@ -1320,12 +1439,147 @@ export class GameRenderer {
         group.add(pad);
         break;
       }
+
+      case 'funnel': {
+        const purpleMat = new THREE.MeshStandardMaterial({
+          color: h.def.tubeColor ? parseInt(h.def.tubeColor.replace('#', '0x')) : 0x8833cc,
+          roughness: 0.3,
+          metalness: 0.3,
+          side: THREE.DoubleSide,
+        });
+        // Flared cone hopper
+        const hopperGeom = new THREE.ConeGeometry(0.7, 0.9, 16, 1, true);
+        hopperGeom.rotateX(Math.PI);
+        const hopper = new THREE.Mesh(hopperGeom, purpleMat);
+        hopper.position.y = 0.45;
+        group.add(hopper);
+
+        // Curved discharge tube
+        const tubeGeom = new THREE.CylinderGeometry(0.28, 0.28, 1.2, 12);
+        const tube = new THREE.Mesh(tubeGeom, purpleMat);
+        tube.position.set(0, -0.4, 0.4);
+        tube.rotation.x = Math.PI / 4;
+        group.add(tube);
+        break;
+      }
+
+      case 'tube': {
+        const tubeMat = new THREE.MeshStandardMaterial({
+          color: h.def.tubeColor ? parseInt(h.def.tubeColor.replace('#', '0x')) : 0x8833cc,
+          roughness: 0.3,
+          metalness: 0.3,
+          side: THREE.DoubleSide,
+        });
+        const mouthGeom = new THREE.ConeGeometry(0.6, 0.8, 14, 1, true);
+        mouthGeom.rotateX(Math.PI);
+        const mouth = new THREE.Mesh(mouthGeom, tubeMat);
+        mouth.position.y = 0.4;
+        group.add(mouth);
+
+        const bodyGeom = new THREE.CylinderGeometry(0.26, 0.26, 1.0, 12);
+        const body = new THREE.Mesh(bodyGeom, tubeMat);
+        body.position.set(0, -0.3, 0.3);
+        body.rotation.x = Math.PI / 3;
+        group.add(body);
+        break;
+      }
+
+      case 'spigot': {
+        // Vertical drop pipe with top funnel hopper & bottom launch elbow
+        const copperMat = new THREE.MeshStandardMaterial({
+          color: h.def.tubeColor ? parseInt(h.def.tubeColor.replace('#', '0x')) : 0xaa5533,
+          roughness: 0.4,
+          metalness: 0.5,
+          side: THREE.DoubleSide,
+        });
+        const hopperGeom = new THREE.ConeGeometry(0.65, 0.7, 14, 1, true);
+        hopperGeom.rotateX(Math.PI);
+        const hopper = new THREE.Mesh(hopperGeom, copperMat);
+        hopper.position.y = 0.35;
+        group.add(hopper);
+
+        const pipeGeom = new THREE.CylinderGeometry(0.25, 0.25, 2.8, 12);
+        const pipe = new THREE.Mesh(pipeGeom, copperMat);
+        pipe.position.y = -1.1;
+        group.add(pipe);
+
+        const elbowGeom = new THREE.TorusGeometry(0.35, 0.2, 8, 12, Math.PI / 2);
+        const elbow = new THREE.Mesh(elbowGeom, copperMat);
+        elbow.position.set(0, -2.5, 0.3);
+        elbow.rotation.y = Math.PI / 2;
+        group.add(elbow);
+        break;
+      }
+
+      case 'windmill': {
+        // Central iron frame with 4 sculpted rotating red paddles
+        const ironMat = new THREE.MeshStandardMaterial({ color: 0x444450, metalness: 0.8, roughness: 0.3 });
+        const bladeMat = new THREE.MeshStandardMaterial({ color: 0xdd2233, roughness: 0.25, metalness: 0.2 });
+
+        const postGeom = new THREE.CylinderGeometry(0.14, 0.18, 1.6, 8);
+        const post = new THREE.Mesh(postGeom, ironMat);
+        post.position.y = 0.8;
+        group.add(post);
+
+        const rotor = new THREE.Group();
+        rotor.name = 'windmillRotor';
+        rotor.position.y = 1.3;
+
+        for (let b = 0; b < 4; b++) {
+          const angle = (b * Math.PI) / 2;
+          const armGeom = new THREE.CylinderGeometry(0.04, 0.04, 2.6, 6);
+          armGeom.rotateZ(Math.PI / 2);
+          const arm = new THREE.Mesh(armGeom, ironMat);
+          arm.position.set(Math.cos(angle) * 1.3, 0, Math.sin(angle) * 1.3);
+          arm.rotation.y = -angle;
+          rotor.add(arm);
+
+          const bladeGeom = new THREE.BoxGeometry(1.2, 0.48, 0.06);
+          const blade = new THREE.Mesh(bladeGeom, bladeMat);
+          blade.position.set(Math.cos(angle) * 1.8, 0, Math.sin(angle) * 1.8);
+          blade.rotation.y = -angle;
+          blade.rotation.x = 0.25;
+          rotor.add(blade);
+        }
+        group.add(rotor);
+        break;
+      }
+
+      case 'canopy': {
+        // 3D tunnel canopy roof with solid depth occlusion
+        const canopyMat = new THREE.MeshStandardMaterial({
+          color: h.def.tubeColor ? parseInt(h.def.tubeColor.replace('#', '0x')) : 0x22222a,
+          roughness: 0.5,
+          metalness: 0.2,
+          side: THREE.DoubleSide,
+        });
+        const dims = h.def.dims ?? [3.8, 1.3, 2.8];
+        const roofGeom = new THREE.BoxGeometry(dims[0], 0.2, dims[2]);
+        const roof = new THREE.Mesh(roofGeom, canopyMat);
+        roof.position.y = dims[1];
+        roof.castShadow = true;
+        roof.receiveShadow = true;
+        group.add(roof);
+
+        const pillarGeom = new THREE.CylinderGeometry(0.08, 0.08, dims[1], 8);
+        const p1 = new THREE.Mesh(pillarGeom, canopyMat);
+        p1.position.set(-dims[0] / 2 + 0.15, dims[1] / 2, -dims[2] / 2 + 0.15);
+        const p2 = new THREE.Mesh(pillarGeom, canopyMat);
+        p2.position.set(dims[0] / 2 - 0.15, dims[1] / 2, -dims[2] / 2 + 0.15);
+        const p3 = new THREE.Mesh(pillarGeom, canopyMat);
+        p3.position.set(-dims[0] / 2 + 0.15, dims[1] / 2, dims[2] / 2 - 0.15);
+        const p4 = new THREE.Mesh(pillarGeom, canopyMat);
+        p4.position.set(dims[0] / 2 - 0.15, dims[1] / 2, dims[2] / 2 - 0.15);
+        group.add(p1, p2, p3, p4);
+        break;
+      }
     }
 
     const spritePath = RETRO_OBJECT_SPRITES[h.def.kind];
     if (spritePath) {
-      const sprite = this.createPixelSprite(this.loadPixelTexture(spritePath), h.def.kind === 'goal' || h.def.kind === 'checkpoint' ? 1.15 : 0.72);
-      sprite.position.y = h.def.kind === 'goal' || h.def.kind === 'checkpoint' ? 0.55 : 0.38;
+      const height = h.def.kind === 'canopy' ? 1.4 : h.def.kind === 'funnel' || h.def.kind === 'spigot' ? 1.0 : 0.72;
+      const sprite = this.createPixelSprite(this.loadPixelTexture(spritePath), height);
+      sprite.position.y = h.def.kind === 'canopy' ? 0.9 : h.def.kind === 'funnel' || h.def.kind === 'spigot' ? 0.5 : 0.38;
       sprite.name = 'originalExtractedSprite';
       group.add(sprite);
     }
@@ -1349,12 +1603,14 @@ export class GameRenderer {
         const mesh = this.createMarbleMesh(p.color, '#ffffff');
         const shadow = this.createShadowMesh();
         const label = this.createPlayerLabel(`${p.name} [${p.score}]`, p.color);
+        const sprite = this.createPixelSprite(this.redMarbleSpriteFrames[0], 0.74);
 
         this.remotePlayersGroup.add(mesh);
         this.remotePlayersGroup.add(shadow);
         this.remotePlayersGroup.add(label);
+        this.remotePlayersGroup.add(sprite);
 
-        rpm = { mesh, shadow, label };
+        rpm = { mesh, shadow, label, sprite };
         this.remotePlayerMeshes.set(p.id, rpm);
       }
 
@@ -1365,92 +1621,124 @@ export class GameRenderer {
 
       rpm.shadow.position.set(p.x, Math.max(0, p.y - MABLE_R + 0.01), p.z);
       rpm.label.position.set(p.x, p.y + 0.65, p.z);
+      rpm.sprite.position.set(p.x, p.y + 0.08, p.z);
+      const rFrame = Math.floor(this.totalTime * (4 + p.speed * 32)) % this.redMarbleSpriteFrames.length;
+      (rpm.sprite.material as THREE.SpriteMaterial).map = this.redMarbleSpriteFrames[rFrame];
     }
 
-    // Clean up disconnected or different stage players
+    // Clean up disconnected or different stage players with explicit GPU disposal
     for (const [id, rpm] of this.remotePlayerMeshes.entries()) {
       if (!activeIds.has(id)) {
         this.remotePlayersGroup.remove(rpm.mesh);
         this.remotePlayersGroup.remove(rpm.shadow);
         this.remotePlayersGroup.remove(rpm.label);
+        this.remotePlayersGroup.remove(rpm.sprite);
+        rpm.mesh.geometry.dispose();
+        if (Array.isArray(rpm.mesh.material)) {
+          rpm.mesh.material.forEach((m) => m.dispose());
+        } else {
+          rpm.mesh.material.dispose();
+        }
+        (rpm.label.material as THREE.SpriteMaterial).map?.dispose();
+        rpm.label.material.dispose();
+        (rpm.sprite.material as THREE.SpriteMaterial).map?.dispose();
+        rpm.sprite.material.dispose();
         this.remotePlayerMeshes.delete(id);
       }
     }
   }
 
   // =========================================================================
-  // PARTICLES & SPECIAL EFFECTS
+  // PARTICLES & SPECIAL EFFECTS (Zero-GC Object Pooling)
   // =========================================================================
 
+  private spawnParticle(
+    geom: THREE.BufferGeometry,
+    mat: THREE.Material,
+    x: number,
+    y: number,
+    z: number,
+    vx: number,
+    vy: number,
+    vz: number,
+    maxLife: number,
+  ): void {
+    let p = this.particlePool.find((item) => !item.active);
+    if (!p) {
+      if (this.particlePool.length < this.MAX_PARTICLES) {
+        const mesh = new THREE.Mesh(geom, mat);
+        this.particlesGroup.add(mesh);
+        p = { mesh, vx, vy, vz, life: 0, maxLife, active: true };
+        this.particlePool.push(p);
+      } else {
+        // Recycle oldest active particle
+        p = this.particlePool[0];
+        this.particlePool.push(this.particlePool.shift()!);
+      }
+    }
+
+    p.mesh.geometry = geom;
+    p.mesh.material = mat;
+    p.mesh.position.set(x, y, z);
+    p.mesh.scale.set(1, 1, 1);
+    p.mesh.visible = true;
+    p.vx = vx;
+    p.vy = vy;
+    p.vz = vz;
+    p.life = 0;
+    p.maxLife = maxLife;
+    p.active = true;
+  }
+
   public emitShatterParticles(pos: [number, number, number]): void {
-    const shardGeom = new THREE.TetrahedronGeometry(0.08);
-    const shardMat = new THREE.MeshStandardMaterial({ color: 0xff3b5c, roughness: 0.2 });
-
     for (let i = 0; i < 22; i++) {
-      const mesh = new THREE.Mesh(shardGeom, shardMat);
-      mesh.position.set(pos[0], pos[1], pos[2]);
-      this.particlesGroup.add(mesh);
-
       const angle = Math.random() * Math.PI * 2;
       const speed = 0.06 + Math.random() * 0.16;
-      this.particles.push({
-        mesh,
-        vx: Math.cos(angle) * speed,
-        vy: 0.09 + Math.random() * 0.16,
-        vz: Math.sin(angle) * speed,
-        life: 0,
-        maxLife: 0.9 + Math.random() * 0.4,
-      });
+      this.spawnParticle(
+        this.shardGeom,
+        this.shardMat,
+        pos[0],
+        pos[1],
+        pos[2],
+        Math.cos(angle) * speed,
+        0.09 + Math.random() * 0.16,
+        Math.sin(angle) * speed,
+        0.9 + Math.random() * 0.4,
+      );
     }
   }
 
   public emitBumpSparks(pos: [number, number, number]): void {
-    const sparkGeom = new THREE.OctahedronGeometry(0.06);
-    const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffd23f });
-
     for (let i = 0; i < 16; i++) {
-      const mesh = new THREE.Mesh(sparkGeom, sparkMat);
-      mesh.position.set(pos[0], pos[1], pos[2]);
-      this.particlesGroup.add(mesh);
-
       const angle = Math.random() * Math.PI * 2;
       const speed = 0.08 + Math.random() * 0.18;
-      this.particles.push({
-        mesh,
-        vx: Math.cos(angle) * speed,
-        vy: 0.05 + Math.random() * 0.14,
-        vz: Math.sin(angle) * speed,
-        life: 0,
-        maxLife: 0.5 + Math.random() * 0.3,
-      });
+      this.spawnParticle(
+        this.sparkGeom,
+        this.sparkMat,
+        pos[0],
+        pos[1],
+        pos[2],
+        Math.cos(angle) * speed,
+        0.05 + Math.random() * 0.14,
+        Math.sin(angle) * speed,
+        0.5 + Math.random() * 0.3,
+      );
     }
   }
 
-  public emitSkidMarks(pos: [number, number, number], intensity = 1.0): void {
-    const dustGeom = new THREE.TetrahedronGeometry(0.04);
-    const dustMat = new THREE.MeshBasicMaterial({
-      color: 0xe0e8f0,
-      transparent: true,
-      opacity: 0.6 * Math.min(1, intensity),
-    });
-
+  public emitSkidMarks(pos: [number, number, number], _intensity = 1.0): void {
     for (let i = 0; i < 3; i++) {
-      const mesh = new THREE.Mesh(dustGeom, dustMat);
-      mesh.position.set(
+      this.spawnParticle(
+        this.dustGeom,
+        this.dustMat,
         pos[0] + (Math.random() - 0.5) * 0.1,
         pos[1] - MABLE_R + 0.02,
         pos[2] + (Math.random() - 0.5) * 0.1,
+        (Math.random() - 0.5) * 0.04,
+        0.02 + Math.random() * 0.04,
+        (Math.random() - 0.5) * 0.04,
+        0.35 + Math.random() * 0.2,
       );
-      this.particlesGroup.add(mesh);
-
-      this.particles.push({
-        mesh,
-        vx: (Math.random() - 0.5) * 0.04,
-        vy: 0.02 + Math.random() * 0.04,
-        vz: (Math.random() - 0.5) * 0.04,
-        life: 0,
-        maxLife: 0.35 + Math.random() * 0.2,
-      });
     }
   }
 
@@ -1471,24 +1759,46 @@ export class GameRenderer {
   ): void {
     this.totalTime += dt;
 
-    // 1. Update local marble position & true 3D rolling orientation
-    this.marbleMesh.position.set(marble.x, marble.y, marble.z);
-    this.marbleSprite.position.set(marble.x, marble.y + 0.08, marble.z);
-    const marbleFrame = Math.floor(this.totalTime * (4 + marble.speed * 32)) % this.marbleSpriteFrames.length;
-    (this.marbleSprite.material as THREE.SpriteMaterial).map = this.marbleSpriteFrames[marbleFrame];
-    if (marble.quat) {
-      this.marbleMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
-    } else {
-      this.marbleMesh.rotation.x = marble.rotX;
-      this.marbleMesh.rotation.z = marble.rotZ;
-    }
+    const isSpectating = Boolean(this.spectateTarget);
+    this.marbleMesh.visible = !isSpectating && !marble.dead;
+    this.marbleSilhouetteMesh.visible = !isSpectating && !marble.dead;
+    this.marbleSprite.visible = !isSpectating;
+    this.marbleShadow.visible = !isSpectating && !marble.dead;
+    this.localLabelSprite.visible = !isSpectating && !marble.dead;
 
-    this.marbleShadow.position.set(marble.x, Math.max(0, marble.y - MABLE_R + 0.01), marble.z);
-    this.localLabelSprite.position.set(marble.x, marble.y + 0.65, marble.z);
+    if (!isSpectating) {
+      if (marble.dead) {
+        // Sweeping up marble dust with arcade dustpan broom
+        this.marbleSprite.position.set(marble.x, marble.y + 0.35, marble.z);
+        const broomFrame = Math.floor(this.totalTime * 8) % this.broomSpriteFrames.length;
+        (this.marbleSprite.material as THREE.SpriteMaterial).map = this.broomSpriteFrames[broomFrame];
+        this.marbleSprite.scale.set(0.9, 1.2, 1);
+      } else {
+        this.marbleSprite.scale.set(0.74, 0.74, 1);
+        this.marbleMesh.position.set(marble.x, marble.y, marble.z);
+        this.marbleSilhouetteMesh.position.set(marble.x, marble.y, marble.z);
+        this.marbleSilhouetteMesh.scale.set(1.05, 1.05, 1.05);
 
-    // Speed particles trail when going fast
-    if (marble.speed > 0.11 && marble.grounded) {
-      this.emitSkidMarks([marble.x, marble.y, marble.z], marble.speed / 0.16);
+        this.marbleSprite.position.set(marble.x, marble.y + 0.08, marble.z);
+        const marbleFrame = Math.floor(this.totalTime * (4 + marble.speed * 32)) % this.marbleSpriteFrames.length;
+        (this.marbleSprite.material as THREE.SpriteMaterial).map = this.marbleSpriteFrames[marbleFrame];
+        if (marble.quat) {
+          this.marbleMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
+          this.marbleSilhouetteMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
+        } else {
+          this.marbleMesh.rotation.x = marble.rotX;
+          this.marbleMesh.rotation.z = marble.rotZ;
+          this.marbleSilhouetteMesh.rotation.x = marble.rotX;
+          this.marbleSilhouetteMesh.rotation.z = marble.rotZ;
+        }
+
+        this.marbleShadow.position.set(marble.x, Math.max(0, marble.y - MABLE_R + 0.01), marble.z);
+        this.localLabelSprite.position.set(marble.x, marble.y + 0.65, marble.z);
+      }
+      // Speed particles trail when going fast (uses preallocated particle pool)
+      if (marble.speed > 0.11 && marble.grounded && !marble.dead) {
+        this.emitSkidMarks([marble.x, marble.y, marble.z], marble.speed / 0.16);
+      }
     }
 
     // 2. Sync multiplayer remote players
@@ -1534,6 +1844,9 @@ export class GameRenderer {
           const s = 1.0 + Math.sin(this.totalTime * 6) * 0.05;
           pool.scale.set(s, 1, s);
         }
+      } else if (h.def.kind === 'windmill') {
+        const rotor = obj.getObjectByName('windmillRotor');
+        if (rotor) rotor.rotation.y = h.rotation;
       }
     }
 
@@ -1548,9 +1861,18 @@ export class GameRenderer {
       w.position.y += Math.sin(this.totalTime * 4) * 0.002;
     }
 
-    // 6. Update particles
-    for (const p of this.particles) {
+    // 6. Update pooled particles in place (Zero allocation!)
+    for (let i = 0; i < this.particlePool.length; i++) {
+      const p = this.particlePool[i];
+      if (!p.active) continue;
+
       p.life += dt;
+      if (p.life >= p.maxLife) {
+        p.active = false;
+        p.mesh.visible = false;
+        continue;
+      }
+
       p.vy -= 0.007;
       p.mesh.position.x += p.vx;
       p.mesh.position.y += p.vy;
@@ -1560,28 +1882,24 @@ export class GameRenderer {
       const scale = Math.max(0.01, 1 - p.life / p.maxLife);
       p.mesh.scale.set(scale, scale, scale);
     }
-    this.particles = this.particles.filter((p) => {
-      if (p.life >= p.maxLife) {
-        this.particlesGroup.remove(p.mesh);
-        return false;
-      }
-      return true;
-    });
 
-    // 7. Smooth Isometric follow camera with lead-ahead & screen shake
+    // 7. Smooth Isometric follow camera with lead-ahead & screen shake (Supports Spectator Mode)
+    const followTarget = this.spectateTarget || {
+      x: marble.x + marble.vx * 12,
+      y: marble.y,
+      z: marble.z + marble.vz * 12,
+    };
+
     if (!this.camInitialized) {
-      this.camFollowX = marble.x;
-      this.camFollowY = marble.y;
-      this.camFollowZ = marble.z;
+      this.camFollowX = followTarget.x;
+      this.camFollowY = followTarget.y;
+      this.camFollowZ = followTarget.z;
       this.camInitialized = true;
     } else {
       // Smooth tracking spring-damper
-      const leadX = marble.x + marble.vx * 12;
-      const leadY = marble.y;
-      const leadZ = marble.z + marble.vz * 12;
-      this.camFollowX += (leadX - this.camFollowX) * Math.min(1, dt * 8);
-      this.camFollowY += (leadY - this.camFollowY) * Math.min(1, dt * 6);
-      this.camFollowZ += (leadZ - this.camFollowZ) * Math.min(1, dt * 8);
+      this.camFollowX += (followTarget.x - this.camFollowX) * Math.min(1, dt * 8);
+      this.camFollowY += (followTarget.y - this.camFollowY) * Math.min(1, dt * 6);
+      this.camFollowZ += (followTarget.z - this.camFollowZ) * Math.min(1, dt * 8);
     }
 
     // Screen Shake Offset
@@ -1607,6 +1925,68 @@ export class GameRenderer {
     this.camera.lookAt(this.camFollowX + 1.2, this.camFollowY + 0.5, this.camFollowZ + 1.2);
 
     this.renderer.render(this.scene, this.camera);
+  }
+
+  public getRadarIndicators(
+    remotePlayers: RemotePlayer[],
+    currentStage: number,
+    localMarble: MarbleState,
+  ): RadarIndicator[] {
+    const indicators: RadarIndicator[] = [];
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const margin = 36;
+    const v = new THREE.Vector3();
+
+    for (const rp of remotePlayers) {
+      if (rp.stage !== currentStage) continue;
+
+      v.set(rp.x, rp.y, rp.z);
+      v.project(this.camera);
+
+      // Check if off-screen or behind camera plane
+      const isBehind = v.z > 1.0;
+      const isOffScreen = v.x < -0.88 || v.x > 0.88 || v.y < -0.88 || v.y > 0.88 || isBehind;
+
+      if (isOffScreen) {
+        let nx = v.x;
+        let ny = v.y;
+        if (isBehind) {
+          nx = -nx;
+          ny = -ny;
+        }
+
+        const angle = Math.atan2(-ny, nx);
+        const halfW = width / 2 - margin;
+        const halfH = height / 2 - margin;
+
+        const edgeX = Math.cos(angle);
+        const edgeY = Math.sin(angle);
+
+        const scaleX = halfW / Math.abs(edgeX || 1e-5);
+        const scaleY = halfH / Math.abs(edgeY || 1e-5);
+        const scale = Math.min(scaleX, scaleY);
+
+        const screenX = width / 2 + edgeX * scale;
+        const screenY = height / 2 + edgeY * scale;
+
+        const dist = Math.hypot(rp.x - localMarble.x, rp.z - localMarble.z);
+        const isApproaching = dist < 6.0 && (rp.speed > 0.08);
+
+        indicators.push({
+          id: rp.id,
+          name: rp.name,
+          color: rp.color || '#33e0ff',
+          intelligence: rp.intelligence || 'NI',
+          screenX: Math.round(screenX),
+          screenY: Math.round(screenY),
+          angle: angle + Math.PI / 2,
+          distance: Number(dist.toFixed(1)),
+          isAlert: isApproaching,
+        });
+      }
+    }
+    return indicators;
   }
 
   private onResize(): void {

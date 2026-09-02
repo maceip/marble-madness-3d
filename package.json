@@ -11,6 +11,10 @@
     "serve": "node tools/serve.mjs",
     "check": "tsc --noEmit -p tsconfig.json",
     "test:gameplay": "node tools/browser-gameplay.mjs",
+    "test:fixes": "node tools/browser_test_all_fixes.mjs",
+    "test:stages": "node tools/test_redesigned_stages.mjs",
+    "test:sprites": "node tools/test_sprite_sheet_materials.mjs",
+    "test": "npm run test:fixes && npm run test:stages && npm run test:sprites && npm run test:gameplay",
     "start": "npm run build && npm run serve"
   },
   "dependencies": {

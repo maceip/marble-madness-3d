@@ -22,7 +22,18 @@ export type GameState =
   | 'RESPAWNING'
   | 'STAGE_CLEAR'
   | 'GAME_OVER'
-  | 'VICTORY';
+  | 'VICTORY'
+  | 'SPECTATING';
+
+function triggerHaptic(pattern: number | number[]): void {
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(pattern);
+    }
+  } catch {
+    // Ignore unsupported environments
+  }
+}
 
 export class GameManager {
   public currentStageIndex = 0;
@@ -54,6 +65,8 @@ export class GameManager {
   private isAudioStarted = false;
   private physicsAccumulator = 0;
   private readonly physicsStep = 1 / 60;
+  private spectatedIndex = 0;
+  private spectatedPlayerId: string | null = null;
 
   constructor() {
     this.currentLevel = LEVELS[0];
@@ -185,11 +198,22 @@ export class GameManager {
       const isMuted = soundManager.toggleMute();
       this.hud.showBanner(isMuted ? 'MUTED' : 'UNMUTED', '', 1200);
     };
+    this.input.onCalibrate = () => {
+      this.hud.showBanner('🎯 TILT RE-CENTERED', 'NEUTRAL POSITION SET', 1200);
+      triggerHaptic(20);
+    };
 
     // HUD callbacks
     this.hud.onSelectCourse = (stage) => this.setupStage(stage - 1);
     this.hud.musicVolume = soundManager.getMusicVolume();
     this.hud.onMusicVolumeChange = (volume) => soundManager.setMusicVolume(volume);
+    this.hud.onZeroTilt = () => {
+      this.input.calibrateNow();
+      triggerHaptic(20);
+    };
+    this.hud.onSpectatorPrev = () => this.cycleSpectator(-1);
+    this.hud.onSpectatorNext = () => this.cycleSpectator(1);
+    this.hud.onSpectatorRespawn = () => this.respawnFromSpectator();
     this.hud.onResumeGame = () => {
       this.startAudio();
       if (this.state === 'TITLE') {
@@ -204,14 +228,16 @@ export class GameManager {
       this.startCountdownSequence();
     };
 
-    // Physics events
+    // Physics events with haptics
     this.physics.events.onBounce = (force) => {
       soundManager.playSfx('bounce', Math.min(1, force * 1.5));
       this.renderer.triggerScreenShake(Math.min(0.32, force * 0.22));
+      triggerHaptic(15);
     };
     this.physics.events.onShatter = () => {
       soundManager.playSfx('shatter', 1.0);
       this.renderer.triggerScreenShake(0.48);
+      triggerHaptic([60, 40, 80]);
       this.handleDeath('shatter');
     };
     this.physics.events.onSkid = (intensity) => {
@@ -223,9 +249,11 @@ export class GameManager {
     this.physics.events.onSpringboard = () => {
       soundManager.playSfx('springboard', 1.0);
       this.renderer.triggerScreenShake(0.18);
+      triggerHaptic([25, 30, 25]);
     };
     this.physics.events.onFall = () => {
       soundManager.playSfx('fall', 1.0);
+      triggerHaptic(40);
       this.handleDeath('fall');
     };
 
@@ -305,6 +333,7 @@ export class GameManager {
 
     this.multiplayer.events.onBumpReceived = (attackerName, impulse) => {
       soundManager.playSfx('bounce', 1.0);
+      triggerHaptic(30);
       this.renderer.emitBumpSparks([
         this.physics.marble.x,
         this.physics.marble.y,
@@ -318,6 +347,7 @@ export class GameManager {
 
     this.multiplayer.events.onBumpScored = (targetName, points) => {
       soundManager.playSfx('item', 0.9);
+      triggerHaptic(20);
       this.score += points;
       this.saveHiscore();
       this.renderer.emitBumpSparks([
@@ -330,6 +360,7 @@ export class GameManager {
 
     this.multiplayer.events.onKnockoutScored = (targetName, targetIntelligence, points) => {
       soundManager.playSfx('goal', 1.0);
+      triggerHaptic([40, 50, 60]);
       this.score += points;
       this.knockoutCount++;
       this.saveHiscore();
@@ -378,6 +409,8 @@ export class GameManager {
   }
 
   public setupStage(index: number, autoPlay = true): void {
+    this.hud.hideSpectatorMode();
+    this.renderer.setSpectateTarget(null);
     this.currentStageIndex = Math.max(0, Math.min(LEVELS.length - 1, index));
     this.currentLevel = LEVELS[this.currentStageIndex];
     this.timeLeft = this.currentLevel.def.time || COURSE_TIME;
@@ -410,6 +443,7 @@ export class GameManager {
     this.state = 'RESPAWNING';
     this.respawnTimer = 1.4;
     this.lives--;
+    this.physics.marble.dead = true;
 
     this.renderer.emitShatterParticles([
       this.physics.marble.x,
@@ -454,7 +488,7 @@ export class GameManager {
         void this.submitHighScore(initials);
       });
     } else {
-      this.hud.showMenu(LEVELS.length, this.currentStageIndex + 1, true, this.score);
+      this.enterSpectatorMode();
     }
   }
 
@@ -488,7 +522,49 @@ export class GameManager {
       console.warn('[Leaderboard] Submission error:', err);
     }
 
-    this.hud.showMenu(LEVELS.length, this.currentStageIndex + 1, true, this.score);
+    this.enterSpectatorMode();
+  }
+
+  public enterSpectatorMode(): void {
+    this.state = 'SPECTATING';
+    this.hud.hideMenu();
+    this.hud.hideCountdown();
+
+    const onlinePlayers = this.multiplayer.getOnlinePlayers();
+    if (onlinePlayers.length > 0) {
+      this.spectatedIndex = 0;
+      const target = onlinePlayers[0];
+      this.spectatedPlayerId = target.id;
+      this.renderer.setSpectateTarget({ x: target.x, y: target.y, z: target.z });
+      this.hud.showSpectatorMode(target.name, target.intelligence || 'NI');
+      this.hud.showBanner('👀 SPECTATING MULTIPLAYER', `${target.name} · COURSE ${target.stage}`, 2200);
+    } else {
+      this.spectatedPlayerId = null;
+      this.renderer.setSpectateTarget(null);
+      this.hud.showSpectatorMode('COURSE OVERVIEW', 'NI');
+      this.hud.showBanner('SPECTATING COURSE', 'TAP RESPAWN TO PLAY AGAIN', 2500);
+    }
+  }
+
+  public cycleSpectator(direction: number): void {
+    const onlinePlayers = this.multiplayer.getOnlinePlayers();
+    if (onlinePlayers.length === 0) return;
+
+    this.spectatedIndex = (this.spectatedIndex + direction + onlinePlayers.length) % onlinePlayers.length;
+    const target = onlinePlayers[this.spectatedIndex];
+    this.spectatedPlayerId = target.id;
+    this.renderer.setSpectateTarget({ x: target.x, y: target.y, z: target.z });
+    this.hud.updateSpectatorTarget(target.name, target.intelligence || 'NI');
+    this.hud.showBanner('SPECTATING', `${target.name} · COURSE ${target.stage}`, 1200);
+  }
+
+  public respawnFromSpectator(): void {
+    this.hud.hideSpectatorMode();
+    this.renderer.setSpectateTarget(null);
+    this.score = 0;
+    this.lives = START_LIVES;
+    this.setupStage(this.currentStageIndex, true);
+    this.hud.showBanner('RESPAWNED!', `STAGE ${this.currentStageIndex + 1}`, 1500);
   }
 
   private handleStageClear(): void {
@@ -572,6 +648,22 @@ export class GameManager {
         this.physics.respawn(cp ?? undefined);
         this.state = 'PLAYING';
       }
+    } else if (this.state === 'SPECTATING') {
+      soundManager.setRollVolume(0);
+      const onlinePlayers = this.multiplayer.getOnlinePlayers();
+      if (onlinePlayers.length > 0) {
+        let currentTarget = onlinePlayers.find((p) => p.id === this.spectatedPlayerId);
+        if (!currentTarget) {
+          this.spectatedIndex = 0;
+          currentTarget = onlinePlayers[0];
+          this.spectatedPlayerId = currentTarget.id;
+        }
+        this.renderer.setSpectateTarget({ x: currentTarget.x, y: currentTarget.y, z: currentTarget.z });
+        this.hud.updateSpectatorTarget(currentTarget.name, currentTarget.intelligence || 'NI');
+      } else {
+        this.renderer.setSpectateTarget(null);
+        this.hud.updateSpectatorTarget('SOLO OVERVIEW', 'NI');
+      }
     }
 
     // Multiplayer sync & interpolation
@@ -595,6 +687,18 @@ export class GameManager {
     );
 
     const onlinePlayers = this.multiplayer.getOnlinePlayers();
+
+    // Spatial off-screen radar indicators for rivals on current stage
+    if (this.state === 'PLAYING') {
+      const radar = this.renderer.getRadarIndicators(
+        onlinePlayers,
+        this.currentStageIndex + 1,
+        this.physics.marble,
+      );
+      this.hud.updateRadarIndicators(radar);
+    } else {
+      this.hud.updateRadarIndicators([]);
+    }
 
     // Minimap update
     this.hud.drawMinimap(

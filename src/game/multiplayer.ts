@@ -136,7 +136,13 @@ export class MultiplayerClient {
                 this.remotePlayers.delete(id);
               }
             }
-            this.notifyPlayerCount();
+            if (typeof msg.count === 'number') {
+              if (this.events.onPlayerCountChange) {
+                this.events.onPlayerCountChange(msg.count);
+              }
+            } else {
+              this.notifyPlayerCount();
+            }
           }
           break;
         }

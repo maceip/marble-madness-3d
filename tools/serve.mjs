@@ -357,15 +357,35 @@ setInterval(() => {
 
   if (activePlayersList.length === 0) return;
 
-  const tickMsg = JSON.stringify({
-    type: 'world_tick',
-    t: now,
-    count: activePlayersList.length,
-    players: activePlayersList,
-  });
+  // Stage-partitioned broadcasts: clients only receive coordinates for players on their stage,
+  // while receiving global player count. Caches JSON per stage to minimize serialization.
+  const stageMap = new Map();
+  for (const p of activePlayersList) {
+    let list = stageMap.get(p.stage);
+    if (!list) {
+      list = [];
+      stageMap.set(p.stage, list);
+    }
+    list.push(p);
+  }
+
+  const stagePayloadCache = new Map();
 
   for (const client of players.values()) {
     if (client.ws.readyState === WebSocket.OPEN) {
+      const clientStage = client.data.stage || 1;
+      let tickMsg = stagePayloadCache.get(clientStage);
+      if (!tickMsg) {
+        const stagePlayers = stageMap.get(clientStage) || [];
+        tickMsg = JSON.stringify({
+          type: 'world_tick',
+          t: now,
+          stage: clientStage,
+          count: activePlayersList.length,
+          players: stagePlayers,
+        });
+        stagePayloadCache.set(clientStage, tickMsg);
+      }
       client.ws.send(tickMsg);
     }
   }
@@ -459,6 +479,12 @@ wss.on('connection', (ws, req) => {
       switch (msg.type) {
         case 'update': {
           playerData.stage = msg.stage ?? playerData.stage;
+          if (typeof msg.name === 'string' && msg.name) {
+            playerData.name = msg.name;
+          }
+          if (typeof msg.color === 'string' && msg.color) {
+            playerData.color = msg.color;
+          }
           if (msg.intelligence === 'AI' || msg.intelligence === 'NI') {
             playerData.intelligence = msg.intelligence;
           }

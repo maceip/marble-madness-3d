@@ -34,6 +34,11 @@ export interface MarbleState {
   inWater: boolean;
   fallHeight: number;
   lastAirY: number;
+  inTube?: boolean;
+  tubeProgress?: number;
+  tubeDuration?: number;
+  tubePath?: [number, number, number][];
+  tubeExitVel?: [number, number, number];
 }
 
 export interface PhysicsEvents {
@@ -158,6 +163,8 @@ export class PhysicsEngine {
     this.marble.skidding = false;
     this.marble.fallHeight = 0;
     this.marble.lastAirY = this.marble.y;
+    this.marble.inTube = false;
+    this.marble.tubeProgress = 0;
   }
 
   public getGroundHeightAt(x: number, z: number): { height: number; cell: Cell | null; normal: [number, number, number] } {
@@ -202,6 +209,40 @@ export class PhysicsEngine {
     if (this.marble.dead || this.marble.shattered) return;
 
     const m = this.marble;
+
+    // Tube / Funnel / Spigot Transport Dynamics
+    if (m.inTube) {
+      const dur = m.tubeDuration || 0.8;
+      m.tubeProgress = (m.tubeProgress ?? 0) + (1 / 60) / dur;
+      const pts = m.tubePath;
+      if (pts && pts.length >= 2) {
+        const t = Math.min(1.0, Math.max(0, m.tubeProgress));
+        const numSegments = pts.length - 1;
+        const segIdx = Math.min(numSegments - 1, Math.floor(t * numSegments));
+        const segT = (t * numSegments) - segIdx;
+        const p0 = pts[segIdx];
+        const p1 = pts[segIdx + 1];
+        m.x = p0[0] + (p1[0] - p0[0]) * segT;
+        m.y = p0[1] + (p1[1] - p0[1]) * segT;
+        m.z = p0[2] + (p1[2] - p0[2]) * segT;
+      }
+      if (m.tubeProgress >= 1.0) {
+        m.inTube = false;
+        if (m.tubeExitVel) {
+          m.vx = m.tubeExitVel[0];
+          m.vy = m.tubeExitVel[1];
+          m.vz = m.tubeExitVel[2];
+        } else {
+          m.vx = 0.05;
+          m.vy = 0;
+          m.vz = 0.12;
+        }
+        m.grounded = false;
+        m.lastAirY = m.y;
+      }
+      return;
+    }
+
     const groundInfo = this.getGroundHeightAt(m.x, m.z);
     m.currentCell = groundInfo.cell;
 

@@ -49,12 +49,14 @@ export class HazardManager {
   public hazards: HazardInstance[] = [];
   public events: HazardEvents = {};
   public activeCheckpoint: [number, number, number] | null = null;
+  public level!: BuiltLevel;
 
   constructor(level: BuiltLevel) {
     this.initLevel(level);
   }
 
   public initLevel(level: BuiltLevel): void {
+    this.level = level;
     this.hazards = [];
     this.activeCheckpoint = null;
 
@@ -62,7 +64,7 @@ export class HazardManager {
     const allDefs = [...level.props, ...level.def.hazards];
 
     for (const def of allDefs) {
-      const hSteps = def.h ?? level.def.baseHeight;
+      const hSteps = level.def.baseHeight + (def.h ?? 0);
       const y = hSteps * STEP_H + 0.3;
 
       this.hazards.push({
@@ -236,6 +238,34 @@ export class HazardManager {
           }
           break;
         }
+
+        case 'windmill': {
+          h.rotation += dt * (h.def.rotationSpeed ?? 2.8);
+          const rad = h.def.radius ?? 3.2;
+          const dist2D = Math.hypot(marble.x - h.x, marble.z - h.z);
+          const dy = Math.abs(marble.y - h.y);
+          if (dist2D < rad && dy < 0.9 && !marble.dead) {
+            const currentAngle = Math.atan2(marble.z - h.z, marble.x - h.x);
+            for (let b = 0; b < 4; b++) {
+              const bladeAngle = (h.rotation + (b * Math.PI) / 2) % (Math.PI * 2);
+              let angleDiff = Math.abs(currentAngle - bladeAngle);
+              if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+              if (angleDiff < 0.28) {
+                const now = performance.now();
+                if (now - (h.cooldown ?? 0) > 400) {
+                  h.cooldown = now;
+                  const pushAngle = bladeAngle + Math.PI / 2;
+                  const impulse = 0.42;
+                  marble.vx += Math.cos(pushAngle) * impulse;
+                  marble.vz += Math.sin(pushAngle) * impulse;
+                  marble.vy += 0.28;
+                  if (this.events.onHitBat) this.events.onHitBat();
+                }
+              }
+            }
+          }
+          break;
+        }
       }
 
       // Check collision with marble
@@ -328,6 +358,36 @@ export class HazardManager {
           case 'snake':
             if (dist2D < 0.7 && Math.abs(dy) < 0.7) {
               if (this.events.onKill) this.events.onKill('snake');
+            }
+            break;
+
+          case 'springboard':
+            if (dist2D < 0.75 && Math.abs(dy) < 0.7) {
+              const now = performance.now();
+              if (now - (h.cooldown ?? 0) > 600) {
+                h.cooldown = now;
+                marble.vy = 0.44;
+                marble.grounded = false;
+                if (this.events.onHitBat) this.events.onHitBat();
+              }
+            }
+            break;
+
+          case 'funnel':
+          case 'tube':
+          case 'spigot':
+            if (dist3D < 1.1 && !marble.inTube && !marble.dead) {
+              marble.inTube = true;
+              marble.tubeProgress = 0;
+              marble.tubeDuration = h.def.period ?? 0.8;
+              const targetWorldY = (this.level.def.baseHeight + (h.def.targetY ?? (h.def.h ?? 0))) * STEP_H + 0.3;
+              marble.tubePath = h.def.curvePath ?? [
+                [h.x, h.y, h.z],
+                [h.def.targetX ?? h.x, (h.y + targetWorldY) / 2, (h.z + (h.def.targetZ ?? h.z)) / 2],
+                [h.def.targetX ?? h.x, targetWorldY, h.def.targetZ ?? (h.z + 2)],
+              ];
+              marble.tubeExitVel = h.def.exitVelocity ?? [0.06, 0.02, 0.16];
+              if (this.events.onHitBat) this.events.onHitBat();
             }
             break;
         }
