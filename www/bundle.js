@@ -1091,19 +1091,24 @@ var DEFS2 = [
         "12,13": { surf: "path", h: 12, prop: "checkpoint" },
         // Steep ramp
         "9,14:15,15": { surf: "path", h: 11, fall: "S" },
-        // First Purple Funnel Pipe
-        "14,18:15,19": { surf: "metal", h: 10 },
+        // Ramp down to funnel terrace
+        "8,16:16,17": { surf: "path", h: 10, fall: "S" },
+        // Funnel terrace
+        "8,18:16,20": { surf: "path", h: 10 },
+        "13,18:16,19": { surf: "metal", h: 10 },
         // Corrugated wave bridge
         "9,21:15,22": { surf: "path", h: 9, fall: "S" },
-        // Branched Purple Funnel Tube
-        "10,25:11,26": { surf: "metal", h: 7 },
-        "14,25:15,26": { surf: "metal", h: 7 },
+        "8,23:16,24": { surf: "path", h: 8, fall: "S" },
+        // Branched Purple Funnel Tube terrace
+        "8,25:16,27": { surf: "path", h: 7 },
+        "9,25:11,26": { surf: "metal", h: 7 },
+        "13,25:15,26": { surf: "metal", h: 7 },
         // Translucent blue ice pond
         "8,28:16,32": { surf: "snow", h: 4 },
         "12,30:13,31": { surf: "rock", h: 5, solid: true },
         // Exit runout & Goal
-        "9,33:15,34": { surf: "path", h: 3 },
-        "12,34": { surf: "path", h: 3, prop: "goal" }
+        "8,33:16,35": { surf: "path", h: 3, fall: "S" },
+        "12,35": { surf: "path", h: 3, prop: "goal" }
       }
     },
     hazards: [
@@ -1114,7 +1119,7 @@ var DEFS2 = [
         z: 18.5,
         h: 10,
         targetX: 12,
-        targetY: 9,
+        targetY: 8,
         targetZ: 23,
         period: 0.8,
         exitVelocity: [0, -0.02, 0.18],
@@ -1946,6 +1951,11 @@ var PhysicsEngine = class {
         m.y = p0[1] + (p1[1] - p0[1]) * segT;
         m.z = p0[2] + (p1[2] - p0[2]) * segT;
       }
+      m.vx = 0;
+      m.vy = 0;
+      m.vz = 0;
+      m.speed = 0;
+      m.grounded = false;
       if (m.tubeProgress >= 1) {
         m.inTube = false;
         if (m.tubeExitVel) {
@@ -2423,9 +2433,9 @@ var HazardManager = class {
             }
             break;
           case "funnel": {
-            const captureRadius = 1.15;
-            const suctionRadius = 2.4;
-            if (dist2D < suctionRadius && Math.abs(dy) < 1.6 && !marble.inTube && !marble.dead) {
+            const captureRadius = 1.4;
+            const suctionRadius = 3;
+            if (dist2D < suctionRadius && Math.abs(dy) < 2 && !marble.inTube && !marble.dead) {
               if (dist2D < captureRadius) {
                 marble.inTube = true;
                 marble.tubeProgress = 0;
@@ -2439,7 +2449,7 @@ var HazardManager = class {
                 marble.tubeExitVel = h.def.exitVelocity ?? [0.06, 0.02, 0.16];
                 if (this.events.onHitBat) this.events.onHitBat();
               } else {
-                const pullStrength = (suctionRadius - dist2D) / suctionRadius * 0.045;
+                const pullStrength = (suctionRadius - dist2D) / suctionRadius * 0.065;
                 marble.vx += dx / dist2D * pullStrength;
                 marble.vz += dz / dist2D * pullStrength;
               }
@@ -2448,8 +2458,8 @@ var HazardManager = class {
           }
           case "tube":
           case "spigot": {
-            const captureRadius = 1.15;
-            if (dist2D < captureRadius && Math.abs(dy) < 1.4 && !marble.inTube && !marble.dead) {
+            const captureRadius = 1.3;
+            if (dist2D < captureRadius && Math.abs(dy) < 1.8 && !marble.inTube && !marble.dead) {
               marble.inTube = true;
               marble.tubeProgress = 0;
               marble.tubeDuration = h.def.period ?? 0.8;
@@ -32977,24 +32987,31 @@ var GameRenderer = class {
       alphaTest: 0.02
     });
     const sprite = new Sprite(material);
-    sprite.visible = Boolean(texture.userData.loaded);
-    texture.userData.readyCallbacks.push(() => {
-      sprite.visible = true;
+    if (!texture.userData) texture.userData = {};
+    if (!Array.isArray(texture.userData.readyCallbacks)) texture.userData.readyCallbacks = [];
+    const applyScale = () => {
       const img = texture.image;
-      if (img?.naturalHeight) {
+      if (img && img.naturalHeight) {
         sprite.scale.set(height * (img.naturalWidth / img.naturalHeight), height, 1);
       }
-    });
-    const image = texture.image;
-    const applyScale = () => {
-      if (image?.naturalHeight) {
-        sprite.scale.set(height * (image.naturalWidth / image.naturalHeight), height, 1);
-      }
     };
-    if (image?.complete && image.naturalWidth > 0) {
+    if (texture.userData.loaded) {
+      sprite.visible = true;
       applyScale();
-    } else if (image) {
-      image.addEventListener("load", applyScale, { once: true });
+    } else {
+      sprite.visible = false;
+      texture.userData.readyCallbacks.push(() => {
+        sprite.visible = true;
+        applyScale();
+      });
+      const image = texture.image;
+      if (image && typeof image.addEventListener === "function") {
+        if (image.complete && image.naturalWidth > 0) {
+          applyScale();
+        } else {
+          image.addEventListener("load", applyScale, { once: true });
+        }
+      }
     }
     return sprite;
   }
@@ -34183,14 +34200,16 @@ var GameRenderer = class {
       rpm.shadow.position.set(p.x, Math.max(0, p.y - MABLE_R + 0.01), p.z);
       rpm.label.position.set(p.x, p.y + 0.65, p.z);
       rpm.sprite.position.set(p.x, p.y + 0.08, p.z);
-      const rFrame = Math.floor(this.totalTime * (4 + p.speed * 32)) % this.redMarbleSpriteFrames.length;
-      const targetTex = this.redMarbleSpriteFrames[rFrame];
+      const speed = typeof p.speed === "number" && !Number.isNaN(p.speed) ? p.speed : 0;
+      const numFrames = this.redMarbleSpriteFrames.length || 1;
+      const rFrame = Math.abs(Math.floor(this.totalTime * (4 + speed * 32))) % numFrames;
+      const targetTex = this.redMarbleSpriteFrames[rFrame] ?? this.redMarbleSpriteFrames[0];
       const mat = rpm.sprite.material;
-      if (mat.map !== targetTex) {
+      if (targetTex && mat.map !== targetTex) {
         mat.map = targetTex;
         mat.needsUpdate = true;
       }
-      if (targetTex.userData.loaded) {
+      if (targetTex?.userData?.loaded) {
         rpm.sprite.visible = true;
         rpm.mesh.visible = false;
       } else {
@@ -34212,7 +34231,6 @@ var GameRenderer = class {
         }
         rpm.label.material.map?.dispose();
         rpm.label.material.dispose();
-        rpm.sprite.material.map?.dispose();
         rpm.sprite.material.dispose();
         this.remotePlayerMeshes.delete(id);
       }

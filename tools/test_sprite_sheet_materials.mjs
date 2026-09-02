@@ -217,7 +217,7 @@ try {
       gameState: window.game.state,
       marbleDead: window.game.physics.marble.dead,
       spriteVisible: sprite?.visible,
-      hasTexture: Boolean(map),
+      hasTexture: Boolean(mat && mat.map),
       scaleY: sprite?.scale.y,
     };
   });

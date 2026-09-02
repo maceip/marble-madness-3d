@@ -101,12 +101,16 @@ try {
   await page.evaluate(() => window.__marbleHarness.warpToStage(4));
   await page.waitForTimeout(250);
 
-  // Warp marble right into funnel hopper
+  // Place marble on the approach ramp upstream of funnel hopper
   await page.evaluate(() => {
     const funnel = window.game.hazards.hazards.find((h) => h.def.kind === 'funnel');
-    if (funnel) window.__marbleHarness.setMarblePos(funnel.x, funnel.y, funnel.z);
+    if (funnel) {
+      window.__marbleHarness.setMarblePos(funnel.x, funnel.y, funnel.z - 1.0);
+      window.game.physics.marble.vz = 0.04;
+      window.game.physics.marble.grounded = true;
+    }
   });
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(200);
 
   // Check if funnel caught marble and entered tube
   const inTube = await page.evaluate(() => window.game.physics.marble.inTube);
@@ -134,6 +138,21 @@ try {
   });
   await page.waitForTimeout(100);
 
+  const debugSpigot = await page.evaluate(() => {
+    const spigot = window.game.hazards.hazards.find((h) => h.def.kind === 'spigot');
+    const marble = window.game.physics.marble;
+    const dx = (spigot ? spigot.x : 0) - marble.x;
+    const dy = (spigot ? spigot.y : 0) - marble.y;
+    const dz = (spigot ? spigot.z : 0) - marble.z;
+    return {
+      gameState: window.game.state,
+      spigot: spigot ? { x: spigot.x, y: spigot.y, z: spigot.z, active: spigot.active } : null,
+      marble: { x: marble.x, y: marble.y, z: marble.z, inTube: marble.inTube, dead: marble.dead },
+      dist2D: Math.hypot(dx, dz),
+      dy: Math.abs(dy),
+    };
+  });
+  console.log('Debug spigot:', debugSpigot);
   const inSpigot = await page.evaluate(() => window.game.physics.marble.inTube);
   console.log('Marble inStage5 spigot drop pipe:', inSpigot);
   assert(inSpigot === true, 'Marble must enter the Stage 5 drop pipe hopper');

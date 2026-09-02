@@ -327,24 +327,33 @@ export class GameRenderer {
       alphaTest: 0.02,
     });
     const sprite = new THREE.Sprite(material);
-    sprite.visible = Boolean(texture.userData.loaded);
-    texture.userData.readyCallbacks.push(() => {
-      sprite.visible = true;
+    if (!texture.userData) texture.userData = {};
+    if (!Array.isArray(texture.userData.readyCallbacks)) texture.userData.readyCallbacks = [];
+
+    const applyScale = () => {
       const img = texture.image as HTMLImageElement | undefined;
-      if (img?.naturalHeight) {
+      if (img && img.naturalHeight) {
         sprite.scale.set(height * (img.naturalWidth / img.naturalHeight), height, 1);
       }
-    });
-    const image = texture.image as HTMLImageElement | undefined;
-    const applyScale = () => {
-      if (image?.naturalHeight) {
-        sprite.scale.set(height * (image.naturalWidth / image.naturalHeight), height, 1);
-      }
     };
-    if (image?.complete && image.naturalWidth > 0) {
+
+    if (texture.userData.loaded) {
+      sprite.visible = true;
       applyScale();
-    } else if (image) {
-      image.addEventListener('load', applyScale, { once: true });
+    } else {
+      sprite.visible = false;
+      texture.userData.readyCallbacks.push(() => {
+        sprite.visible = true;
+        applyScale();
+      });
+      const image = texture.image as HTMLImageElement | undefined;
+      if (image && typeof image.addEventListener === 'function') {
+        if (image.complete && image.naturalWidth > 0) {
+          applyScale();
+        } else {
+          image.addEventListener('load', applyScale, { once: true });
+        }
+      }
     }
     return sprite;
   }
@@ -1643,15 +1652,17 @@ export class GameRenderer {
       rpm.label.position.set(p.x, p.y + 0.65, p.z);
       rpm.sprite.position.set(p.x, p.y + 0.08, p.z);
 
-      const rFrame = Math.floor(this.totalTime * (4 + p.speed * 32)) % this.redMarbleSpriteFrames.length;
-      const targetTex = this.redMarbleSpriteFrames[rFrame];
+      const speed = typeof p.speed === 'number' && !Number.isNaN(p.speed) ? p.speed : 0;
+      const numFrames = this.redMarbleSpriteFrames.length || 1;
+      const rFrame = Math.abs(Math.floor(this.totalTime * (4 + speed * 32))) % numFrames;
+      const targetTex = this.redMarbleSpriteFrames[rFrame] ?? this.redMarbleSpriteFrames[0];
       const mat = rpm.sprite.material as THREE.SpriteMaterial;
-      if (mat.map !== targetTex) {
+      if (targetTex && mat.map !== targetTex) {
         mat.map = targetTex;
         mat.needsUpdate = true;
       }
       // When authentic retro red sprite texture is ready, display retro sprite and hide duplicate 3D mesh
-      if (targetTex.userData.loaded) {
+      if (targetTex?.userData?.loaded) {
         rpm.sprite.visible = true;
         rpm.mesh.visible = false;
       } else {
@@ -1675,7 +1686,6 @@ export class GameRenderer {
         }
         (rpm.label.material as THREE.SpriteMaterial).map?.dispose();
         rpm.label.material.dispose();
-        (rpm.sprite.material as THREE.SpriteMaterial).map?.dispose();
         rpm.sprite.material.dispose();
         this.remotePlayerMeshes.delete(id);
       }

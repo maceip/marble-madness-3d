@@ -351,23 +351,29 @@ export const DEFS: LevelDef[] = [
         // Steep ramp
         "9,14:15,15": { surf: "path", h: 11, fall: "S" },
 
-        // First Purple Funnel Pipe
-        "14,18:15,19": { surf: "metal", h: 10 },
+        // Ramp down to funnel terrace
+        "8,16:16,17": { surf: "path", h: 10, fall: "S" },
+
+        // Funnel terrace
+        "8,18:16,20": { surf: "path", h: 10 },
+        "13,18:16,19": { surf: "metal", h: 10 },
 
         // Corrugated wave bridge
         "9,21:15,22": { surf: "path", h: 9, fall: "S" },
+        "8,23:16,24": { surf: "path", h: 8, fall: "S" },
 
-        // Branched Purple Funnel Tube
-        "10,25:11,26": { surf: "metal", h: 7 },
-        "14,25:15,26": { surf: "metal", h: 7 },
+        // Branched Purple Funnel Tube terrace
+        "8,25:16,27": { surf: "path", h: 7 },
+        "9,25:11,26": { surf: "metal", h: 7 },
+        "13,25:15,26": { surf: "metal", h: 7 },
 
         // Translucent blue ice pond
         "8,28:16,32": { surf: "snow", h: 4 },
         "12,30:13,31": { surf: "rock", h: 5, solid: true },
 
         // Exit runout & Goal
-        "9,33:15,34": { surf: "path", h: 3 },
-        "12,34": { surf: "path", h: 3, prop: "goal" },
+        "8,33:16,35": { surf: "path", h: 3, fall: "S" },
+        "12,35": { surf: "path", h: 3, prop: "goal" },
       },
     },
     hazards: [
@@ -378,7 +384,7 @@ export const DEFS: LevelDef[] = [
         z: 18.5,
         h: 10,
         targetX: 12,
-        targetY: 9,
+        targetY: 8,
         targetZ: 23,
         period: 0.8,
         exitVelocity: [0.0, -0.02, 0.18],

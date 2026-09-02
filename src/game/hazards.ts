@@ -374,9 +374,9 @@ export class HazardManager {
             break;
 
           case 'funnel': {
-            const captureRadius = 1.15;
-            const suctionRadius = 2.4;
-            if (dist2D < suctionRadius && Math.abs(dy) < 1.6 && !marble.inTube && !marble.dead) {
+            const captureRadius = 1.4;
+            const suctionRadius = 3.0;
+            if (dist2D < suctionRadius && Math.abs(dy) < 2.0 && !marble.inTube && !marble.dead) {
               if (dist2D < captureRadius) {
                 marble.inTube = true;
                 marble.tubeProgress = 0;
@@ -391,7 +391,7 @@ export class HazardManager {
                 if (this.events.onHitBat) this.events.onHitBat();
               } else {
                 // Funnel suction vortex pulls marble inward towards center of hopper
-                const pullStrength = ((suctionRadius - dist2D) / suctionRadius) * 0.045;
+                const pullStrength = ((suctionRadius - dist2D) / suctionRadius) * 0.065;
                 marble.vx += (dx / dist2D) * pullStrength;
                 marble.vz += (dz / dist2D) * pullStrength;
               }
@@ -401,8 +401,8 @@ export class HazardManager {
 
           case 'tube':
           case 'spigot': {
-            const captureRadius = 1.15;
-            if (dist2D < captureRadius && Math.abs(dy) < 1.4 && !marble.inTube && !marble.dead) {
+            const captureRadius = 1.3;
+            if (dist2D < captureRadius && Math.abs(dy) < 1.8 && !marble.inTube && !marble.dead) {
               marble.inTube = true;
               marble.tubeProgress = 0;
               marble.tubeDuration = h.def.period ?? 0.8;

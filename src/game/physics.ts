@@ -226,6 +226,11 @@ export class PhysicsEngine {
         m.y = p0[1] + (p1[1] - p0[1]) * segT;
         m.z = p0[2] + (p1[2] - p0[2]) * segT;
       }
+      m.vx = 0;
+      m.vy = 0;
+      m.vz = 0;
+      m.speed = 0;
+      m.grounded = false;
       if (m.tubeProgress >= 1.0) {
         m.inTube = false;
         if (m.tubeExitVel) {
