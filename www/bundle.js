@@ -1107,11 +1107,11 @@ var DEFS2 = [
       }
     },
     hazards: [
-      // 1. Purple Funnel Pipe (hopper at 15,18 -> exit at 12,23)
+      // 1. Purple Funnel Pipe (hopper at 14.5,18.5 -> exit at 12,23)
       {
         kind: "funnel",
-        x: 15,
-        z: 18,
+        x: 14.5,
+        z: 18.5,
         h: 10,
         targetX: 12,
         targetY: 9,
@@ -1794,9 +1794,9 @@ var CAM_YAW = -45;
 var FOV = 30;
 var CAM_BACK = 62;
 var DT = 1 / 60;
-var MAX_SPEED = 0.16;
-var MAX_SPEED_AIR = 0.28;
-var TERMINAL_FALL = 0.65;
+var MAX_SPEED = 0.085;
+var MAX_SPEED_AIR = 0.12;
+var TERMINAL_FALL = 1.05;
 var SPIKE_BOUNCE = 0.42;
 var CHECKPOINT_BONUS = 1e3;
 var ITEM_BONUS = 500;
@@ -1831,11 +1831,11 @@ var PhysicsEngine = class {
   level;
   marble;
   events = {};
-  GRAVITY = -0.011;
-  ACCEL = 7e-3;
-  // Tuned for responsive, authentic arcade trackball momentum
-  BRAKE_DRAG = 0.88;
-  SHATTER_VELOCITY = -0.36;
+  GRAVITY = -0.015;
+  ACCEL = 22e-4;
+  // Tuned for authentic arcade trackball speed (~1.5 units in 1s)
+  BRAKE_DRAG = 0.78;
+  SHATTER_VELOCITY = -0.42;
   // Falling faster than this splatters marble!
   constructor(level) {
     this.level = level;
@@ -2002,7 +2002,7 @@ var PhysicsEngine = class {
       m.vz += input.steerZ * steerForce;
       const [nx, ny, nz] = groundInfo.normal;
       if (ny < 0.99) {
-        const slopeGravity = 9e-3;
+        const slopeGravity = 4e-3;
         m.vx += nx * slopeGravity * (1 - ny);
         m.vz += nz * slopeGravity * (1 - ny);
       }
@@ -2422,10 +2422,34 @@ var HazardManager = class {
               }
             }
             break;
-          case "funnel":
+          case "funnel": {
+            const captureRadius = 1.15;
+            const suctionRadius = 2.4;
+            if (dist2D < suctionRadius && Math.abs(dy) < 1.6 && !marble.inTube && !marble.dead) {
+              if (dist2D < captureRadius) {
+                marble.inTube = true;
+                marble.tubeProgress = 0;
+                marble.tubeDuration = h.def.period ?? 0.8;
+                const targetWorldY = (this.level.def.baseHeight + (h.def.targetY ?? (h.def.h ?? 0))) * STEP_H + 0.3;
+                marble.tubePath = h.def.curvePath ?? [
+                  [h.x, h.y, h.z],
+                  [h.def.targetX ?? h.x, (h.y + targetWorldY) / 2, (h.z + (h.def.targetZ ?? h.z)) / 2],
+                  [h.def.targetX ?? h.x, targetWorldY, h.def.targetZ ?? h.z + 2]
+                ];
+                marble.tubeExitVel = h.def.exitVelocity ?? [0.06, 0.02, 0.16];
+                if (this.events.onHitBat) this.events.onHitBat();
+              } else {
+                const pullStrength = (suctionRadius - dist2D) / suctionRadius * 0.045;
+                marble.vx += dx / dist2D * pullStrength;
+                marble.vz += dz / dist2D * pullStrength;
+              }
+            }
+            break;
+          }
           case "tube":
-          case "spigot":
-            if (dist3D < 1.1 && !marble.inTube && !marble.dead) {
+          case "spigot": {
+            const captureRadius = 1.15;
+            if (dist2D < captureRadius && Math.abs(dy) < 1.4 && !marble.inTube && !marble.dead) {
               marble.inTube = true;
               marble.tubeProgress = 0;
               marble.tubeDuration = h.def.period ?? 0.8;
@@ -2439,6 +2463,7 @@ var HazardManager = class {
               if (this.events.onHitBat) this.events.onHitBat();
             }
             break;
+          }
         }
       }
     }
@@ -32931,6 +32956,7 @@ var GameRenderer = class {
     const cached = this.pixelTextureCache.get(path);
     if (cached) return cached;
     const texture = new TextureLoader().load(path, () => {
+      texture.needsUpdate = true;
       texture.userData.loaded = true;
       for (const callback of texture.userData.readyCallbacks ?? []) callback();
     });
@@ -32944,17 +32970,32 @@ var GameRenderer = class {
     return texture;
   }
   createPixelSprite(texture, height) {
-    const material = new SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.02 });
+    const material = new SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false,
+      alphaTest: 0.02
+    });
     const sprite = new Sprite(material);
     sprite.visible = Boolean(texture.userData.loaded);
     texture.userData.readyCallbacks.push(() => {
       sprite.visible = true;
+      const img = texture.image;
+      if (img?.naturalHeight) {
+        sprite.scale.set(height * (img.naturalWidth / img.naturalHeight), height, 1);
+      }
     });
     const image = texture.image;
-    const applyScale = () => sprite.scale.set(height * ((image?.naturalWidth || 1) / (image?.naturalHeight || 1)), height, 1);
-    if (image?.complete) applyScale();
-    else image?.addEventListener("load", applyScale, { once: true });
-    applyScale();
+    const applyScale = () => {
+      if (image?.naturalHeight) {
+        sprite.scale.set(height * (image.naturalWidth / image.naturalHeight), height, 1);
+      }
+    };
+    if (image?.complete && image.naturalWidth > 0) {
+      applyScale();
+    } else if (image) {
+      image.addEventListener("load", applyScale, { once: true });
+    }
     return sprite;
   }
   createMarbleTexture(primaryColor, accentColor) {
@@ -34128,6 +34169,7 @@ var GameRenderer = class {
         const shadow = this.createShadowMesh();
         const label = this.createPlayerLabel(`${p.name} [${p.score}]`, p.color);
         const sprite = this.createPixelSprite(this.redMarbleSpriteFrames[0], 0.74);
+        sprite.renderOrder = 10;
         this.remotePlayersGroup.add(mesh);
         this.remotePlayersGroup.add(shadow);
         this.remotePlayersGroup.add(label);
@@ -34142,7 +34184,19 @@ var GameRenderer = class {
       rpm.label.position.set(p.x, p.y + 0.65, p.z);
       rpm.sprite.position.set(p.x, p.y + 0.08, p.z);
       const rFrame = Math.floor(this.totalTime * (4 + p.speed * 32)) % this.redMarbleSpriteFrames.length;
-      rpm.sprite.material.map = this.redMarbleSpriteFrames[rFrame];
+      const targetTex = this.redMarbleSpriteFrames[rFrame];
+      const mat = rpm.sprite.material;
+      if (mat.map !== targetTex) {
+        mat.map = targetTex;
+        mat.needsUpdate = true;
+      }
+      if (targetTex.userData.loaded) {
+        rpm.sprite.visible = true;
+        rpm.mesh.visible = false;
+      } else {
+        rpm.sprite.visible = false;
+        rpm.mesh.visible = true;
+      }
     }
     for (const [id, rpm] of this.remotePlayerMeshes.entries()) {
       if (!activeIds.has(id)) {
@@ -34252,23 +34306,24 @@ var GameRenderer = class {
     const isSpectating = Boolean(this.spectateTarget);
     this.marbleMesh.visible = !isSpectating && !marble.dead;
     this.marbleSilhouetteMesh.visible = !isSpectating && !marble.dead;
-    this.marbleSprite.visible = !isSpectating;
+    this.marbleSprite.visible = !isSpectating && marble.dead;
     this.marbleShadow.visible = !isSpectating && !marble.dead;
     this.localLabelSprite.visible = !isSpectating && !marble.dead;
     if (!isSpectating) {
       if (marble.dead) {
         this.marbleSprite.position.set(marble.x, marble.y + 0.35, marble.z);
         const broomFrame = Math.floor(this.totalTime * 8) % this.broomSpriteFrames.length;
-        this.marbleSprite.material.map = this.broomSpriteFrames[broomFrame];
+        const bTex = this.broomSpriteFrames[broomFrame];
+        const bMat = this.marbleSprite.material;
+        if (bMat.map !== bTex) {
+          bMat.map = bTex;
+          bMat.needsUpdate = true;
+        }
         this.marbleSprite.scale.set(0.9, 1.2, 1);
       } else {
-        this.marbleSprite.scale.set(0.74, 0.74, 1);
         this.marbleMesh.position.set(marble.x, marble.y, marble.z);
         this.marbleSilhouetteMesh.position.set(marble.x, marble.y, marble.z);
         this.marbleSilhouetteMesh.scale.set(1.05, 1.05, 1.05);
-        this.marbleSprite.position.set(marble.x, marble.y + 0.08, marble.z);
-        const marbleFrame = Math.floor(this.totalTime * (4 + marble.speed * 32)) % this.marbleSpriteFrames.length;
-        this.marbleSprite.material.map = this.marbleSpriteFrames[marbleFrame];
         if (marble.quat) {
           this.marbleMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
           this.marbleSilhouetteMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);

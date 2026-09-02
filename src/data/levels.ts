@@ -371,11 +371,11 @@ export const DEFS: LevelDef[] = [
       },
     },
     hazards: [
-      // 1. Purple Funnel Pipe (hopper at 15,18 -> exit at 12,23)
+      // 1. Purple Funnel Pipe (hopper at 14.5,18.5 -> exit at 12,23)
       {
         kind: "funnel",
-        x: 15,
-        z: 18,
+        x: 14.5,
+        z: 18.5,
         h: 10,
         targetX: 12,
         targetY: 9,

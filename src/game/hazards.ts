@@ -373,10 +373,36 @@ export class HazardManager {
             }
             break;
 
-          case 'funnel':
+          case 'funnel': {
+            const captureRadius = 1.15;
+            const suctionRadius = 2.4;
+            if (dist2D < suctionRadius && Math.abs(dy) < 1.6 && !marble.inTube && !marble.dead) {
+              if (dist2D < captureRadius) {
+                marble.inTube = true;
+                marble.tubeProgress = 0;
+                marble.tubeDuration = h.def.period ?? 0.8;
+                const targetWorldY = (this.level.def.baseHeight + (h.def.targetY ?? (h.def.h ?? 0))) * STEP_H + 0.3;
+                marble.tubePath = h.def.curvePath ?? [
+                  [h.x, h.y, h.z],
+                  [h.def.targetX ?? h.x, (h.y + targetWorldY) / 2, (h.z + (h.def.targetZ ?? h.z)) / 2],
+                  [h.def.targetX ?? h.x, targetWorldY, h.def.targetZ ?? (h.z + 2)],
+                ];
+                marble.tubeExitVel = h.def.exitVelocity ?? [0.06, 0.02, 0.16];
+                if (this.events.onHitBat) this.events.onHitBat();
+              } else {
+                // Funnel suction vortex pulls marble inward towards center of hopper
+                const pullStrength = ((suctionRadius - dist2D) / suctionRadius) * 0.045;
+                marble.vx += (dx / dist2D) * pullStrength;
+                marble.vz += (dz / dist2D) * pullStrength;
+              }
+            }
+            break;
+          }
+
           case 'tube':
-          case 'spigot':
-            if (dist3D < 1.1 && !marble.inTube && !marble.dead) {
+          case 'spigot': {
+            const captureRadius = 1.15;
+            if (dist2D < captureRadius && Math.abs(dy) < 1.4 && !marble.inTube && !marble.dead) {
               marble.inTube = true;
               marble.tubeProgress = 0;
               marble.tubeDuration = h.def.period ?? 0.8;
@@ -390,6 +416,7 @@ export class HazardManager {
               if (this.events.onHitBat) this.events.onHitBat();
             }
             break;
+          }
         }
       }
     }

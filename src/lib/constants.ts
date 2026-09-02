@@ -16,9 +16,9 @@ export const FAR = 260;
 
 // --- physics -------------------------------------------------------------
 export const DT = 1 / 60;
-export const MAX_SPEED = 0.16; // units/frame (~9.6 u/s) - tuned for precise arcade trackball feel
-export const MAX_SPEED_AIR = 0.28;
-export const TERMINAL_FALL = 0.65; // hard cap on vertical fall speed
+export const MAX_SPEED = 0.085; // units/frame (~5.1 u/s at the fixed 60 Hz clock)
+export const MAX_SPEED_AIR = 0.12;
+export const TERMINAL_FALL = 1.05; // hard cap on vertical fall speed
 export const AIRTIME = 0.26; // ground attraction after landing
 export const LANDING_KICK = 0.02; // forward speed kept when landing downhill
 export const LAND_BOUNCE = 0.05; // rebound when landing on a slope

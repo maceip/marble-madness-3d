@@ -51,7 +51,20 @@ def extract_marbles() -> list[dict[str, object]]:
             pixels = []
             for red, green, blue, alpha in image.get_flattened_data():
                 distance = abs(red - matte[0]) + abs(green - matte[1]) + abs(blue - matte[2])
-                pixels.append((red, green, blue, 0 if distance <= 12 else alpha))
+                if distance <= 12:
+                    pixels.append((0, 0, 0, 0))
+                elif color == "red":
+                    # Authentic arcade player 2 red marble palette:
+                    if blue > 170 and red < 100 and green < 100:
+                        pixels.append((235, 36, 36, alpha))
+                    elif green > 140 and blue > 140 and red < 120:
+                        pixels.append((255, 150, 140, alpha))
+                    elif red > 200 and green > 200 and blue < 50:
+                        pixels.append((255, 220, 60, alpha))
+                    else:
+                        pixels.append((red, green, blue, alpha))
+                else:
+                    pixels.append((red, green, blue, alpha))
             image.putdata(pixels)
             target = MARBLE_OUT / f"{color}-{frame:02d}.png"
             image.save(target, optimize=True)

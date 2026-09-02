@@ -305,6 +305,7 @@ export class GameRenderer {
     const cached = this.pixelTextureCache.get(path);
     if (cached) return cached;
     const texture = new THREE.TextureLoader().load(path, () => {
+      texture.needsUpdate = true;
       texture.userData.loaded = true;
       for (const callback of texture.userData.readyCallbacks ?? []) callback();
     });
@@ -319,14 +320,32 @@ export class GameRenderer {
   }
 
   private createPixelSprite(texture: THREE.Texture, height: number): THREE.Sprite {
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.02 });
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false,
+      alphaTest: 0.02,
+    });
     const sprite = new THREE.Sprite(material);
     sprite.visible = Boolean(texture.userData.loaded);
-    texture.userData.readyCallbacks.push(() => { sprite.visible = true; });
+    texture.userData.readyCallbacks.push(() => {
+      sprite.visible = true;
+      const img = texture.image as HTMLImageElement | undefined;
+      if (img?.naturalHeight) {
+        sprite.scale.set(height * (img.naturalWidth / img.naturalHeight), height, 1);
+      }
+    });
     const image = texture.image as HTMLImageElement | undefined;
-    const applyScale = () => sprite.scale.set(height * ((image?.naturalWidth || 1) / (image?.naturalHeight || 1)), height, 1);
-    if (image?.complete) applyScale(); else image?.addEventListener('load', applyScale, { once: true });
-    applyScale();
+    const applyScale = () => {
+      if (image?.naturalHeight) {
+        sprite.scale.set(height * (image.naturalWidth / image.naturalHeight), height, 1);
+      }
+    };
+    if (image?.complete && image.naturalWidth > 0) {
+      applyScale();
+    } else if (image) {
+      image.addEventListener('load', applyScale, { once: true });
+    }
     return sprite;
   }
 
@@ -1604,6 +1623,7 @@ export class GameRenderer {
         const shadow = this.createShadowMesh();
         const label = this.createPlayerLabel(`${p.name} [${p.score}]`, p.color);
         const sprite = this.createPixelSprite(this.redMarbleSpriteFrames[0], 0.74);
+        sprite.renderOrder = 10;
 
         this.remotePlayersGroup.add(mesh);
         this.remotePlayersGroup.add(shadow);
@@ -1622,8 +1642,22 @@ export class GameRenderer {
       rpm.shadow.position.set(p.x, Math.max(0, p.y - MABLE_R + 0.01), p.z);
       rpm.label.position.set(p.x, p.y + 0.65, p.z);
       rpm.sprite.position.set(p.x, p.y + 0.08, p.z);
+
       const rFrame = Math.floor(this.totalTime * (4 + p.speed * 32)) % this.redMarbleSpriteFrames.length;
-      (rpm.sprite.material as THREE.SpriteMaterial).map = this.redMarbleSpriteFrames[rFrame];
+      const targetTex = this.redMarbleSpriteFrames[rFrame];
+      const mat = rpm.sprite.material as THREE.SpriteMaterial;
+      if (mat.map !== targetTex) {
+        mat.map = targetTex;
+        mat.needsUpdate = true;
+      }
+      // When authentic retro red sprite texture is ready, display retro sprite and hide duplicate 3D mesh
+      if (targetTex.userData.loaded) {
+        rpm.sprite.visible = true;
+        rpm.mesh.visible = false;
+      } else {
+        rpm.sprite.visible = false;
+        rpm.mesh.visible = true;
+      }
     }
 
     // Clean up disconnected or different stage players with explicit GPU disposal
@@ -1762,7 +1796,7 @@ export class GameRenderer {
     const isSpectating = Boolean(this.spectateTarget);
     this.marbleMesh.visible = !isSpectating && !marble.dead;
     this.marbleSilhouetteMesh.visible = !isSpectating && !marble.dead;
-    this.marbleSprite.visible = !isSpectating;
+    this.marbleSprite.visible = !isSpectating && marble.dead;
     this.marbleShadow.visible = !isSpectating && !marble.dead;
     this.localLabelSprite.visible = !isSpectating && !marble.dead;
 
@@ -1771,17 +1805,18 @@ export class GameRenderer {
         // Sweeping up marble dust with arcade dustpan broom
         this.marbleSprite.position.set(marble.x, marble.y + 0.35, marble.z);
         const broomFrame = Math.floor(this.totalTime * 8) % this.broomSpriteFrames.length;
-        (this.marbleSprite.material as THREE.SpriteMaterial).map = this.broomSpriteFrames[broomFrame];
+        const bTex = this.broomSpriteFrames[broomFrame];
+        const bMat = this.marbleSprite.material as THREE.SpriteMaterial;
+        if (bMat.map !== bTex) {
+          bMat.map = bTex;
+          bMat.needsUpdate = true;
+        }
         this.marbleSprite.scale.set(0.9, 1.2, 1);
       } else {
-        this.marbleSprite.scale.set(0.74, 0.74, 1);
         this.marbleMesh.position.set(marble.x, marble.y, marble.z);
         this.marbleSilhouetteMesh.position.set(marble.x, marble.y, marble.z);
         this.marbleSilhouetteMesh.scale.set(1.05, 1.05, 1.05);
 
-        this.marbleSprite.position.set(marble.x, marble.y + 0.08, marble.z);
-        const marbleFrame = Math.floor(this.totalTime * (4 + marble.speed * 32)) % this.marbleSpriteFrames.length;
-        (this.marbleSprite.material as THREE.SpriteMaterial).map = this.marbleSpriteFrames[marbleFrame];
         if (marble.quat) {
           this.marbleMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
           this.marbleSilhouetteMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
