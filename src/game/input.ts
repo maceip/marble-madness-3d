@@ -77,6 +77,12 @@ export class InputManager {
   private brakeEl: HTMLElement | null = null;
   private brakePressed = false;
 
+  private aiActive = false;
+  private aiScreenX = 0;
+  private aiScreenY = 0;
+  private aiIntensity = 0;
+  private aiBrake = false;
+
   constructor() {
     this.joyEl = document.getElementById('joy');
     this.knobEl = this.joyEl?.querySelector('.knob') as HTMLElement | null;
@@ -308,10 +314,32 @@ export class InputManager {
     });
   }
 
+  public setAIInput(screenX: number, screenY: number, intensity: number, brake = false): void {
+    if (intensity <= 0.001 && !brake) {
+      this.aiActive = false;
+      this.aiScreenX = 0;
+      this.aiScreenY = 0;
+      this.aiIntensity = 0;
+      this.aiBrake = false;
+    } else {
+      this.aiActive = true;
+      this.aiScreenX = screenX;
+      this.aiScreenY = screenY;
+      this.aiIntensity = Math.min(1.0, Math.max(0, intensity));
+      this.aiBrake = brake;
+    }
+  }
+
   public getSample(dt = 1 / 60): InputState {
     let screenX = 0;
     let screenY = 0;
-    const brake = this.keys.has('Space') || this.brakePressed;
+    let brake = this.keys.has('Space') || this.brakePressed;
+
+    if (this.aiActive) {
+      screenX = this.aiScreenX;
+      screenY = this.aiScreenY;
+      if (this.aiBrake) brake = true;
+    }
 
     if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) screenY -= 1;
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) screenY += 1;

@@ -5,6 +5,7 @@ export interface RemotePlayer {
   id: string;
   name: string;
   color: string;
+  intelligence?: 'AI' | 'NI';
   stage: number;
   x: number;
   y: number;
@@ -20,6 +21,8 @@ export interface RemotePlayer {
   speed: number;
   score: number;
   lastUpdate: number;
+  lastBumpedBy?: string;
+  lastBumpTime?: number;
 }
 
 export interface MultiplayerEvents {
@@ -27,6 +30,7 @@ export interface MultiplayerEvents {
   onPlayerLeft?: (id: string, name: string) => void;
   onBumpReceived?: (attackerName: string, impulse: [number, number, number]) => void;
   onBumpScored?: (targetName: string, points: number) => void;
+  onKnockoutScored?: (targetName: string, targetIntelligence: 'AI' | 'NI', points: number) => void;
   onPlayerCountChange?: (count: number) => void;
 }
 
@@ -35,6 +39,7 @@ export class MultiplayerClient {
   public localId: string = '';
   public localName: string = '';
   public localColor: string = '#ff3b5c';
+  public localIntelligence: 'AI' | 'NI' = 'NI';
   public remotePlayers = new Map<string, RemotePlayer>();
   public isConnected = false;
   public events: MultiplayerEvents = {};
@@ -45,6 +50,13 @@ export class MultiplayerClient {
 
   constructor() {
     this.connect();
+  }
+
+  public setIntelligenceType(type: 'AI' | 'NI'): void {
+    this.localIntelligence = type;
+    if (type === 'AI' && !this.localName.includes('[AI]')) {
+      this.localName = `[AI] ${this.localName.replace(/^\[NI\]\s*/, '')}`;
+    }
   }
 
   public connect(): void {
@@ -134,15 +146,16 @@ export class MultiplayerClient {
             if (!rp) {
               rp = {
                 id: msg.id,
-                name: `Marble #${msg.id.slice(-4)}`,
-                color: '#33e0ff',
+                name: msg.name || `Player #${msg.id.slice(-4)}`,
+                color: msg.color || '#33e0ff',
+                intelligence: msg.intelligence || 'NI',
                 stage: msg.stage ?? 1,
-                x: msg.x,
-                y: msg.y,
-                z: msg.z,
-                targetX: msg.x,
-                targetY: msg.y,
-                targetZ: msg.z,
+                x: msg.x ?? 3.4,
+                y: msg.y ?? 6.5,
+                z: msg.z ?? 2.0,
+                targetX: msg.x ?? 3.4,
+                targetY: msg.y ?? 6.5,
+                targetZ: msg.z ?? 2.0,
                 vx: msg.vx ?? 0,
                 vy: msg.vy ?? 0,
                 vz: msg.vz ?? 0,
@@ -155,6 +168,9 @@ export class MultiplayerClient {
               this.remotePlayers.set(msg.id, rp);
               this.notifyPlayerCount();
             } else {
+              if (msg.name) rp.name = msg.name;
+              if (msg.color) rp.color = msg.color;
+              if (msg.intelligence) rp.intelligence = msg.intelligence;
               rp.stage = msg.stage;
               rp.targetX = msg.x;
               rp.targetY = msg.y;
@@ -174,7 +190,6 @@ export class MultiplayerClient {
 
         case 'player_bumped': {
           if (msg.targetId === this.localId) {
-            // Local player was bumped by someone!
             if (this.events.onBumpReceived) {
               this.events.onBumpReceived(msg.attackerName, [
                 msg.impulseX,
@@ -183,9 +198,21 @@ export class MultiplayerClient {
               ]);
             }
           } else if (msg.attackerId === this.localId) {
-            // Local player was confirmed as attacker
             if (this.events.onBumpScored) {
               this.events.onBumpScored(msg.targetName, msg.points ?? 250);
+            }
+          }
+          break;
+        }
+
+        case 'player_knockout': {
+          if (msg.attackerId === this.localId) {
+            if (this.events.onKnockoutScored) {
+              this.events.onKnockoutScored(
+                msg.targetName,
+                msg.targetIntelligence ?? 'NI',
+                msg.points ?? 2500,
+              );
             }
           }
           break;
@@ -212,6 +239,7 @@ export class MultiplayerClient {
         id: p.id,
         name: p.name || `Player #${p.id.slice(-4)}`,
         color: p.color || '#33e0ff',
+        intelligence: p.intelligence || 'NI',
         stage: p.stage ?? 1,
         x: p.x ?? 3.4,
         y: p.y ?? 6.5,
@@ -232,6 +260,7 @@ export class MultiplayerClient {
     } else {
       if (p.name) rp.name = p.name;
       if (p.color) rp.color = p.color;
+      if (p.intelligence) rp.intelligence = p.intelligence;
       if (p.stage !== undefined) rp.stage = p.stage;
       if (p.x !== undefined) rp.targetX = p.x;
       if (p.y !== undefined) rp.targetY = p.y;
@@ -266,6 +295,7 @@ export class MultiplayerClient {
       JSON.stringify({
         type: 'update',
         stage,
+        intelligence: this.localIntelligence,
         x: Number(marble.x.toFixed(3)),
         y: Number(marble.y.toFixed(3)),
         z: Number(marble.z.toFixed(3)),
@@ -306,11 +336,6 @@ export class MultiplayerClient {
         // Calculate collision normal
         const nx = dx / dist;
         const nz = dz / dist;
-
-        // Relative velocity along collision normal
-        const relVx = localMarble.vx - remote.vx;
-        const relVz = localMarble.vz - remote.vz;
-        const relImpact = relVx * nx + relVz * nz;
 
         const bumpForce = Math.max(0.2, Math.min(0.7, localMarble.speed * 1.5 + 0.25));
 

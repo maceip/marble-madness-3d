@@ -3,6 +3,17 @@ import type { HazardInstance } from './hazards.js';
 import type { MarbleState } from './physics.js';
 import type { RemotePlayer } from './multiplayer.js';
 
+export interface LeaderboardEntry {
+  rank?: number;
+  name: string;
+  score: number;
+  intelligence: 'AI' | 'NI';
+  stage: number;
+  timeRemaining: number;
+  knockouts: number;
+  date?: string;
+}
+
 export class HudManager {
   private scoreEl: HTMLElement | null;
   private hiscoreEl: HTMLElement | null;
@@ -19,6 +30,20 @@ export class HudManager {
   private minimapCanvas: HTMLCanvasElement | null;
   private minimapCtx: CanvasRenderingContext2D | null;
 
+  // Leaderboard and Countdown UI elements
+  private lbTableBody: HTMLElement | null;
+  private countdownOverlay: HTMLElement | null;
+  private countdownNumEl: HTMLElement | null;
+  private countdownTitleEl: HTMLElement | null;
+  private countdownLbContent: HTMLElement | null;
+  private nameEntryModal: HTMLElement | null;
+  private nameEntrySubtitle: HTMLElement | null;
+  private initialsInput: HTMLInputElement | null;
+  private initialsSubmitBtn: HTMLElement | null;
+
+  private leaderboardData: LeaderboardEntry[] = [];
+  private activeFilter: 'ALL' | 'NI' | 'AI' = 'ALL';
+
   private bannerTimeout: number | null = null;
   private fpsFrames = 0;
   private lastFpsTime = performance.now();
@@ -27,6 +52,7 @@ export class HudManager {
   public onSelectCourse?: (stageId: number) => void;
   public onResumeGame?: () => void;
   public onRestartGame?: () => void;
+  public onNameSubmitted?: (initials: string) => void;
 
   constructor() {
     this.scoreEl = document.getElementById('score');
@@ -43,6 +69,170 @@ export class HudManager {
     this.mpFeedEl = document.getElementById('mp-feed');
     this.minimapCanvas = document.getElementById('minimap') as HTMLCanvasElement | null;
     this.minimapCtx = this.minimapCanvas?.getContext('2d') ?? null;
+
+    this.lbTableBody = document.getElementById('lb-table-body');
+    this.countdownOverlay = document.getElementById('countdown-overlay');
+    this.countdownNumEl = document.getElementById('countdown-num');
+    this.countdownTitleEl = document.getElementById('countdown-title');
+    this.countdownLbContent = document.getElementById('countdown-lb-content');
+    this.nameEntryModal = document.getElementById('name-entry-modal');
+    this.nameEntrySubtitle = document.getElementById('name-entry-subtitle');
+    this.initialsInput = document.getElementById('player-initials-input') as HTMLInputElement | null;
+    this.initialsSubmitBtn = document.getElementById('player-initials-submit');
+
+    this.bindLeaderboardTabs();
+    this.bindNameEntry();
+  }
+
+  private bindLeaderboardTabs(): void {
+    const tabs = document.querySelectorAll('.lb-tab');
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', (e) => {
+        tabs.forEach((t) => t.classList.remove('active'));
+        const target = e.currentTarget as HTMLElement;
+        target.classList.add('active');
+        this.activeFilter = (target.getAttribute('data-filter') as 'ALL' | 'NI' | 'AI') || 'ALL';
+        this.renderLeaderboard();
+      });
+    });
+  }
+
+  private bindNameEntry(): void {
+    const submit = () => {
+      let val = this.initialsInput?.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3) || 'AAA';
+      if (this.onNameSubmitted) {
+        this.onNameSubmitted(val);
+      }
+      this.hideNameEntry();
+    };
+
+    this.initialsSubmitBtn?.addEventListener('click', submit);
+    this.initialsInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submit();
+    });
+  }
+
+  public setLeaderboard(entries: LeaderboardEntry[]): void {
+    this.leaderboardData = entries;
+    this.renderLeaderboard();
+    this.renderCountdownMiniLb();
+  }
+
+  public getLeaderboard(): LeaderboardEntry[] {
+    return this.leaderboardData;
+  }
+
+  public checkQualifiesForLeaderboard(score: number): { qualifies: boolean; rank: number } {
+    if (this.leaderboardData.length < 50) {
+      return { qualifies: true, rank: this.leaderboardData.length + 1 };
+    }
+    const lowest = this.leaderboardData[this.leaderboardData.length - 1].score;
+    if (score > lowest) {
+      const rank = this.leaderboardData.findIndex((e) => score > e.score) + 1;
+      return { qualifies: true, rank: rank > 0 ? rank : 50 };
+    }
+    return { qualifies: false, rank: -1 };
+  }
+
+  public renderLeaderboard(): void {
+    if (!this.lbTableBody) return;
+
+    const filtered = this.leaderboardData.filter((entry) => {
+      if (this.activeFilter === 'ALL') return true;
+      return entry.intelligence === this.activeFilter;
+    });
+
+    if (filtered.length === 0) {
+      this.lbTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:10px">No records found for ${this.activeFilter}.</td></tr>`;
+      return;
+    }
+
+    let rows = '';
+    filtered.slice(0, 50).forEach((item, index) => {
+      const isAI = item.intelligence === 'AI';
+      const badge = isAI
+        ? `<span class="badge-ai">🤖 AI</span>`
+        : `<span class="badge-ni">🧠 NI</span>`;
+      const rank = item.rank ?? index + 1;
+
+      rows += `
+        <tr>
+          <td style="color:${rank <= 3 ? 'var(--warn)' : 'var(--dim)'};font-weight:700">${rank}</td>
+          <td>${badge}</td>
+          <td style="font-weight:600;color:#fff">${item.name}</td>
+          <td style="text-align:right;color:var(--cool);font-weight:700">${item.score.toLocaleString()}</td>
+          <td style="text-align:center;color:var(--dim)">S${item.stage}</td>
+          <td style="text-align:right;color:${item.knockouts > 0 ? 'var(--hot)' : 'var(--dim)'}">${item.knockouts}</td>
+        </tr>
+      `;
+    });
+
+    this.lbTableBody.innerHTML = rows;
+  }
+
+  private renderCountdownMiniLb(): void {
+    if (!this.countdownLbContent) return;
+    const top3 = this.leaderboardData.slice(0, 3);
+    if (top3.length === 0) {
+      this.countdownLbContent.textContent = 'Be the first to set a high score!';
+      return;
+    }
+
+    let html = '<div style="display:flex;flex-direction:column;gap:3px">';
+    top3.forEach((e, idx) => {
+      const icon = e.intelligence === 'AI' ? '🤖' : '🧠';
+      html += `
+        <div style="display:flex;justify-content:space-between">
+          <span><b>#${idx + 1}</b> ${icon} ${e.name} (S${e.stage})</span>
+          <span style="color:var(--cool);font-weight:700">${e.score.toLocaleString()} PTS</span>
+        </div>
+      `;
+    });
+    html += '</div>';
+    this.countdownLbContent.innerHTML = html;
+  }
+
+  public showCountdown(seconds: number, stageName: string): void {
+    if (!this.countdownOverlay) return;
+    this.countdownOverlay.classList.add('show');
+    if (this.countdownTitleEl) this.countdownTitleEl.textContent = stageName.toUpperCase();
+    this.updateCountdown(seconds);
+    this.renderCountdownMiniLb();
+  }
+
+  public updateCountdown(seconds: number): void {
+    if (!this.countdownNumEl) return;
+    if (seconds > 0) {
+      this.countdownNumEl.textContent = String(seconds);
+    } else {
+      this.countdownNumEl.textContent = 'GO!';
+    }
+  }
+
+  public hideCountdown(): void {
+    this.countdownOverlay?.classList.remove('show');
+  }
+
+  public showNameEntry(score: number, rank: number, isAI: boolean, onSubmit: (name: string) => void): void {
+    if (!this.nameEntryModal) return;
+    this.nameEntryModal.classList.remove('hidden');
+
+    if (this.nameEntrySubtitle) {
+      const badge = isAI ? '[AI]' : '[NI]';
+      this.nameEntrySubtitle.textContent = `RANK #${rank} · SCORE: ${score.toLocaleString()} (${badge})`;
+    }
+
+    if (this.initialsInput) {
+      this.initialsInput.value = isAI ? 'BOT' : 'ACE';
+      this.initialsInput.focus();
+      this.initialsInput.select();
+    }
+
+    this.onNameSubmitted = onSubmit;
+  }
+
+  public hideNameEntry(): void {
+    this.nameEntryModal?.classList.add('hidden');
   }
 
   public updateStats(
@@ -121,11 +311,13 @@ export class HudManager {
     }, durationMs);
   }
 
-  public showBanner(title: string, subtitle = '', durationMs = 2000): void {
+  public showBanner(title: string, sub?: string, durationMs = 2000): void {
     if (!this.bannerEl) return;
-    if (this.bannerTimeout) clearTimeout(this.bannerTimeout);
+    if (this.bannerTimeout !== null) {
+      clearTimeout(this.bannerTimeout);
+    }
 
-    this.bannerEl.innerHTML = `${title}${subtitle ? `<small>${subtitle}</small>` : ''}`;
+    this.bannerEl.innerHTML = `${title}${sub ? `<small>${sub}</small>` : ''}`;
     this.bannerEl.classList.add('show');
 
     this.bannerTimeout = window.setTimeout(() => {
@@ -152,7 +344,7 @@ export class HudManager {
       <button class="go click" id="menu-resume">${isGameOver ? 'PLAY AGAIN' : 'PRESS START'}</button>
       <div class="fine">
         Steer with Device Tilt (Mobile Rotameter), Touch Joystick, or Arrow Keys / WASD.<br>
-        Multiplayer: Bump into other marbles to knock them off balance and score +250 points!
+        Multiplayer: Bump into other marbles to knock them off balance (+250 pts) or off ledges (+2500 pts vs Opposing Intelligence)!
       </div>
     `;
 
@@ -252,7 +444,7 @@ export class HudManager {
       } else if (h.def.kind === 'item') {
         ctx.fillStyle = '#ffd23f';
         ctx.fillRect(h.x * cellW - 1.5, h.z * cellH - 1.5, 3, 3);
-      } else if (h.def.kind === 'blade' || h.def.kind === 'bat' || h.def.kind === 'snake') {
+      } else if (h.def.kind === 'blade' || h.def.kind === 'bat' || h.def.kind === 'snake' || h.def.kind === 'steelie' || h.def.kind === 'muncher') {
         ctx.fillStyle = '#ff3b5c';
         ctx.fillRect(h.x * cellW - 1.5, h.z * cellH - 1.5, 3, 3);
       }

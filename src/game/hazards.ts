@@ -32,6 +32,7 @@ export interface HazardInstance {
   jawOpen?: number;
   emerged?: number;
   cooldown?: number;
+  lastBumpedTime?: number;
 }
 
 export interface HazardEvents {
@@ -41,6 +42,7 @@ export interface HazardEvents {
   onKill?: (reason: 'blade' | 'bat' | 'bomb' | 'snake' | 'spike' | 'muncher' | 'acid') => void;
   onHitBat?: () => void;
   onSteelieBump?: (steelie: HazardInstance, force: number) => void;
+  onSteelieCracked?: (steelie: HazardInstance) => void;
 }
 
 export class HazardManager {
@@ -191,6 +193,14 @@ export class HazardManager {
 
           h.x += h.vx ?? 0;
           h.z += h.vz ?? 0;
+
+          // Steelie falling into void / knocked off edge
+          if (h.y < -3.5 && h.active) {
+            h.active = false;
+            if (this.events.onSteelieCracked) {
+              this.events.onSteelieCracked(h);
+            }
+          }
           break;
         }
 

@@ -1518,6 +1518,12 @@ var HazardManager = class {
           }
           h.x += h.vx ?? 0;
           h.z += h.vz ?? 0;
+          if (h.y < -3.5 && h.active) {
+            h.active = false;
+            if (this.events.onSteelieCracked) {
+              this.events.onSteelieCracked(h);
+            }
+          }
           break;
         }
         case "muncher": {
@@ -1647,6 +1653,18 @@ var HudManager = class {
   mpFeedEl;
   minimapCanvas;
   minimapCtx;
+  // Leaderboard and Countdown UI elements
+  lbTableBody;
+  countdownOverlay;
+  countdownNumEl;
+  countdownTitleEl;
+  countdownLbContent;
+  nameEntryModal;
+  nameEntrySubtitle;
+  initialsInput;
+  initialsSubmitBtn;
+  leaderboardData = [];
+  activeFilter = "ALL";
   bannerTimeout = null;
   fpsFrames = 0;
   lastFpsTime = performance.now();
@@ -1654,6 +1672,7 @@ var HudManager = class {
   onSelectCourse;
   onResumeGame;
   onRestartGame;
+  onNameSubmitted;
   constructor() {
     this.scoreEl = document.getElementById("score");
     this.hiscoreEl = document.getElementById("hiscore");
@@ -1669,6 +1688,144 @@ var HudManager = class {
     this.mpFeedEl = document.getElementById("mp-feed");
     this.minimapCanvas = document.getElementById("minimap");
     this.minimapCtx = this.minimapCanvas?.getContext("2d") ?? null;
+    this.lbTableBody = document.getElementById("lb-table-body");
+    this.countdownOverlay = document.getElementById("countdown-overlay");
+    this.countdownNumEl = document.getElementById("countdown-num");
+    this.countdownTitleEl = document.getElementById("countdown-title");
+    this.countdownLbContent = document.getElementById("countdown-lb-content");
+    this.nameEntryModal = document.getElementById("name-entry-modal");
+    this.nameEntrySubtitle = document.getElementById("name-entry-subtitle");
+    this.initialsInput = document.getElementById("player-initials-input");
+    this.initialsSubmitBtn = document.getElementById("player-initials-submit");
+    this.bindLeaderboardTabs();
+    this.bindNameEntry();
+  }
+  bindLeaderboardTabs() {
+    const tabs = document.querySelectorAll(".lb-tab");
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", (e) => {
+        tabs.forEach((t) => t.classList.remove("active"));
+        const target = e.currentTarget;
+        target.classList.add("active");
+        this.activeFilter = target.getAttribute("data-filter") || "ALL";
+        this.renderLeaderboard();
+      });
+    });
+  }
+  bindNameEntry() {
+    const submit = () => {
+      let val = this.initialsInput?.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) || "AAA";
+      if (this.onNameSubmitted) {
+        this.onNameSubmitted(val);
+      }
+      this.hideNameEntry();
+    };
+    this.initialsSubmitBtn?.addEventListener("click", submit);
+    this.initialsInput?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submit();
+    });
+  }
+  setLeaderboard(entries) {
+    this.leaderboardData = entries;
+    this.renderLeaderboard();
+    this.renderCountdownMiniLb();
+  }
+  getLeaderboard() {
+    return this.leaderboardData;
+  }
+  checkQualifiesForLeaderboard(score) {
+    if (this.leaderboardData.length < 50) {
+      return { qualifies: true, rank: this.leaderboardData.length + 1 };
+    }
+    const lowest = this.leaderboardData[this.leaderboardData.length - 1].score;
+    if (score > lowest) {
+      const rank = this.leaderboardData.findIndex((e) => score > e.score) + 1;
+      return { qualifies: true, rank: rank > 0 ? rank : 50 };
+    }
+    return { qualifies: false, rank: -1 };
+  }
+  renderLeaderboard() {
+    if (!this.lbTableBody) return;
+    const filtered = this.leaderboardData.filter((entry) => {
+      if (this.activeFilter === "ALL") return true;
+      return entry.intelligence === this.activeFilter;
+    });
+    if (filtered.length === 0) {
+      this.lbTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:10px">No records found for ${this.activeFilter}.</td></tr>`;
+      return;
+    }
+    let rows = "";
+    filtered.slice(0, 50).forEach((item, index) => {
+      const isAI = item.intelligence === "AI";
+      const badge = isAI ? `<span class="badge-ai">\u{1F916} AI</span>` : `<span class="badge-ni">\u{1F9E0} NI</span>`;
+      const rank = item.rank ?? index + 1;
+      rows += `
+        <tr>
+          <td style="color:${rank <= 3 ? "var(--warn)" : "var(--dim)"};font-weight:700">${rank}</td>
+          <td>${badge}</td>
+          <td style="font-weight:600;color:#fff">${item.name}</td>
+          <td style="text-align:right;color:var(--cool);font-weight:700">${item.score.toLocaleString()}</td>
+          <td style="text-align:center;color:var(--dim)">S${item.stage}</td>
+          <td style="text-align:right;color:${item.knockouts > 0 ? "var(--hot)" : "var(--dim)"}">${item.knockouts}</td>
+        </tr>
+      `;
+    });
+    this.lbTableBody.innerHTML = rows;
+  }
+  renderCountdownMiniLb() {
+    if (!this.countdownLbContent) return;
+    const top3 = this.leaderboardData.slice(0, 3);
+    if (top3.length === 0) {
+      this.countdownLbContent.textContent = "Be the first to set a high score!";
+      return;
+    }
+    let html = '<div style="display:flex;flex-direction:column;gap:3px">';
+    top3.forEach((e, idx) => {
+      const icon = e.intelligence === "AI" ? "\u{1F916}" : "\u{1F9E0}";
+      html += `
+        <div style="display:flex;justify-content:space-between">
+          <span><b>#${idx + 1}</b> ${icon} ${e.name} (S${e.stage})</span>
+          <span style="color:var(--cool);font-weight:700">${e.score.toLocaleString()} PTS</span>
+        </div>
+      `;
+    });
+    html += "</div>";
+    this.countdownLbContent.innerHTML = html;
+  }
+  showCountdown(seconds, stageName) {
+    if (!this.countdownOverlay) return;
+    this.countdownOverlay.classList.add("show");
+    if (this.countdownTitleEl) this.countdownTitleEl.textContent = stageName.toUpperCase();
+    this.updateCountdown(seconds);
+    this.renderCountdownMiniLb();
+  }
+  updateCountdown(seconds) {
+    if (!this.countdownNumEl) return;
+    if (seconds > 0) {
+      this.countdownNumEl.textContent = String(seconds);
+    } else {
+      this.countdownNumEl.textContent = "GO!";
+    }
+  }
+  hideCountdown() {
+    this.countdownOverlay?.classList.remove("show");
+  }
+  showNameEntry(score, rank, isAI, onSubmit) {
+    if (!this.nameEntryModal) return;
+    this.nameEntryModal.classList.remove("hidden");
+    if (this.nameEntrySubtitle) {
+      const badge = isAI ? "[AI]" : "[NI]";
+      this.nameEntrySubtitle.textContent = `RANK #${rank} \xB7 SCORE: ${score.toLocaleString()} (${badge})`;
+    }
+    if (this.initialsInput) {
+      this.initialsInput.value = isAI ? "BOT" : "ACE";
+      this.initialsInput.focus();
+      this.initialsInput.select();
+    }
+    this.onNameSubmitted = onSubmit;
+  }
+  hideNameEntry() {
+    this.nameEntryModal?.classList.add("hidden");
   }
   updateStats(score, hiscore, lives, courseName, time, speed, itemsGot, itemsTotal) {
     if (this.scoreEl) this.scoreEl.textContent = String(score);
@@ -1724,10 +1881,12 @@ var HudManager = class {
       setTimeout(() => div.remove(), 400);
     }, durationMs);
   }
-  showBanner(title, subtitle = "", durationMs = 2e3) {
+  showBanner(title, sub, durationMs = 2e3) {
     if (!this.bannerEl) return;
-    if (this.bannerTimeout) clearTimeout(this.bannerTimeout);
-    this.bannerEl.innerHTML = `${title}${subtitle ? `<small>${subtitle}</small>` : ""}`;
+    if (this.bannerTimeout !== null) {
+      clearTimeout(this.bannerTimeout);
+    }
+    this.bannerEl.innerHTML = `${title}${sub ? `<small>${sub}</small>` : ""}`;
     this.bannerEl.classList.add("show");
     this.bannerTimeout = window.setTimeout(() => {
       this.bannerEl?.classList.remove("show");
@@ -1750,7 +1909,7 @@ var HudManager = class {
       <button class="go click" id="menu-resume">${isGameOver ? "PLAY AGAIN" : "PRESS START"}</button>
       <div class="fine">
         Steer with Device Tilt (Mobile Rotameter), Touch Joystick, or Arrow Keys / WASD.<br>
-        Multiplayer: Bump into other marbles to knock them off balance and score +250 points!
+        Multiplayer: Bump into other marbles to knock them off balance (+250 pts) or off ledges (+2500 pts vs Opposing Intelligence)!
       </div>
     `;
     this.menuEl.querySelectorAll("button[data-stage]").forEach((btn) => {
@@ -1828,7 +1987,7 @@ var HudManager = class {
       } else if (h.def.kind === "item") {
         ctx.fillStyle = "#ffd23f";
         ctx.fillRect(h.x * cellW - 1.5, h.z * cellH - 1.5, 3, 3);
-      } else if (h.def.kind === "blade" || h.def.kind === "bat" || h.def.kind === "snake") {
+      } else if (h.def.kind === "blade" || h.def.kind === "bat" || h.def.kind === "snake" || h.def.kind === "steelie" || h.def.kind === "muncher") {
         ctx.fillStyle = "#ff3b5c";
         ctx.fillRect(h.x * cellW - 1.5, h.z * cellH - 1.5, 3, 3);
       }
@@ -32406,6 +32565,11 @@ var InputManager = class {
   knobEl = null;
   brakeEl = null;
   brakePressed = false;
+  aiActive = false;
+  aiScreenX = 0;
+  aiScreenY = 0;
+  aiIntensity = 0;
+  aiBrake = false;
   constructor() {
     this.joyEl = document.getElementById("joy");
     this.knobEl = this.joyEl?.querySelector(".knob");
@@ -32607,10 +32771,30 @@ var InputManager = class {
       }
     });
   }
+  setAIInput(screenX, screenY, intensity, brake = false) {
+    if (intensity <= 1e-3 && !brake) {
+      this.aiActive = false;
+      this.aiScreenX = 0;
+      this.aiScreenY = 0;
+      this.aiIntensity = 0;
+      this.aiBrake = false;
+    } else {
+      this.aiActive = true;
+      this.aiScreenX = screenX;
+      this.aiScreenY = screenY;
+      this.aiIntensity = Math.min(1, Math.max(0, intensity));
+      this.aiBrake = brake;
+    }
+  }
   getSample(dt = 1 / 60) {
     let screenX = 0;
     let screenY = 0;
-    const brake = this.keys.has("Space") || this.brakePressed;
+    let brake = this.keys.has("Space") || this.brakePressed;
+    if (this.aiActive) {
+      screenX = this.aiScreenX;
+      screenY = this.aiScreenY;
+      if (this.aiBrake) brake = true;
+    }
     if (this.keys.has("KeyW") || this.keys.has("ArrowUp")) screenY -= 1;
     if (this.keys.has("KeyS") || this.keys.has("ArrowDown")) screenY += 1;
     if (this.keys.has("KeyA") || this.keys.has("ArrowLeft")) screenX -= 1;
@@ -32701,6 +32885,7 @@ var MultiplayerClient = class {
   localId = "";
   localName = "";
   localColor = "#ff3b5c";
+  localIntelligence = "NI";
   remotePlayers = /* @__PURE__ */ new Map();
   isConnected = false;
   events = {};
@@ -32710,6 +32895,12 @@ var MultiplayerClient = class {
   bumpCooldown = /* @__PURE__ */ new Map();
   constructor() {
     this.connect();
+  }
+  setIntelligenceType(type) {
+    this.localIntelligence = type;
+    if (type === "AI" && !this.localName.includes("[AI]")) {
+      this.localName = `[AI] ${this.localName.replace(/^\[NI\]\s*/, "")}`;
+    }
   }
   connect() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -32785,15 +32976,16 @@ var MultiplayerClient = class {
             if (!rp) {
               rp = {
                 id: msg.id,
-                name: `Marble #${msg.id.slice(-4)}`,
-                color: "#33e0ff",
+                name: msg.name || `Player #${msg.id.slice(-4)}`,
+                color: msg.color || "#33e0ff",
+                intelligence: msg.intelligence || "NI",
                 stage: msg.stage ?? 1,
-                x: msg.x,
-                y: msg.y,
-                z: msg.z,
-                targetX: msg.x,
-                targetY: msg.y,
-                targetZ: msg.z,
+                x: msg.x ?? 3.4,
+                y: msg.y ?? 6.5,
+                z: msg.z ?? 2,
+                targetX: msg.x ?? 3.4,
+                targetY: msg.y ?? 6.5,
+                targetZ: msg.z ?? 2,
                 vx: msg.vx ?? 0,
                 vy: msg.vy ?? 0,
                 vz: msg.vz ?? 0,
@@ -32806,6 +32998,9 @@ var MultiplayerClient = class {
               this.remotePlayers.set(msg.id, rp);
               this.notifyPlayerCount();
             } else {
+              if (msg.name) rp.name = msg.name;
+              if (msg.color) rp.color = msg.color;
+              if (msg.intelligence) rp.intelligence = msg.intelligence;
               rp.stage = msg.stage;
               rp.targetX = msg.x;
               rp.targetY = msg.y;
@@ -32838,6 +33033,18 @@ var MultiplayerClient = class {
           }
           break;
         }
+        case "player_knockout": {
+          if (msg.attackerId === this.localId) {
+            if (this.events.onKnockoutScored) {
+              this.events.onKnockoutScored(
+                msg.targetName,
+                msg.targetIntelligence ?? "NI",
+                msg.points ?? 2500
+              );
+            }
+          }
+          break;
+        }
         case "player_left": {
           const rp = this.remotePlayers.get(msg.id);
           const name = rp?.name || "Player";
@@ -32858,6 +33065,7 @@ var MultiplayerClient = class {
         id: p.id,
         name: p.name || `Player #${p.id.slice(-4)}`,
         color: p.color || "#33e0ff",
+        intelligence: p.intelligence || "NI",
         stage: p.stage ?? 1,
         x: p.x ?? 3.4,
         y: p.y ?? 6.5,
@@ -32878,6 +33086,7 @@ var MultiplayerClient = class {
     } else {
       if (p.name) rp.name = p.name;
       if (p.color) rp.color = p.color;
+      if (p.intelligence) rp.intelligence = p.intelligence;
       if (p.stage !== void 0) rp.stage = p.stage;
       if (p.x !== void 0) rp.targetX = p.x;
       if (p.y !== void 0) rp.targetY = p.y;
@@ -32908,6 +33117,7 @@ var MultiplayerClient = class {
       JSON.stringify({
         type: "update",
         stage,
+        intelligence: this.localIntelligence,
         x: Number(marble.x.toFixed(3)),
         y: Number(marble.y.toFixed(3)),
         z: Number(marble.z.toFixed(3)),
@@ -32936,9 +33146,6 @@ var MultiplayerClient = class {
         this.bumpCooldown.set(remote.id, now);
         const nx = dx / dist;
         const nz = dz / dist;
-        const relVx = localMarble.vx - remote.vx;
-        const relVz = localMarble.vz - remote.vz;
-        const relImpact = relVx * nx + relVz * nz;
         const bumpForce = Math.max(0.2, Math.min(0.7, localMarble.speed * 1.5 + 0.25));
         localMarble.vx -= nx * bumpForce * 0.7;
         localMarble.vz -= nz * bumpForce * 0.7;
@@ -32981,6 +33188,342 @@ var MultiplayerClient = class {
   }
 };
 
+// src/game/webmcp.ts
+var WebMCPController = class {
+  game;
+  steerTimer = null;
+  constructor(game) {
+    this.game = game;
+    this.registerWebMCPTools();
+  }
+  registerWebMCPTools() {
+    const tools = [
+      {
+        name: "get_game_state",
+        description: "Inspect real-time Marble Madness 3D sensory state: position, velocity, slope gradient, surface traction, nearby hazards (Steelies, Munchers, Blades), other player marbles, timer, score, and lives.",
+        inputSchema: {
+          type: "object",
+          properties: {}
+        },
+        execute: () => this.getGameState()
+      },
+      {
+        name: "steer_trackball",
+        description: 'Apply an angular torque impulse to the physical trackball to steer the marble. Direction can be a cardinal/ordinal string ("N", "NE", "E", "SE", "S", "SW", "W", "NW") or angle in degrees (0-360, where 0 is North/Up-Slope). Impulse force is 0.05 (gentle nudge) to 1.0 (maximum flick). Warning: Excessive speed on slopes or icy snow will cause skidding or flying off ledges!',
+        inputSchema: {
+          type: "object",
+          properties: {
+            direction: {
+              type: "string",
+              description: 'Direction: "N", "NE", "E", "SE", "S", "SW", "W", "NW" or numerical angle in degrees (0-360)'
+            },
+            impulse: {
+              type: "number",
+              description: "Impulse force magnitude between 0.05 and 1.0 (default 0.5)",
+              minimum: 0.05,
+              maximum: 1
+            },
+            duration_ms: {
+              type: "number",
+              description: "Duration of spin impulse in milliseconds (30 to 400ms, default 120ms)",
+              minimum: 30,
+              maximum: 400
+            }
+          },
+          required: ["direction"]
+        },
+        execute: (args) => this.steerTrackball(args)
+      },
+      {
+        name: "apply_brake",
+        description: "Apply physical braking drag to arrest marble momentum and prevent rolling off steep slopes or ledges.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            duration_ms: {
+              type: "number",
+              description: "Braking duration in milliseconds (50 to 600ms, default 200ms)",
+              minimum: 50,
+              maximum: 600
+            }
+          }
+        },
+        execute: (args) => this.applyBrake(args)
+      },
+      {
+        name: "start_or_respawn",
+        description: "Start the game from the title/countdown screen or trigger an immediate respawn at the active checkpoint.",
+        inputSchema: {
+          type: "object",
+          properties: {}
+        },
+        execute: () => this.startOrRespawn()
+      },
+      {
+        name: "submit_leaderboard_score",
+        description: 'Submit final score and 3-character AI tag (e.g. "GPT", "BOT", "CPU") to the global unauthenticated Top 50 Leaderboard.',
+        inputSchema: {
+          type: "object",
+          properties: {
+            initials: {
+              type: "string",
+              description: '3-letter arcade initials tag (e.g. "GPT", "AI1", "BOT")',
+              maxLength: 6
+            }
+          },
+          required: ["initials"]
+        },
+        execute: (args) => this.submitScore(args)
+      }
+    ];
+    const doc = document;
+    if (doc.modelContext && typeof doc.modelContext.registerTool === "function") {
+      try {
+        for (const t of tools) {
+          doc.modelContext.registerTool(t);
+        }
+        console.log("[WebMCP] Registered 5 tools via document.modelContext");
+      } catch (err) {
+        console.warn("[WebMCP] document.modelContext registration warning:", err);
+      }
+    }
+    const nav = navigator;
+    if (nav.modelContext && typeof nav.modelContext.registerTool === "function") {
+      try {
+        for (const t of tools) {
+          nav.modelContext.registerTool(t);
+        }
+        console.log("[WebMCP] Registered 5 tools via navigator.modelContext");
+      } catch (err) {
+        console.warn("[WebMCP] navigator.modelContext registration warning:", err);
+      }
+    }
+    const win = window;
+    win.webmcp = {
+      listTools: () => tools,
+      callTool: async (name, args = {}) => {
+        const tool = tools.find((t) => t.name === name);
+        if (!tool) {
+          throw new Error(`[WebMCP] Unknown tool: ${name}. Available: ${tools.map((t) => t.name).join(", ")}`);
+        }
+        return await tool.execute(args);
+      }
+    };
+    console.log("[WebMCP] Initialized WebMCP interface: window.webmcp available");
+  }
+  tagAsAI() {
+    if (!this.game.isAIMarble) {
+      this.game.isAIMarble = true;
+      this.game.intelligenceType = "AI";
+      if (this.game.multiplayer) {
+        this.game.multiplayer.setIntelligenceType("AI");
+      }
+      this.game.hud.showBanner("\u{1F916} AI AGENT DETECTED", "PLAYING VIA WEBMCP", 2e3);
+    }
+  }
+  getGameState() {
+    const p = this.game.physics.marble;
+    const ground = this.game.physics.getGroundHeightAt(p.x, p.z);
+    const level = this.game.currentLevel;
+    const hazardsNear = this.game.hazards.hazards.filter((h) => h.active).map((h) => {
+      const dx = h.x - p.x;
+      const dz = h.z - p.z;
+      const dist = Math.hypot(dx, dz);
+      return {
+        kind: h.def.kind,
+        distance: Number(dist.toFixed(2)),
+        relX: Number(dx.toFixed(2)),
+        relZ: Number(dz.toFixed(2))
+      };
+    }).filter((h) => h.distance < 8).sort((a, b) => a.distance - b.distance);
+    const otherMarblesNear = Array.from(this.game.multiplayer.remotePlayers.values()).map((rp) => {
+      const dx = rp.x - p.x;
+      const dz = rp.z - p.z;
+      const dist = Math.hypot(dx, dz);
+      return {
+        id: rp.id,
+        name: rp.name,
+        intelligence: rp.intelligence ?? "NI",
+        distance: Number(dist.toFixed(2)),
+        relX: Number(dx.toFixed(2)),
+        relZ: Number(dz.toFixed(2))
+      };
+    }).filter((m) => m.distance < 10).sort((a, b) => a.distance - b.distance);
+    return {
+      status: "ok",
+      gamePhase: this.game.state,
+      stage: {
+        id: this.game.currentStageIndex + 1,
+        name: level.def.name,
+        theme: level.def.theme,
+        timeLimit: level.def.time
+      },
+      stats: {
+        timeLeft: Number(this.game.timeLeft.toFixed(1)),
+        score: this.game.score,
+        lives: this.game.lives,
+        itemsCollected: this.game.itemsCollected,
+        knockouts: this.game.knockoutCount,
+        intelligence: this.game.intelligenceType
+      },
+      marble: {
+        x: Number(p.x.toFixed(2)),
+        y: Number(p.y.toFixed(2)),
+        z: Number(p.z.toFixed(2)),
+        vx: Number(p.vx.toFixed(3)),
+        vy: Number(p.vy.toFixed(3)),
+        vz: Number(p.vz.toFixed(3)),
+        speed: Number(p.speed.toFixed(3)),
+        grounded: p.grounded,
+        skidding: p.skidding,
+        inWater: p.inWater,
+        surface: ground.cell?.surf ?? "void",
+        slopeNormal: [
+          Number(ground.normal[0].toFixed(2)),
+          Number(ground.normal[1].toFixed(2)),
+          Number(ground.normal[2].toFixed(2))
+        ]
+      },
+      hazardsNear,
+      otherMarblesNear,
+      hints: {
+        cameraPerspective: "Isometric (Screen Up-Right = +X, Screen Down-Left = +Z)",
+        momentumWarning: p.speed > 0.22 ? "High speed! Apply brake before tight turns." : "Normal speed."
+      }
+    };
+  }
+  steerTrackball(args) {
+    this.tagAsAI();
+    const dirArg = String(args.direction ?? "N").toUpperCase().trim();
+    const impulse = Math.max(0.05, Math.min(1, Number(args.impulse ?? 0.5)));
+    const duration = Math.max(30, Math.min(400, Number(args.duration_ms ?? 120)));
+    let screenX = 0;
+    let screenY = 0;
+    if (!isNaN(Number(dirArg))) {
+      const deg = Number(dirArg);
+      const rad = deg * Math.PI / 180;
+      screenX = Math.sin(rad);
+      screenY = -Math.cos(rad);
+    } else {
+      switch (dirArg) {
+        case "N":
+        case "UP":
+          screenX = 0;
+          screenY = -1;
+          break;
+        case "NE":
+        case "UP-RIGHT":
+          screenX = 0.707;
+          screenY = -0.707;
+          break;
+        case "E":
+        case "RIGHT":
+          screenX = 1;
+          screenY = 0;
+          break;
+        case "SE":
+        case "DOWN-RIGHT":
+          screenX = 0.707;
+          screenY = 0.707;
+          break;
+        case "S":
+        case "DOWN":
+          screenX = 0;
+          screenY = 1;
+          break;
+        case "SW":
+        case "DOWN-LEFT":
+          screenX = -0.707;
+          screenY = 0.707;
+          break;
+        case "W":
+        case "LEFT":
+          screenX = -1;
+          screenY = 0;
+          break;
+        case "NW":
+        case "UP-LEFT":
+          screenX = -0.707;
+          screenY = -0.707;
+          break;
+        default:
+          screenX = 0;
+          screenY = -1;
+          break;
+      }
+    }
+    this.game.input.setAIInput(screenX, screenY, impulse, false);
+    if (this.steerTimer !== null) {
+      clearTimeout(this.steerTimer);
+    }
+    this.steerTimer = window.setTimeout(() => {
+      this.game.input.setAIInput(0, 0, 0, false);
+      this.steerTimer = null;
+    }, duration);
+    return {
+      status: "impulse_applied",
+      direction: dirArg,
+      impulse,
+      duration_ms: duration,
+      marbleSpeed: Number(this.game.physics.marble.speed.toFixed(3))
+    };
+  }
+  applyBrake(args) {
+    this.tagAsAI();
+    const duration = Math.max(50, Math.min(600, Number(args.duration_ms ?? 200)));
+    this.game.input.setAIInput(0, 0, 0, true);
+    if (this.steerTimer !== null) {
+      clearTimeout(this.steerTimer);
+    }
+    this.steerTimer = window.setTimeout(() => {
+      this.game.input.setAIInput(0, 0, 0, false);
+      this.steerTimer = null;
+    }, duration);
+    return {
+      status: "brake_applied",
+      duration_ms: duration,
+      marbleSpeed: Number(this.game.physics.marble.speed.toFixed(3))
+    };
+  }
+  startOrRespawn() {
+    this.tagAsAI();
+    if (this.game.state === "TITLE" || this.game.state === "COUNTDOWN") {
+      this.game.startGameDirect();
+      return { status: "game_started", stage: this.game.currentStageIndex + 1 };
+    }
+    if (this.game.state === "GAME_OVER" || this.game.state === "VICTORY") {
+      this.game.setupStage(0);
+      this.game.startGameDirect();
+      return { status: "game_restarted", stage: 1 };
+    }
+    this.game.physics.respawn(this.game.hazards.activeCheckpoint ?? void 0);
+    return { status: "respawned_at_checkpoint" };
+  }
+  async submitScore(args) {
+    const rawTag = String(args.initials ?? "CPU").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) || "CPU";
+    const tag = `[AI] ${rawTag}`;
+    try {
+      const res = await fetch("/api/leaderboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: tag,
+          score: this.game.score,
+          intelligence: "AI",
+          stage: this.game.currentStageIndex + 1,
+          timeRemaining: Math.floor(this.game.timeLeft),
+          knockouts: this.game.knockoutCount,
+          token: this.game.sessionToken
+        })
+      });
+      const data = await res.json();
+      return { status: "score_submitted", leaderboardResult: data };
+    } catch (err) {
+      return { status: "submission_failed", error: String(err) };
+    }
+  }
+};
+
 // src/game/state.ts
 var GameManager = class {
   currentStageIndex = 0;
@@ -32992,13 +33535,19 @@ var GameManager = class {
   timeLeft = COURSE_TIME;
   itemsCollected = 0;
   itemsTotal = 0;
+  knockoutCount = 0;
+  isAIMarble = false;
+  intelligenceType = "NI";
+  sessionToken = "";
   input;
   physics;
   hazards;
   hud;
   renderer;
   multiplayer;
+  webmcp;
   respawnTimer = 0;
+  countdownTimer = 3;
   isAudioStarted = false;
   constructor() {
     this.currentLevel = LEVELS[0];
@@ -33008,12 +33557,42 @@ var GameManager = class {
     this.hud = new HudManager();
     this.renderer = new GameRenderer();
     this.multiplayer = new MultiplayerClient();
+    this.webmcp = new WebMCPController(this);
     this.loadHiscore();
+    this.fetchSessionToken();
+    this.fetchLeaderboard();
     this.bindEvents();
     this.bindMultiplayer();
     this.setupStage(0, false);
     this.state = "TITLE";
     this.hud.showMenu(LEVELS.length, 1);
+  }
+  async fetchSessionToken() {
+    try {
+      const res = await fetch("/api/session-token");
+      if (res.ok) {
+        const data = await res.json();
+        this.sessionToken = data.token || "";
+      }
+    } catch (err) {
+      console.warn("[Session] Token acquisition fallback:", err);
+    }
+  }
+  async fetchLeaderboard() {
+    try {
+      const res = await fetch("/api/leaderboard");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.top50)) {
+          this.hud.setLeaderboard(data.top50);
+          if (data.top50.length > 0 && data.top50[0].score > this.hiscore) {
+            this.hiscore = data.top50[0].score;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[Leaderboard] Failed to fetch leaderboard:", err);
+    }
   }
   loadHiscore() {
     const saved = localStorage.getItem("marble_madness_hiscore");
@@ -33036,22 +33615,22 @@ var GameManager = class {
       this.input.calibrateNow();
       if (splashEl) {
         splashEl.classList.add("fade-out");
-        setTimeout(() => splashEl.remove(), 700);
+        setTimeout(() => splashEl.remove(), 600);
       }
-      if (this.state === "TITLE") {
-        this.state = "PLAYING";
-        this.hud.hideMenu();
-        this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2e3);
-      }
+      this.startCountdownSequence();
     };
     if (splashBtn) {
-      splashBtn.addEventListener("click", () => {
+      splashBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
         void startFromSplash();
       });
     }
     if (splashEl) {
       splashEl.addEventListener("click", (e) => {
-        if (e.target === splashBtn) return;
+        const target = e.target;
+        if (target.closest(".lb-container") || target.closest("button") || target.closest("table")) {
+          return;
+        }
         void startFromSplash();
       });
     }
@@ -33071,15 +33650,15 @@ var GameManager = class {
     this.hud.onResumeGame = () => {
       this.startAudio();
       if (this.state === "TITLE") {
-        this.state = "PLAYING";
-        this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2e3);
+        this.startCountdownSequence();
       }
     };
     this.hud.onRestartGame = () => {
       this.score = 0;
+      this.knockoutCount = 0;
       this.lives = START_LIVES;
       this.setupStage(0);
-      this.state = "PLAYING";
+      this.startCountdownSequence();
     };
     this.physics.events.onBounce = (force) => {
       soundManager.playSfx("bounce", Math.min(1, force * 1.5));
@@ -33139,6 +33718,15 @@ var GameManager = class {
       ]);
       this.renderer.triggerScreenShake(Math.min(0.4, force * 0.8));
     };
+    this.hazards.events.onSteelieCracked = () => {
+      soundManager.playSfx("shatter", 1);
+      const points = 1e3;
+      this.score += points;
+      this.knockoutCount++;
+      this.saveHiscore();
+      this.hud.showBanner("\u{1F4A5} STEELIE CRACKED!", `+${points} PTS NPC KNOCKOUT`, 2200);
+      this.hud.addFeedEvent(`\u{1F3C6} Knocked Steelie off ledge! +${points} PTS`);
+    };
     const gestureHandler = () => {
       this.startAudio();
       window.removeEventListener("click", gestureHandler);
@@ -33151,7 +33739,8 @@ var GameManager = class {
   }
   bindMultiplayer() {
     this.multiplayer.events.onPlayerJoined = (player) => {
-      this.hud.addFeedEvent(`\u{1F44B} ${player.name} joined the game!`);
+      const intelBadge = player.intelligence === "AI" ? "\u{1F916}" : "\u{1F9E0}";
+      this.hud.addFeedEvent(`\u{1F44B} ${intelBadge} ${player.name} joined the world!`);
     };
     this.multiplayer.events.onPlayerLeft = (_id2, name) => {
       this.hud.addFeedEvent(`\u{1F6AA} ${name} left`);
@@ -33179,6 +33768,17 @@ var GameManager = class {
       ]);
       this.hud.addFeedEvent(`\u26A1 Bumped ${targetName}! +${points} PTS`);
     };
+    this.multiplayer.events.onKnockoutScored = (targetName, targetIntelligence, points) => {
+      soundManager.playSfx("goal", 1);
+      this.score += points;
+      this.knockoutCount++;
+      this.saveHiscore();
+      this.renderer.triggerScreenShake(0.4);
+      const isOpposing = targetIntelligence !== this.intelligenceType;
+      const title = isOpposing ? "\u2694\uFE0F OPPOSING INTELLIGENCE DESTROYED!" : "\u{1F3C6} RIVAL KNOCKED OUT!";
+      this.hud.showBanner(title, `+${points} PTS \xB7 ${targetName}`, 2500);
+      this.hud.addFeedEvent(`\u{1F480} Knocked out ${targetName}! +${points} PTS`);
+    };
     this.multiplayer.events.onPlayerCountChange = (count) => {
       this.hud.updatePlayerCount(count);
       if (this.multiplayer.localName) {
@@ -33188,6 +33788,18 @@ var GameManager = class {
         );
       }
     };
+  }
+  startCountdownSequence() {
+    this.state = "COUNTDOWN";
+    this.countdownTimer = 3;
+    this.hud.hideMenu();
+    this.hud.showCountdown(3, `STAGE 1: ${this.currentLevel.def.name}`);
+  }
+  startGameDirect() {
+    this.state = "PLAYING";
+    this.hud.hideMenu();
+    this.hud.hideCountdown();
+    this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2e3);
   }
   startAudio() {
     if (!this.isAudioStarted) {
@@ -33255,8 +33867,47 @@ var GameManager = class {
     if (this.lives <= 0) {
       this.state = "GAME_OVER";
       soundManager.playBgm("intro");
+      this.checkAndPromptLeaderboard();
+    }
+  }
+  checkAndPromptLeaderboard() {
+    const check = this.hud.checkQualifiesForLeaderboard(this.score);
+    if (check.qualifies && this.score > 0) {
+      this.hud.showNameEntry(this.score, check.rank, this.isAIMarble, (initials) => {
+        void this.submitHighScore(initials);
+      });
+    } else {
       this.hud.showMenu(LEVELS.length, this.currentStageIndex + 1, true, this.score);
     }
+  }
+  async submitHighScore(initials) {
+    const rawTag = initials.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) || "ACE";
+    const tag = `[${this.intelligenceType}] ${rawTag}`;
+    try {
+      const res = await fetch("/api/leaderboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: tag,
+          score: this.score,
+          intelligence: this.intelligenceType,
+          stage: this.currentStageIndex + 1,
+          timeRemaining: Math.floor(this.timeLeft),
+          knockouts: this.knockoutCount,
+          token: this.sessionToken
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.top50)) {
+          this.hud.setLeaderboard(data.top50);
+        }
+        this.hud.showBanner("\u{1F3C6} HIGH SCORE SUBMITTED!", `${tag} \u2014 ${this.score} PTS`, 3e3);
+      }
+    } catch (err) {
+      console.warn("[Leaderboard] Submission error:", err);
+    }
+    this.hud.showMenu(LEVELS.length, this.currentStageIndex + 1, true, this.score);
   }
   handleStageClear() {
     this.state = "STAGE_CLEAR";
@@ -33271,13 +33922,22 @@ var GameManager = class {
       } else {
         this.state = "VICTORY";
         this.hud.showBanner("VICTORY!", `ALL COURSES CLEARED! FINAL SCORE: ${this.score}`, 5e3);
-        this.hud.showMenu(LEVELS.length, 1, true, this.score);
+        this.checkAndPromptLeaderboard();
       }
     }, 2600);
   }
   update(dt) {
-    const inputSample = this.input.getSample();
-    if (this.state === "PLAYING") {
+    const inputSample = this.input.getSample(dt);
+    if (this.state === "COUNTDOWN") {
+      this.countdownTimer -= dt;
+      const sec = Math.ceil(this.countdownTimer);
+      this.hud.updateCountdown(sec);
+      if (this.countdownTimer <= 0) {
+        this.hud.hideCountdown();
+        this.state = "PLAYING";
+        this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2e3);
+      }
+    } else if (this.state === "PLAYING") {
       this.timeLeft = Math.max(0, this.timeLeft - dt);
       if (this.timeLeft <= 0) {
         this.handleDeath("time");

@@ -513,6 +513,217 @@
         color: var(--dim);
         letter-spacing: 0.05em;
       }
+
+      /* Leaderboard Styles (Top 50 Hall of Fame) */
+      .lb-container {
+        margin-top: 20px;
+        width: 100%;
+        max-width: 520px;
+        background: rgba(14, 18, 30, 0.88);
+        border: 1px solid rgba(51, 224, 255, 0.35);
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.7);
+        text-align: left;
+      }
+      .lb-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        font-size: 12px;
+        color: var(--warn);
+        text-shadow: 0 0 8px rgba(255, 210, 63, 0.4);
+      }
+      .lb-tabs {
+        display: flex;
+        gap: 6px;
+      }
+      .lb-tab {
+        background: #192036;
+        border: 1px solid var(--edge);
+        color: var(--dim);
+        border-radius: 6px;
+        padding: 3px 8px;
+        font-size: 10px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .lb-tab.active {
+        background: #253356;
+        color: var(--cool);
+        border-color: var(--cool);
+        box-shadow: 0 0 8px rgba(51, 224, 255, 0.3);
+      }
+      .lb-table-wrap {
+        max-height: 160px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--cool) rgba(14, 18, 30, 0.5);
+      }
+      .lb-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+      .lb-table th {
+        color: var(--dim);
+        font-size: 9.5px;
+        padding: 4px 6px;
+        border-bottom: 1px solid var(--edge);
+        position: sticky;
+        top: 0;
+        background: #0e121e;
+        z-index: 1;
+      }
+      .lb-table td {
+        padding: 4px 6px;
+        border-bottom: 1px solid rgba(42, 49, 73, 0.4);
+      }
+      .lb-table tr:hover {
+        background: rgba(51, 224, 255, 0.08);
+      }
+      .badge-ai {
+        display: inline-block;
+        background: rgba(51, 224, 255, 0.18);
+        border: 1px solid var(--cool);
+        color: var(--cool);
+        padding: 1px 4px;
+        border-radius: 4px;
+        font-size: 9px;
+        font-weight: 700;
+      }
+      .badge-ni {
+        display: inline-block;
+        background: rgba(255, 59, 92, 0.18);
+        border: 1px solid var(--hot);
+        color: #ff88a3;
+        padding: 1px 4px;
+        border-radius: 4px;
+        font-size: 9px;
+        font-weight: 700;
+      }
+
+      /* Pre-Game Countdown Overlay */
+      #countdown-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(11, 13, 20, 0.72);
+        backdrop-filter: blur(8px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+      #countdown-overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .countdown-num {
+        font-size: clamp(64px, 16vw, 110px);
+        font-weight: 900;
+        color: #fff;
+        text-shadow: 0 0 40px #ff3b5c, 0 0 80px #33e0ff;
+        animation: cdPulse 0.9s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite;
+      }
+      @keyframes cdPulse {
+        0% { transform: scale(0.6); opacity: 0.2; }
+        50% { transform: scale(1.1); opacity: 1; }
+        100% { transform: scale(1.0); opacity: 0.9; }
+      }
+      .countdown-title {
+        font-size: clamp(14px, 3.5vw, 22px);
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        color: var(--cool);
+        margin-top: 10px;
+        text-shadow: 0 0 15px rgba(51, 224, 255, 0.6);
+      }
+      .countdown-lb-mini {
+        margin-top: 24px;
+        max-width: 440px;
+        width: 90%;
+        background: rgba(20, 24, 38, 0.85);
+        border: 1px solid rgba(51, 224, 255, 0.3);
+        border-radius: 10px;
+        padding: 10px 14px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+      }
+
+      /* Name Entry High Score Modal */
+      #name-entry-modal {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.88);
+        backdrop-filter: blur(14px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 300;
+      }
+      #name-entry-modal.hidden {
+        display: none;
+      }
+      .name-entry-card {
+        background: #141826;
+        border: 2px solid var(--warn);
+        border-radius: 16px;
+        padding: 24px 32px;
+        text-align: center;
+        box-shadow: 0 0 40px rgba(255, 210, 63, 0.4), 0 12px 50px #000;
+        max-width: 420px;
+        width: 90%;
+      }
+      .name-entry-title {
+        font-size: 22px;
+        font-weight: 900;
+        color: var(--warn);
+        margin: 0 0 8px 0;
+        letter-spacing: 0.12em;
+        text-shadow: 0 0 15px rgba(255, 210, 63, 0.7);
+      }
+      .name-input-group {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin: 18px 0;
+      }
+      .initial-input {
+        width: 140px;
+        font-size: 28px;
+        font-weight: 900;
+        text-align: center;
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        background: #0b0d14;
+        border: 2px solid var(--cool);
+        color: #fff;
+        border-radius: 8px;
+        padding: 6px;
+        box-shadow: 0 0 15px rgba(51, 224, 255, 0.3);
+      }
+      .name-submit-btn {
+        background: linear-gradient(135deg, #ffd23f, #ff8833);
+        color: #000;
+        border: none;
+        border-radius: 20px;
+        padding: 10px 24px;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        box-shadow: 0 0 20px rgba(255, 210, 63, 0.5);
+      }
+      .name-submit-btn:hover {
+        transform: scale(1.05);
+      }
     </style>
   </head>
   <body>
@@ -527,6 +738,58 @@
         <div class="splash-subtitle">3D ISOMETRIC ARCADE RUN · MULTIPLAYER SHARED WORLD</div>
         <button id="splash-start-btn" class="splash-btn click">PRESS START / TAP TO PLAY</button>
         <div class="splash-tip">Calibrates device tilt rotameter & initializes 3D spatial audio</div>
+
+        <!-- Top 50 Hall of Fame Leaderboard -->
+        <div class="lb-container click">
+          <div class="lb-header">
+            <span>🏆 TOP 50 HALL OF FAME</span>
+            <div class="lb-tabs">
+              <button class="lb-tab active" data-filter="ALL">ALL</button>
+              <button class="lb-tab" data-filter="NI">🧠 NI</button>
+              <button class="lb-tab" data-filter="AI">🤖 AI</button>
+            </div>
+          </div>
+          <div class="lb-table-wrap">
+            <table class="lb-table">
+              <thead>
+                <tr>
+                  <th style="width:28px">#</th>
+                  <th style="width:42px">INTEL</th>
+                  <th>PLAYER</th>
+                  <th style="text-align:right">SCORE</th>
+                  <th style="text-align:center">STG</th>
+                  <th style="text-align:right">KO</th>
+                </tr>
+              </thead>
+              <tbody id="lb-table-body">
+                <tr><td colspan="6" style="text-align:center;color:var(--dim)">Loading top records...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Countdown Overlay Before Stage 1 -->
+    <div id="countdown-overlay">
+      <div class="countdown-num" id="countdown-num">3</div>
+      <div class="countdown-title" id="countdown-title">STAGE 1: PINK GARDENS</div>
+      <div class="countdown-lb-mini">
+        <div style="font-size:10.5px;color:var(--warn);font-weight:700;margin-bottom:6px;letter-spacing:0.08em">CURRENT RECORD HOLDERS TO BEAT:</div>
+        <div id="countdown-lb-content" style="font-size:11px;color:var(--dim)">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Arcade High Score Name Entry Modal -->
+    <div id="name-entry-modal" class="hidden">
+      <div class="name-entry-card click">
+        <div class="name-entry-title">🎉 TOP 50 QUALIFIED! 🎉</div>
+        <div style="font-size:12px;color:var(--cool);margin-bottom:6px" id="name-entry-subtitle">RANK #1 · SCORE: 128450</div>
+        <div style="font-size:11px;color:var(--dim)">ENTER 3-LETTER ARCADE INITIALS:</div>
+        <div class="name-input-group">
+          <input type="text" id="player-initials-input" class="initial-input" maxlength="3" value="AAA" autofocus />
+        </div>
+        <button id="player-initials-submit" class="name-submit-btn">SUBMIT RECORD</button>
       </div>
     </div>
     <div id="app">

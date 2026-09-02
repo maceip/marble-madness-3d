@@ -7,6 +7,7 @@ import { HudManager } from './hud.js';
 import { GameRenderer } from './renderer.js';
 import { InputManager } from './input.js';
 import { MultiplayerClient } from './multiplayer.js';
+import { WebMCPController } from './webmcp.js';
 import {
   CHECKPOINT_BONUS,
   COURSE_TIME,
@@ -16,6 +17,7 @@ import {
 
 export type GameState =
   | 'TITLE'
+  | 'COUNTDOWN'
   | 'PLAYING'
   | 'RESPAWNING'
   | 'STAGE_CLEAR'
@@ -23,25 +25,32 @@ export type GameState =
   | 'VICTORY';
 
 export class GameManager {
-  private currentStageIndex = 0;
-  private currentLevel: BuiltLevel;
-  private state: GameState = 'TITLE';
+  public currentStageIndex = 0;
+  public currentLevel: BuiltLevel;
+  public state: GameState = 'TITLE';
 
-  private score = 0;
-  private hiscore = 0;
-  private lives = START_LIVES;
-  private timeLeft = COURSE_TIME;
-  private itemsCollected = 0;
-  private itemsTotal = 0;
+  public score = 0;
+  public hiscore = 0;
+  public lives = START_LIVES;
+  public timeLeft = COURSE_TIME;
+  public itemsCollected = 0;
+  public itemsTotal = 0;
+  public knockoutCount = 0;
 
-  private input: InputManager;
-  private physics: PhysicsEngine;
-  private hazards: HazardManager;
-  private hud: HudManager;
-  private renderer: GameRenderer;
-  private multiplayer: MultiplayerClient;
+  public isAIMarble = false;
+  public intelligenceType: 'AI' | 'NI' = 'NI';
+  public sessionToken = '';
+
+  public input: InputManager;
+  public physics: PhysicsEngine;
+  public hazards: HazardManager;
+  public hud: HudManager;
+  public renderer: GameRenderer;
+  public multiplayer: MultiplayerClient;
+  public webmcp: WebMCPController;
 
   private respawnTimer = 0;
+  private countdownTimer = 3.0;
   private isAudioStarted = false;
 
   constructor() {
@@ -52,13 +61,45 @@ export class GameManager {
     this.hud = new HudManager();
     this.renderer = new GameRenderer();
     this.multiplayer = new MultiplayerClient();
+    this.webmcp = new WebMCPController(this);
 
     this.loadHiscore();
+    this.fetchSessionToken();
+    this.fetchLeaderboard();
     this.bindEvents();
     this.bindMultiplayer();
     this.setupStage(0, false);
     this.state = 'TITLE';
     this.hud.showMenu(LEVELS.length, 1);
+  }
+
+  private async fetchSessionToken(): Promise<void> {
+    try {
+      const res = await fetch('/api/session-token');
+      if (res.ok) {
+        const data = await res.json();
+        this.sessionToken = data.token || '';
+      }
+    } catch (err) {
+      console.warn('[Session] Token acquisition fallback:', err);
+    }
+  }
+
+  private async fetchLeaderboard(): Promise<void> {
+    try {
+      const res = await fetch('/api/leaderboard');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.top50)) {
+          this.hud.setLeaderboard(data.top50);
+          if (data.top50.length > 0 && data.top50[0].score > this.hiscore) {
+            this.hiscore = data.top50[0].score;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Leaderboard] Failed to fetch leaderboard:', err);
+    }
   }
 
   private loadHiscore(): void {
@@ -79,29 +120,32 @@ export class GameManager {
     // Splash screen boot / press start
     const splashEl = document.getElementById('splash-screen');
     const splashBtn = document.getElementById('splash-start-btn');
+
     const startFromSplash = async () => {
       this.startAudio();
       await this.input.requestDeviceOrientationPermission();
       this.input.calibrateNow();
+
       if (splashEl) {
         splashEl.classList.add('fade-out');
-        setTimeout(() => splashEl.remove(), 700);
+        setTimeout(() => splashEl.remove(), 600);
       }
-      if (this.state === 'TITLE') {
-        this.state = 'PLAYING';
-        this.hud.hideMenu();
-        this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2000);
-      }
+
+      this.startCountdownSequence();
     };
 
     if (splashBtn) {
-      splashBtn.addEventListener('click', () => {
+      splashBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         void startFromSplash();
       });
     }
     if (splashEl) {
       splashEl.addEventListener('click', (e) => {
-        if (e.target === splashBtn) return;
+        const target = e.target as HTMLElement;
+        if (target.closest('.lb-container') || target.closest('button') || target.closest('table')) {
+          return;
+        }
         void startFromSplash();
       });
     }
@@ -125,15 +169,15 @@ export class GameManager {
     this.hud.onResumeGame = () => {
       this.startAudio();
       if (this.state === 'TITLE') {
-        this.state = 'PLAYING';
-        this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2000);
+        this.startCountdownSequence();
       }
     };
     this.hud.onRestartGame = () => {
       this.score = 0;
+      this.knockoutCount = 0;
       this.lives = START_LIVES;
       this.setupStage(0);
-      this.state = 'PLAYING';
+      this.startCountdownSequence();
     };
 
     // Physics events
@@ -203,6 +247,16 @@ export class GameManager {
       this.renderer.triggerScreenShake(Math.min(0.4, force * 0.8));
     };
 
+    this.hazards.events.onSteelieCracked = () => {
+      soundManager.playSfx('shatter', 1.0);
+      const points = 1000;
+      this.score += points;
+      this.knockoutCount++;
+      this.saveHiscore();
+      this.hud.showBanner('💥 STEELIE CRACKED!', `+${points} PTS NPC KNOCKOUT`, 2200);
+      this.hud.addFeedEvent(`🏆 Knocked Steelie off ledge! +${points} PTS`);
+    };
+
     // Global gesture to start audio
     const gestureHandler = () => {
       this.startAudio();
@@ -217,7 +271,8 @@ export class GameManager {
 
   private bindMultiplayer(): void {
     this.multiplayer.events.onPlayerJoined = (player) => {
-      this.hud.addFeedEvent(`👋 ${player.name} joined the game!`);
+      const intelBadge = player.intelligence === 'AI' ? '🤖' : '🧠';
+      this.hud.addFeedEvent(`👋 ${intelBadge} ${player.name} joined the world!`);
     };
 
     this.multiplayer.events.onPlayerLeft = (_id, name) => {
@@ -225,7 +280,6 @@ export class GameManager {
     };
 
     this.multiplayer.events.onBumpReceived = (attackerName, impulse) => {
-      // Local player was knocked by another marble
       soundManager.playSfx('bounce', 1.0);
       this.renderer.emitBumpSparks([
         this.physics.marble.x,
@@ -239,7 +293,6 @@ export class GameManager {
     };
 
     this.multiplayer.events.onBumpScored = (targetName, points) => {
-      // Local player scored points for bumping someone!
       soundManager.playSfx('item', 0.9);
       this.score += points;
       this.saveHiscore();
@@ -251,6 +304,19 @@ export class GameManager {
       this.hud.addFeedEvent(`⚡ Bumped ${targetName}! +${points} PTS`);
     };
 
+    this.multiplayer.events.onKnockoutScored = (targetName, targetIntelligence, points) => {
+      soundManager.playSfx('goal', 1.0);
+      this.score += points;
+      this.knockoutCount++;
+      this.saveHiscore();
+      this.renderer.triggerScreenShake(0.4);
+
+      const isOpposing = targetIntelligence !== this.intelligenceType;
+      const title = isOpposing ? '⚔️ OPPOSING INTELLIGENCE DESTROYED!' : '🏆 RIVAL KNOCKED OUT!';
+      this.hud.showBanner(title, `+${points} PTS · ${targetName}`, 2500);
+      this.hud.addFeedEvent(`💀 Knocked out ${targetName}! +${points} PTS`);
+    };
+
     this.multiplayer.events.onPlayerCountChange = (count) => {
       this.hud.updatePlayerCount(count);
       if (this.multiplayer.localName) {
@@ -260,6 +326,20 @@ export class GameManager {
         );
       }
     };
+  }
+
+  public startCountdownSequence(): void {
+    this.state = 'COUNTDOWN';
+    this.countdownTimer = 3.0;
+    this.hud.hideMenu();
+    this.hud.showCountdown(3, `STAGE 1: ${this.currentLevel.def.name}`);
+  }
+
+  public startGameDirect(): void {
+    this.state = 'PLAYING';
+    this.hud.hideMenu();
+    this.hud.hideCountdown();
+    this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2000);
   }
 
   private startAudio(): void {
@@ -338,8 +418,52 @@ export class GameManager {
     if (this.lives <= 0) {
       this.state = 'GAME_OVER';
       soundManager.playBgm('intro');
+      this.checkAndPromptLeaderboard();
+    }
+  }
+
+  private checkAndPromptLeaderboard(): void {
+    const check = this.hud.checkQualifiesForLeaderboard(this.score);
+    if (check.qualifies && this.score > 0) {
+      this.hud.showNameEntry(this.score, check.rank, this.isAIMarble, (initials) => {
+        void this.submitHighScore(initials);
+      });
+    } else {
       this.hud.showMenu(LEVELS.length, this.currentStageIndex + 1, true, this.score);
     }
+  }
+
+  private async submitHighScore(initials: string): Promise<void> {
+    const rawTag = initials.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3) || 'ACE';
+    const tag = `[${this.intelligenceType}] ${rawTag}`;
+
+    try {
+      const res = await fetch('/api/leaderboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: tag,
+          score: this.score,
+          intelligence: this.intelligenceType,
+          stage: this.currentStageIndex + 1,
+          timeRemaining: Math.floor(this.timeLeft),
+          knockouts: this.knockoutCount,
+          token: this.sessionToken,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.top50)) {
+          this.hud.setLeaderboard(data.top50);
+        }
+        this.hud.showBanner('🏆 HIGH SCORE SUBMITTED!', `${tag} — ${this.score} PTS`, 3000);
+      }
+    } catch (err) {
+      console.warn('[Leaderboard] Submission error:', err);
+    }
+
+    this.hud.showMenu(LEVELS.length, this.currentStageIndex + 1, true, this.score);
   }
 
   private handleStageClear(): void {
@@ -358,15 +482,25 @@ export class GameManager {
       } else {
         this.state = 'VICTORY';
         this.hud.showBanner('VICTORY!', `ALL COURSES CLEARED! FINAL SCORE: ${this.score}`, 5000);
-        this.hud.showMenu(LEVELS.length, 1, true, this.score);
+        this.checkAndPromptLeaderboard();
       }
     }, 2600);
   }
 
   public update(dt: number): void {
-    const inputSample = this.input.getSample();
+    const inputSample = this.input.getSample(dt);
 
-    if (this.state === 'PLAYING') {
+    if (this.state === 'COUNTDOWN') {
+      this.countdownTimer -= dt;
+      const sec = Math.ceil(this.countdownTimer);
+      this.hud.updateCountdown(sec);
+
+      if (this.countdownTimer <= 0) {
+        this.hud.hideCountdown();
+        this.state = 'PLAYING';
+        this.hud.showBanner(`STAGE ${this.currentStageIndex + 1}`, this.currentLevel.def.name, 2000);
+      }
+    } else if (this.state === 'PLAYING') {
       // Countdown timer
       this.timeLeft = Math.max(0, this.timeLeft - dt);
       if (this.timeLeft <= 0) {
@@ -381,7 +515,6 @@ export class GameManager {
         this.currentStageIndex + 1,
         this.physics.marble,
         (target, _force) => {
-          // Local marble attacked target
           soundManager.playSfx('bounce', 1.0);
           this.score += 250;
           this.saveHiscore();
