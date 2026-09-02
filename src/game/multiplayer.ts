@@ -109,6 +109,25 @@ export class MultiplayerClient {
           break;
         }
 
+        case 'world_tick': {
+          if (Array.isArray(msg.players)) {
+            const currentIds = new Set<string>();
+            for (const p of msg.players) {
+              if (p.id === this.localId) continue;
+              currentIds.add(p.id);
+              this.addOrUpdateRemotePlayer(p);
+            }
+            // Remove players no longer present in tick snapshot
+            for (const id of this.remotePlayers.keys()) {
+              if (!currentIds.has(id)) {
+                this.remotePlayers.delete(id);
+              }
+            }
+            this.notifyPlayerCount();
+          }
+          break;
+        }
+
         case 'player_update': {
           if (msg.id !== this.localId) {
             let rp = this.remotePlayers.get(msg.id);
@@ -214,7 +233,17 @@ export class MultiplayerClient {
       if (p.name) rp.name = p.name;
       if (p.color) rp.color = p.color;
       if (p.stage !== undefined) rp.stage = p.stage;
+      if (p.x !== undefined) rp.targetX = p.x;
+      if (p.y !== undefined) rp.targetY = p.y;
+      if (p.z !== undefined) rp.targetZ = p.z;
+      if (p.vx !== undefined) rp.vx = p.vx;
+      if (p.vy !== undefined) rp.vy = p.vy;
+      if (p.vz !== undefined) rp.vz = p.vz;
+      if (p.rotX !== undefined) rp.rotX = p.rotX;
+      if (p.rotZ !== undefined) rp.rotZ = p.rotZ;
+      if (p.speed !== undefined) rp.speed = p.speed;
       if (p.score !== undefined) rp.score = p.score;
+      rp.lastUpdate = performance.now();
     }
     return rp;
   }
@@ -316,10 +345,15 @@ export class MultiplayerClient {
   }
 
   public updateInterpolation(dt: number): void {
-    // Smoothly interpolate remote players toward their target positions
-    const lerpRate = Math.min(1, dt * 20);
+    // Smoothly interpolate remote players toward their target positions with dead-reckoning
+    const lerpRate = Math.min(1, dt * 18);
 
     for (const rp of this.remotePlayers.values()) {
+      // Dead-reckoning: predict intermediate frame motion from velocity
+      rp.targetX += rp.vx * dt * 0.35;
+      rp.targetY += rp.vy * dt * 0.35;
+      rp.targetZ += rp.vz * dt * 0.35;
+
       rp.x += (rp.targetX - rp.x) * lerpRate;
       rp.y += (rp.targetY - rp.y) * lerpRate;
       rp.z += (rp.targetZ - rp.z) * lerpRate;

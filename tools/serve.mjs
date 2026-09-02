@@ -117,6 +117,60 @@ function broadcast(msg, excludeId) {
   }
 }
 
+// 25Hz Server World Tick Loop (Consolidates updates for 100+ simultaneous marbles)
+const SERVER_TICK_RATE = 25; // 25 times per second
+const TICK_INTERVAL = 1000 / SERVER_TICK_RATE;
+
+setInterval(() => {
+  if (players.size === 0) return;
+
+  const now = Date.now();
+  const activePlayersList = [];
+
+  for (const [id, client] of players.entries()) {
+    // Prune inactive clients after 15 seconds
+    if (now - client.data.lastSeen > 15000 || client.ws.readyState !== WebSocket.OPEN) {
+      console.log(`[Multiplayer] Pruning inactive player: ${client.data.name} (${id})`);
+      client.ws.terminate();
+      players.delete(id);
+      broadcast({ type: 'player_left', id });
+      continue;
+    }
+
+    activePlayersList.push({
+      id: client.data.id,
+      name: client.data.name,
+      color: client.data.color,
+      stage: client.data.stage,
+      x: client.data.x,
+      y: client.data.y,
+      z: client.data.z,
+      vx: client.data.vx,
+      vy: client.data.vy,
+      vz: client.data.vz,
+      rotX: client.data.rotX,
+      rotZ: client.data.rotZ,
+      speed: client.data.speed,
+      score: client.data.score,
+    });
+  }
+
+  if (activePlayersList.length === 0) return;
+
+  const tickMsg = JSON.stringify({
+    type: 'world_tick',
+    t: now,
+    count: activePlayersList.length,
+    players: activePlayersList,
+  });
+
+  for (const client of players.values()) {
+    if (client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(tickMsg);
+    }
+  }
+}, TICK_INTERVAL);
+
 wss.on('connection', (ws) => {
   const playerId = 'p_' + Math.random().toString(36).slice(2, 9);
   const nameIdx = (nextPlayerNum - 1) % MARBLE_NAMES.length;
@@ -161,7 +215,7 @@ wss.on('connection', (ws) => {
     }),
   );
 
-  // Notify everyone else
+  // Notify everyone else immediately
   broadcast(
     {
       type: 'player_joined',
@@ -188,25 +242,7 @@ wss.on('connection', (ws) => {
           playerData.rotZ = msg.rotZ ?? playerData.rotZ;
           playerData.speed = msg.speed ?? playerData.speed;
           playerData.score = msg.score ?? playerData.score;
-
-          broadcast(
-            {
-              type: 'player_update',
-              id: playerId,
-              stage: playerData.stage,
-              x: playerData.x,
-              y: playerData.y,
-              z: playerData.z,
-              vx: playerData.vx,
-              vy: playerData.vy,
-              vz: playerData.vz,
-              rotX: playerData.rotX,
-              rotZ: playerData.rotZ,
-              speed: playerData.speed,
-              score: playerData.score,
-            },
-            playerId,
-          );
+          // State updated in memory; world_tick loop batches broadcast for high scalability
           break;
         }
 

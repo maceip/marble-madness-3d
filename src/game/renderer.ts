@@ -129,6 +129,15 @@ export class GameRenderer {
   private remotePlayerMeshes = new Map<string, RemotePlayerMesh>();
   private particles: Particle[] = [];
 
+  // Optimized shared assets for high player count (100+ marbles)
+  private sharedSphereGeom = new THREE.SphereGeometry(MABLE_R, 24, 18);
+  private sharedShadowGeom = (() => {
+    const g = new THREE.PlaneGeometry(MABLE_R * 2.2, MABLE_R * 2.2);
+    g.rotateX(-Math.PI / 2);
+    return g;
+  })();
+  private sharedShadowMat: THREE.MeshBasicMaterial | null = null;
+
   private sunLight: THREE.DirectionalLight;
   private hemiLight: THREE.HemisphereLight;
   private goalPointLight: THREE.PointLight;
@@ -256,37 +265,36 @@ export class GameRenderer {
   }
 
   private createMarbleMesh(primaryColor = '#ff3b5c', accentColor = '#33e0ff'): THREE.Mesh {
-    const geom = new THREE.SphereGeometry(MABLE_R, 32, 24);
     const mat = new THREE.MeshStandardMaterial({
       map: this.createMarbleTexture(primaryColor, accentColor),
       roughness: 0.12,
       metalness: 0.45,
     });
-    const mesh = new THREE.Mesh(geom, mat);
+    const mesh = new THREE.Mesh(this.sharedSphereGeom, mat);
     mesh.castShadow = true;
     return mesh;
   }
 
   private createShadowMesh(): THREE.Mesh {
-    const geom = new THREE.PlaneGeometry(MABLE_R * 2.2, MABLE_R * 2.2);
-    geom.rotateX(-Math.PI / 2);
-    const canvas = document.createElement('canvas');
-    canvas.width = 64;
-    canvas.height = 64;
-    const ctx = canvas.getContext('2d')!;
-    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, 'rgba(0,0,0,0.65)');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 64, 64);
+    if (!this.sharedShadowMat) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d')!;
+      const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(0,0,0,0.65)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 64, 64);
 
-    const tex = new THREE.CanvasTexture(canvas);
-    const mat = new THREE.MeshBasicMaterial({
-      map: tex,
-      transparent: true,
-      depthWrite: false,
-    });
-    return new THREE.Mesh(geom, mat);
+      const tex = new THREE.CanvasTexture(canvas);
+      this.sharedShadowMat = new THREE.MeshBasicMaterial({
+        map: tex,
+        transparent: true,
+        depthWrite: false,
+      });
+    }
+    return new THREE.Mesh(this.sharedShadowGeom, this.sharedShadowMat);
   }
 
   private createPlayerLabel(text: string, color = '#33e0ff'): THREE.Sprite {

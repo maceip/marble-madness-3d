@@ -1,0 +1,634 @@
+[
+  {
+    "id": "enemy_0",
+    "file": "www/sprites/enemies/enemy_00_14x14.png",
+    "w": 14,
+    "h": 14,
+    "orig_x": 0,
+    "orig_y": 0
+  },
+  {
+    "id": "enemy_1",
+    "file": "www/sprites/enemies/enemy_01_14x14.png",
+    "w": 14,
+    "h": 14,
+    "orig_x": 15,
+    "orig_y": 0
+  },
+  {
+    "id": "enemy_2",
+    "file": "www/sprites/enemies/enemy_02_11x16.png",
+    "w": 11,
+    "h": 16,
+    "orig_x": 11,
+    "orig_y": 16
+  },
+  {
+    "id": "enemy_3",
+    "file": "www/sprites/enemies/enemy_03_11x16.png",
+    "w": 11,
+    "h": 16,
+    "orig_x": 134,
+    "orig_y": 16
+  },
+  {
+    "id": "enemy_4",
+    "file": "www/sprites/enemies/enemy_04_10x15.png",
+    "w": 10,
+    "h": 15,
+    "orig_x": 0,
+    "orig_y": 17
+  },
+  {
+    "id": "enemy_5",
+    "file": "www/sprites/enemies/enemy_05_12x15.png",
+    "w": 12,
+    "h": 15,
+    "orig_x": 110,
+    "orig_y": 17
+  },
+  {
+    "id": "enemy_6",
+    "file": "www/sprites/enemies/enemy_06_10x15.png",
+    "w": 10,
+    "h": 15,
+    "orig_x": 123,
+    "orig_y": 17
+  },
+  {
+    "id": "enemy_7",
+    "file": "www/sprites/enemies/enemy_07_12x15.png",
+    "w": 12,
+    "h": 15,
+    "orig_x": 233,
+    "orig_y": 17
+  },
+  {
+    "id": "enemy_8",
+    "file": "www/sprites/enemies/enemy_08_14x14.png",
+    "w": 14,
+    "h": 14,
+    "orig_x": 23,
+    "orig_y": 18
+  },
+  {
+    "id": "enemy_9",
+    "file": "www/sprites/enemies/enemy_09_18x14.png",
+    "w": 18,
+    "h": 14,
+    "orig_x": 55,
+    "orig_y": 18
+  },
+  {
+    "id": "enemy_10",
+    "file": "www/sprites/enemies/enemy_10_14x14.png",
+    "w": 14,
+    "h": 14,
+    "orig_x": 146,
+    "orig_y": 18
+  },
+  {
+    "id": "enemy_11",
+    "file": "www/sprites/enemies/enemy_11_18x14.png",
+    "w": 18,
+    "h": 14,
+    "orig_x": 178,
+    "orig_y": 18
+  },
+  {
+    "id": "enemy_12",
+    "file": "www/sprites/enemies/enemy_12_16x13.png",
+    "w": 16,
+    "h": 13,
+    "orig_x": 38,
+    "orig_y": 19
+  },
+  {
+    "id": "enemy_13",
+    "file": "www/sprites/enemies/enemy_13_15x13.png",
+    "w": 15,
+    "h": 13,
+    "orig_x": 94,
+    "orig_y": 19
+  },
+  {
+    "id": "enemy_14",
+    "file": "www/sprites/enemies/enemy_14_16x13.png",
+    "w": 16,
+    "h": 13,
+    "orig_x": 161,
+    "orig_y": 19
+  },
+  {
+    "id": "enemy_15",
+    "file": "www/sprites/enemies/enemy_15_15x13.png",
+    "w": 15,
+    "h": 13,
+    "orig_x": 217,
+    "orig_y": 19
+  },
+  {
+    "id": "enemy_16",
+    "file": "www/sprites/enemies/enemy_16_19x10.png",
+    "w": 19,
+    "h": 10,
+    "orig_x": 74,
+    "orig_y": 22
+  },
+  {
+    "id": "enemy_17",
+    "file": "www/sprites/enemies/enemy_17_19x10.png",
+    "w": 19,
+    "h": 10,
+    "orig_x": 197,
+    "orig_y": 22
+  },
+  {
+    "id": "enemy_18",
+    "file": "www/sprites/enemies/enemy_18_12x18.png",
+    "w": 12,
+    "h": 18,
+    "orig_x": 40,
+    "orig_y": 33
+  },
+  {
+    "id": "enemy_19",
+    "file": "www/sprites/enemies/enemy_19_12x16.png",
+    "w": 12,
+    "h": 16,
+    "orig_x": 53,
+    "orig_y": 33
+  },
+  {
+    "id": "enemy_20",
+    "file": "www/sprites/enemies/enemy_20_14x14.png",
+    "w": 14,
+    "h": 14,
+    "orig_x": 66,
+    "orig_y": 33
+  },
+  {
+    "id": "enemy_21",
+    "file": "www/sprites/enemies/enemy_21_18x11.png",
+    "w": 18,
+    "h": 11,
+    "orig_x": 81,
+    "orig_y": 33
+  },
+  {
+    "id": "enemy_22",
+    "file": "www/sprites/enemies/enemy_22_21x11.png",
+    "w": 21,
+    "h": 11,
+    "orig_x": 100,
+    "orig_y": 33
+  },
+  {
+    "id": "enemy_23",
+    "file": "www/sprites/enemies/enemy_23_23x15.png",
+    "w": 23,
+    "h": 15,
+    "orig_x": 122,
+    "orig_y": 33
+  },
+  {
+    "id": "enemy_24",
+    "file": "www/sprites/enemies/enemy_24_22x14.png",
+    "w": 22,
+    "h": 14,
+    "orig_x": 146,
+    "orig_y": 34
+  },
+  {
+    "id": "enemy_25",
+    "file": "www/sprites/enemies/enemy_25_12x15.png",
+    "w": 12,
+    "h": 15,
+    "orig_x": 229,
+    "orig_y": 34
+  },
+  {
+    "id": "enemy_26",
+    "file": "www/sprites/enemies/enemy_26_12x15.png",
+    "w": 12,
+    "h": 15,
+    "orig_x": 242,
+    "orig_y": 34
+  },
+  {
+    "id": "enemy_27",
+    "file": "www/sprites/enemies/enemy_27_17x13.png",
+    "w": 17,
+    "h": 13,
+    "orig_x": 192,
+    "orig_y": 35
+  },
+  {
+    "id": "enemy_28",
+    "file": "www/sprites/enemies/enemy_28_16x14.png",
+    "w": 16,
+    "h": 14,
+    "orig_x": 210,
+    "orig_y": 35
+  },
+  {
+    "id": "enemy_29",
+    "file": "www/sprites/enemies/enemy_29_11x15.png",
+    "w": 11,
+    "h": 15,
+    "orig_x": 0,
+    "orig_y": 36
+  },
+  {
+    "id": "enemy_30",
+    "file": "www/sprites/enemies/enemy_30_22x11.png",
+    "w": 22,
+    "h": 11,
+    "orig_x": 169,
+    "orig_y": 37
+  },
+  {
+    "id": "enemy_31",
+    "file": "www/sprites/enemies/enemy_31_12x11.png",
+    "w": 12,
+    "h": 11,
+    "orig_x": 12,
+    "orig_y": 40
+  },
+  {
+    "id": "enemy_32",
+    "file": "www/sprites/enemies/enemy_32_14x10.png",
+    "w": 14,
+    "h": 10,
+    "orig_x": 25,
+    "orig_y": 41
+  },
+  {
+    "id": "enemy_33",
+    "file": "www/sprites/enemies/enemy_33_22x10.png",
+    "w": 22,
+    "h": 10,
+    "orig_x": 0,
+    "orig_y": 53
+  },
+  {
+    "id": "enemy_34",
+    "file": "www/sprites/enemies/enemy_34_22x13.png",
+    "w": 22,
+    "h": 13,
+    "orig_x": 118,
+    "orig_y": 63
+  },
+  {
+    "id": "enemy_35",
+    "file": "www/sprites/enemies/enemy_35_22x13.png",
+    "w": 22,
+    "h": 13,
+    "orig_x": 141,
+    "orig_y": 63
+  },
+  {
+    "id": "enemy_36",
+    "file": "www/sprites/enemies/enemy_36_23x12.png",
+    "w": 23,
+    "h": 12,
+    "orig_x": 46,
+    "orig_y": 64
+  },
+  {
+    "id": "enemy_37",
+    "file": "www/sprites/enemies/enemy_37_23x12.png",
+    "w": 23,
+    "h": 12,
+    "orig_x": 70,
+    "orig_y": 64
+  },
+  {
+    "id": "enemy_38",
+    "file": "www/sprites/enemies/enemy_38_23x12.png",
+    "w": 23,
+    "h": 12,
+    "orig_x": 94,
+    "orig_y": 64
+  },
+  {
+    "id": "enemy_39",
+    "file": "www/sprites/enemies/enemy_39_22x12.png",
+    "w": 22,
+    "h": 12,
+    "orig_x": 164,
+    "orig_y": 64
+  },
+  {
+    "id": "enemy_40",
+    "file": "www/sprites/enemies/enemy_40_22x12.png",
+    "w": 22,
+    "h": 12,
+    "orig_x": 187,
+    "orig_y": 64
+  },
+  {
+    "id": "enemy_41",
+    "file": "www/sprites/enemies/enemy_41_22x11.png",
+    "w": 22,
+    "h": 11,
+    "orig_x": 0,
+    "orig_y": 65
+  },
+  {
+    "id": "enemy_42",
+    "file": "www/sprites/enemies/enemy_42_22x11.png",
+    "w": 22,
+    "h": 11,
+    "orig_x": 23,
+    "orig_y": 65
+  },
+  {
+    "id": "enemy_43",
+    "file": "www/sprites/enemies/enemy_43_22x11.png",
+    "w": 22,
+    "h": 11,
+    "orig_x": 210,
+    "orig_y": 65
+  },
+  {
+    "id": "enemy_44",
+    "file": "www/sprites/enemies/enemy_44_22x11.png",
+    "w": 22,
+    "h": 11,
+    "orig_x": 233,
+    "orig_y": 65
+  },
+  {
+    "id": "enemy_45",
+    "file": "www/sprites/enemies/enemy_45_22x13.png",
+    "w": 22,
+    "h": 13,
+    "orig_x": 141,
+    "orig_y": 77
+  },
+  {
+    "id": "enemy_46",
+    "file": "www/sprites/enemies/enemy_46_22x13.png",
+    "w": 22,
+    "h": 13,
+    "orig_x": 164,
+    "orig_y": 77
+  },
+  {
+    "id": "enemy_47",
+    "file": "www/sprites/enemies/enemy_47_23x12.png",
+    "w": 23,
+    "h": 12,
+    "orig_x": 69,
+    "orig_y": 78
+  },
+  {
+    "id": "enemy_48",
+    "file": "www/sprites/enemies/enemy_48_23x12.png",
+    "w": 23,
+    "h": 12,
+    "orig_x": 93,
+    "orig_y": 78
+  },
+  {
+    "id": "enemy_49",
+    "file": "www/sprites/enemies/enemy_49_23x12.png",
+    "w": 23,
+    "h": 12,
+    "orig_x": 117,
+    "orig_y": 78
+  },
+  {
+    "id": "enemy_50",
+    "file": "www/sprites/enemies/enemy_50_22x12.png",
+    "w": 22,
+    "h": 12,
+    "orig_x": 187,
+    "orig_y": 78
+  },
+  {
+    "id": "enemy_51",
+    "file": "www/sprites/enemies/enemy_51_22x12.png",
+    "w": 22,
+    "h": 12,
+    "orig_x": 210,
+    "orig_y": 78
+  },
+  {
+    "id": "enemy_52",
+    "file": "www/sprites/enemies/enemy_52_22x11.png",
+    "w": 22,
+    "h": 11,
+    "orig_x": 0,
+    "orig_y": 79
+  },
+  {
+    "id": "enemy_53",
+    "file": "www/sprites/enemies/enemy_53_22x11.png",
+    "w": 22,
+    "h": 11,
+    "orig_x": 23,
+    "orig_y": 79
+  },
+  {
+    "id": "enemy_54",
+    "file": "www/sprites/enemies/enemy_54_22x11.png",
+    "w": 22,
+    "h": 11,
+    "orig_x": 46,
+    "orig_y": 79
+  },
+  {
+    "id": "enemy_55",
+    "file": "www/sprites/enemies/enemy_55_32x37.png",
+    "w": 32,
+    "h": 37,
+    "orig_x": 122,
+    "orig_y": 91
+  },
+  {
+    "id": "enemy_56",
+    "file": "www/sprites/enemies/enemy_56_32x37.png",
+    "w": 32,
+    "h": 37,
+    "orig_x": 156,
+    "orig_y": 91
+  },
+  {
+    "id": "enemy_57",
+    "file": "www/sprites/enemies/enemy_57_31x36.png",
+    "w": 31,
+    "h": 36,
+    "orig_x": 90,
+    "orig_y": 92
+  },
+  {
+    "id": "enemy_58",
+    "file": "www/sprites/enemies/enemy_58_31x36.png",
+    "w": 31,
+    "h": 36,
+    "orig_x": 189,
+    "orig_y": 92
+  },
+  {
+    "id": "enemy_59",
+    "file": "www/sprites/enemies/enemy_59_31x28.png",
+    "w": 31,
+    "h": 28,
+    "orig_x": 58,
+    "orig_y": 100
+  },
+  {
+    "id": "enemy_60",
+    "file": "www/sprites/enemies/enemy_60_31x28.png",
+    "w": 31,
+    "h": 28,
+    "orig_x": 221,
+    "orig_y": 100
+  },
+  {
+    "id": "enemy_61",
+    "file": "www/sprites/enemies/enemy_61_31x20.png",
+    "w": 31,
+    "h": 20,
+    "orig_x": 26,
+    "orig_y": 108
+  },
+  {
+    "id": "enemy_62",
+    "file": "www/sprites/enemies/enemy_62_31x20.png",
+    "w": 31,
+    "h": 20,
+    "orig_x": 253,
+    "orig_y": 108
+  },
+  {
+    "id": "enemy_63",
+    "file": "www/sprites/enemies/enemy_63_23x12.png",
+    "w": 23,
+    "h": 12,
+    "orig_x": 0,
+    "orig_y": 116
+  },
+  {
+    "id": "enemy_64",
+    "file": "www/sprites/enemies/enemy_64_23x12.png",
+    "w": 23,
+    "h": 12,
+    "orig_x": 287,
+    "orig_y": 116
+  },
+  {
+    "id": "enemy_65",
+    "file": "www/sprites/enemies/enemy_65_15x23.png",
+    "w": 15,
+    "h": 23,
+    "orig_x": 25,
+    "orig_y": 130
+  },
+  {
+    "id": "enemy_66",
+    "file": "www/sprites/enemies/enemy_66_16x22.png",
+    "w": 16,
+    "h": 22,
+    "orig_x": 41,
+    "orig_y": 131
+  },
+  {
+    "id": "enemy_67",
+    "file": "www/sprites/enemies/enemy_67_24x22.png",
+    "w": 24,
+    "h": 22,
+    "orig_x": 58,
+    "orig_y": 131
+  },
+  {
+    "id": "enemy_68",
+    "file": "www/sprites/enemies/enemy_68_18x21.png",
+    "w": 18,
+    "h": 21,
+    "orig_x": 128,
+    "orig_y": 132
+  },
+  {
+    "id": "enemy_69",
+    "file": "www/sprites/enemies/enemy_69_20x19.png",
+    "w": 20,
+    "h": 19,
+    "orig_x": 107,
+    "orig_y": 134
+  },
+  {
+    "id": "enemy_70",
+    "file": "www/sprites/enemies/enemy_70_13x18.png",
+    "w": 13,
+    "h": 18,
+    "orig_x": 147,
+    "orig_y": 135
+  },
+  {
+    "id": "enemy_71",
+    "file": "www/sprites/enemies/enemy_71_23x17.png",
+    "w": 23,
+    "h": 17,
+    "orig_x": 83,
+    "orig_y": 136
+  },
+  {
+    "id": "enemy_72",
+    "file": "www/sprites/enemies/enemy_72_12x11.png",
+    "w": 12,
+    "h": 11,
+    "orig_x": 161,
+    "orig_y": 142
+  },
+  {
+    "id": "enemy_73",
+    "file": "www/sprites/enemies/enemy_73_14x12.png",
+    "w": 14,
+    "h": 12,
+    "orig_x": 2,
+    "orig_y": 178
+  },
+  {
+    "id": "enemy_74",
+    "file": "www/sprites/enemies/enemy_74_12x10.png",
+    "w": 12,
+    "h": 10,
+    "orig_x": 48,
+    "orig_y": 182
+  },
+  {
+    "id": "enemy_75",
+    "file": "www/sprites/enemies/enemy_75_10x10.png",
+    "w": 10,
+    "h": 10,
+    "orig_x": 62,
+    "orig_y": 182
+  },
+  {
+    "id": "enemy_76",
+    "file": "www/sprites/enemies/enemy_76_12x10.png",
+    "w": 12,
+    "h": 10,
+    "orig_x": 73,
+    "orig_y": 182
+  },
+  {
+    "id": "enemy_77",
+    "file": "www/sprites/enemies/enemy_77_12x10.png",
+    "w": 12,
+    "h": 10,
+    "orig_x": 99,
+    "orig_y": 182
+  },
+  {
+    "id": "enemy_78",
+    "file": "www/sprites/enemies/enemy_78_14x9.png",
+    "w": 14,
+    "h": 9,
+    "orig_x": 33,
+    "orig_y": 183
+  }
+]

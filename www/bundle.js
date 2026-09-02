@@ -30860,6 +30860,14 @@ var GameRenderer = class {
   hazardMeshes = /* @__PURE__ */ new Map();
   remotePlayerMeshes = /* @__PURE__ */ new Map();
   particles = [];
+  // Optimized shared assets for high player count (100+ marbles)
+  sharedSphereGeom = new SphereGeometry(MABLE_R, 24, 18);
+  sharedShadowGeom = (() => {
+    const g = new PlaneGeometry(MABLE_R * 2.2, MABLE_R * 2.2);
+    g.rotateX(-Math.PI / 2);
+    return g;
+  })();
+  sharedShadowMat = null;
   sunLight;
   hemiLight;
   goalPointLight;
@@ -30959,35 +30967,34 @@ var GameRenderer = class {
     return tex;
   }
   createMarbleMesh(primaryColor = "#ff3b5c", accentColor = "#33e0ff") {
-    const geom = new SphereGeometry(MABLE_R, 32, 24);
     const mat = new MeshStandardMaterial({
       map: this.createMarbleTexture(primaryColor, accentColor),
       roughness: 0.12,
       metalness: 0.45
     });
-    const mesh = new Mesh(geom, mat);
+    const mesh = new Mesh(this.sharedSphereGeom, mat);
     mesh.castShadow = true;
     return mesh;
   }
   createShadowMesh() {
-    const geom = new PlaneGeometry(MABLE_R * 2.2, MABLE_R * 2.2);
-    geom.rotateX(-Math.PI / 2);
-    const canvas = document.createElement("canvas");
-    canvas.width = 64;
-    canvas.height = 64;
-    const ctx = canvas.getContext("2d");
-    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, "rgba(0,0,0,0.65)");
-    grad.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 64, 64);
-    const tex = new CanvasTexture(canvas);
-    const mat = new MeshBasicMaterial({
-      map: tex,
-      transparent: true,
-      depthWrite: false
-    });
-    return new Mesh(geom, mat);
+    if (!this.sharedShadowMat) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext("2d");
+      const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, "rgba(0,0,0,0.65)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 64, 64);
+      const tex = new CanvasTexture(canvas);
+      this.sharedShadowMat = new MeshBasicMaterial({
+        map: tex,
+        transparent: true,
+        depthWrite: false
+      });
+    }
+    return new Mesh(this.sharedShadowGeom, this.sharedShadowMat);
   }
   createPlayerLabel(text, color = "#33e0ff") {
     const canvas = document.createElement("canvas");
@@ -32242,6 +32249,23 @@ var MultiplayerClient = class {
           }
           break;
         }
+        case "world_tick": {
+          if (Array.isArray(msg.players)) {
+            const currentIds = /* @__PURE__ */ new Set();
+            for (const p of msg.players) {
+              if (p.id === this.localId) continue;
+              currentIds.add(p.id);
+              this.addOrUpdateRemotePlayer(p);
+            }
+            for (const id of this.remotePlayers.keys()) {
+              if (!currentIds.has(id)) {
+                this.remotePlayers.delete(id);
+              }
+            }
+            this.notifyPlayerCount();
+          }
+          break;
+        }
         case "player_update": {
           if (msg.id !== this.localId) {
             let rp = this.remotePlayers.get(msg.id);
@@ -32342,7 +32366,17 @@ var MultiplayerClient = class {
       if (p.name) rp.name = p.name;
       if (p.color) rp.color = p.color;
       if (p.stage !== void 0) rp.stage = p.stage;
+      if (p.x !== void 0) rp.targetX = p.x;
+      if (p.y !== void 0) rp.targetY = p.y;
+      if (p.z !== void 0) rp.targetZ = p.z;
+      if (p.vx !== void 0) rp.vx = p.vx;
+      if (p.vy !== void 0) rp.vy = p.vy;
+      if (p.vz !== void 0) rp.vz = p.vz;
+      if (p.rotX !== void 0) rp.rotX = p.rotX;
+      if (p.rotZ !== void 0) rp.rotZ = p.rotZ;
+      if (p.speed !== void 0) rp.speed = p.speed;
       if (p.score !== void 0) rp.score = p.score;
+      rp.lastUpdate = performance.now();
     }
     return rp;
   }
@@ -32417,8 +32451,11 @@ var MultiplayerClient = class {
     }
   }
   updateInterpolation(dt) {
-    const lerpRate = Math.min(1, dt * 20);
+    const lerpRate = Math.min(1, dt * 18);
     for (const rp of this.remotePlayers.values()) {
+      rp.targetX += rp.vx * dt * 0.35;
+      rp.targetY += rp.vy * dt * 0.35;
+      rp.targetZ += rp.vz * dt * 0.35;
       rp.x += (rp.targetX - rp.x) * lerpRate;
       rp.y += (rp.targetY - rp.y) * lerpRate;
       rp.z += (rp.targetZ - rp.z) * lerpRate;
