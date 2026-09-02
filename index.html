@@ -292,6 +292,73 @@
         font-size: 11px;
         max-width: 560px;
       }
+      #menu {
+        background: #02040b;
+        image-rendering: pixelated;
+      }
+      #menu::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: repeating-linear-gradient(0deg, transparent 0 3px, #0008 3px 4px),
+          radial-gradient(circle at 50% 25%, #18345a99, transparent 55%);
+        mix-blend-mode: screen;
+      }
+      .retro-menu-panel {
+        position: relative;
+        width: min(920px, 94vw);
+        max-height: 92vh;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 13px;
+        padding: clamp(16px, 3vw, 28px);
+        border: 4px double #53d8ff;
+        background: #070b18ed;
+        box-shadow: 0 0 0 4px #171d38, 0 0 45px #19bfff55, inset 0 0 36px #000;
+      }
+      .retro-logo > div { display: flex; align-items: flex-end; justify-content: center; }
+      .retro-logo img { height: clamp(22px, 4.6vw, 42px); width: auto; image-rendering: pixelated; }
+      .retro-logo > div:last-child img { height: clamp(23px, 4.8vw, 44px); }
+      .retro-text { display: inline-flex; align-items: center; flex-wrap: nowrap; gap: 1px; }
+      .retro-glyph { width: 16px; height: 16px; image-rendering: pixelated; object-fit: contain; }
+      .retro-space { width: 9px; }
+      .retro-menu-state .retro-glyph { width: 24px; height: 24px; filter: drop-shadow(2px 2px #a21749); }
+      .retro-sprite-strip {
+        display: flex;
+        min-height: 58px;
+        align-items: end;
+        justify-content: center;
+        gap: clamp(15px, 4vw, 45px);
+        padding: 6px 20px;
+        border-block: 2px solid #ffcf3c;
+      }
+      .retro-sprite-strip img { width: auto; height: 46px; image-rendering: pixelated; filter: drop-shadow(3px 3px #000); }
+      #menu .courses { display: grid; grid-template-columns: repeat(2, minmax(250px, 1fr)); width: min(720px, 100%); }
+      #menu .courses button {
+        min-height: 42px;
+        text-align: left;
+        border: 2px solid #364570;
+        border-radius: 0;
+        background: #0c1329;
+        box-shadow: inset -3px -3px #030612, inset 3px 3px #22345f;
+      }
+      #menu .courses button:hover, #menu .courses button[aria-current="true"] { border-color: #ffcf3c; background: #182243; }
+      #menu .courses button[aria-current="true"]::before { content: '▶'; color: #ffcf3c; margin-right: 8px; }
+      #menu .courses .retro-glyph { width: 13px; height: 13px; }
+      .music-control { display: grid; grid-template-columns: auto minmax(180px, 320px) 48px; align-items: center; gap: 14px; color: #fff; }
+      .music-control input { accent-color: #ffcf3c; cursor: pointer; }
+      .music-control output { color: #53d8ff; text-align: right; }
+      #menu .go { border: 3px solid #fff4a3; border-radius: 0; background: #ffcf3c; }
+      #menu .go .retro-glyph { filter: brightness(0.16); }
+      @media (max-width: 650px) {
+        #menu .courses { grid-template-columns: 1fr; }
+        .retro-menu-panel { gap: 9px; }
+        .retro-sprite-strip img { height: 34px; }
+        .music-control { grid-template-columns: auto minmax(120px, 1fr) 44px; }
+      }
       #banner {
         position: absolute;
         left: 50%;
@@ -825,6 +892,6 @@
         <div class="overlay hidden" id="menu"></div>
       </div>
     </div>
-    <script type="module" src="./src/main.ts"></script>
+    <script type="module" src="./www/bundle.js"></script>
   </body>
 </html>

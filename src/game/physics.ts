@@ -88,8 +88,8 @@ export class PhysicsEngine {
   public events: PhysicsEvents = {};
 
   private readonly GRAVITY = -0.015;
-  private readonly ACCEL = 0.014;
-  private readonly BRAKE_DRAG = 0.86;
+  private readonly ACCEL = 0.0018;
+  private readonly BRAKE_DRAG = 0.78;
   private readonly SHATTER_VELOCITY = -0.42; // Falling faster than this splatters marble!
 
   constructor(level: BuiltLevel) {

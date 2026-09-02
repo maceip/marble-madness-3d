@@ -18,16 +18,16 @@ export type SfxName =
   | 'springboard'
   | 'item';
 
-const BGM_TABLE: Record<string, string> = {
-  intro: 'marble-056.mp3',
-  '1': 'marble-073.mp3',
-  '2': 'marble-075.mp3',
-  '3': 'marble-069.mp3',
-  '4': 'marble-066.mp3',
-  '5': 'marble-077.mp3',
-  '6': 'marble-079.mp3',
-  '7': 'marble-081.mp3',
-  '8': 'marble-067.mp3',
+export const BGM_TABLE: Record<string, string> = {
+  intro: 'bgm/practice-race.mp3',
+  '1': 'bgm/practice-race.mp3',
+  '2': 'bgm/beginner-race.mp3',
+  '3': 'bgm/aerial-race.mp3', // custom Astral Spire intentionally reuses Aerial
+  '4': 'bgm/practice-race.mp3', // custom Pyramid Oasis intentionally reuses Practice
+  '5': 'bgm/intermediate-race.mp3',
+  '6': 'bgm/aerial-race.mp3',
+  '7': 'bgm/silly-race.mp3',
+  '8': 'bgm/ultimate-race.mp3',
 };
 
 const SFX_TABLE: Record<SfxName, string> = {
@@ -49,6 +49,7 @@ export class SoundManager {
   sounds: Map<string, HTMLAudioElement | AudioBuffer> = new Map();
   currentBgm: HTMLAudioElement | null = null;
   isMuted: boolean = false;
+  private musicVolume = this.loadMusicVolume();
 
   // Rolling-marble loop plumbing
   private rollSource: AudioBufferSourceNode | null = null;
@@ -141,7 +142,7 @@ export class SoundManager {
       el = new Audio(AUDIO_ROOT + file);
       el.loop = true;
       el.preload = 'auto';
-      el.volume = 0.5;
+      el.volume = this.musicVolume;
       this.sounds.set(mapKey, el);
     }
 
@@ -155,6 +156,22 @@ export class SoundManager {
     });
 
     this.currentBgm = el;
+  }
+
+  private loadMusicVolume(): number {
+    const raw = globalThis.localStorage?.getItem('marble_music_volume');
+    const stored = raw === null || raw === undefined ? Number.NaN : Number(raw);
+    return Number.isFinite(stored) ? Math.max(0, Math.min(1, stored)) : 0.16;
+  }
+
+  getMusicVolume(): number {
+    return this.musicVolume;
+  }
+
+  setMusicVolume(volume: number): void {
+    this.musicVolume = Math.max(0, Math.min(1, volume));
+    globalThis.localStorage?.setItem('marble_music_volume', String(this.musicVolume));
+    if (this.currentBgm) this.currentBgm.volume = this.musicVolume;
   }
 
   /** Stop and dispose of the current background music playback. */
@@ -300,8 +317,7 @@ export class SoundManager {
 
     const buf = this.sounds.get('roll');
     if (!buf || !(buf instanceof AudioBuffer)) {
-      // Not loaded yet; try the fallback mp3 name, else skip this frame.
-      void this.loadBuffer('roll', `${AUDIO_ROOT}roll.mp3`);
+      // The numbered original is already loading asynchronously; retry next frame.
       return;
     }
 

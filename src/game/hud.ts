@@ -2,6 +2,7 @@ import type { BuiltLevel } from '../data/build.js';
 import type { HazardInstance } from './hazards.js';
 import type { MarbleState } from './physics.js';
 import type { RemotePlayer } from './multiplayer.js';
+import { retroLogo, retroSpriteStrip, retroText } from './retro-assets.js';
 
 export interface LeaderboardEntry {
   rank?: number;
@@ -53,6 +54,8 @@ export class HudManager {
   public onResumeGame?: () => void;
   public onRestartGame?: () => void;
   public onNameSubmitted?: (initials: string) => void;
+  public onMusicVolumeChange?: (volume: number) => void;
+  public musicVolume = 0.16;
 
   constructor() {
     this.scoreEl = document.getElementById('score');
@@ -330,21 +333,28 @@ export class HudManager {
     if (!this.menuEl) return;
     this.menuEl.classList.remove('hidden');
 
+    const courseNames = ['PINK GARDENS', 'ARCTIC ADVENTURE', 'ASTRAL SPIRE', 'PYRAMID OASIS', 'EDGY MAZE', 'DUSTY TRAIL', "DRILLIN' RYE", 'SPACE DEMENTIA'];
     let courseButtons = '';
     for (let i = 1; i <= stageCount; i++) {
       const isCurrent = i === currentStage;
-      courseButtons += `<button class="click" data-stage="${i}" ${isCurrent ? 'aria-current="true"' : ''}>STAGE ${i}</button>`;
+      const label = `${i} ${courseNames[i - 1] ?? `STAGE ${i}`}`;
+      courseButtons += `<button class="click" data-stage="${i}" aria-label="${label}" ${isCurrent ? 'aria-current="true"' : ''}>${retroText(label)}</button>`;
     }
 
     this.menuEl.innerHTML = `
-      <img src="/images/marbletriangle.png" style="width:52px;height:auto;margin-bottom:8px;filter:drop-shadow(0 0 10px rgba(255,59,92,0.6));" alt="Marble Logo" />
-      <h1 class="title">${isGameOver ? 'GAME OVER' : 'MARBLE MADNESS'}</h1>
-      <div class="sub">${isGameOver ? `FINAL SCORE: ${finalScore}` : '3D ISOMETRIC ARCADE RUN · MULTIPLAYER SHARED WORLD'}</div>
-      <div class="courses">${courseButtons}</div>
-      <button class="go click" id="menu-resume">${isGameOver ? 'PLAY AGAIN' : 'PRESS START'}</button>
-      <div class="fine">
-        Steer with Device Tilt (Mobile Rotameter), Touch Joystick, or Arrow Keys / WASD.<br>
-        Multiplayer: Bump into other marbles to knock them off balance (+250 pts) or off ledges (+2500 pts vs Opposing Intelligence)!
+      <div class="retro-menu-panel">
+        ${retroLogo()}
+        ${retroSpriteStrip()}
+        <div class="retro-menu-state">${retroText(isGameOver ? 'GAME OVER' : 'SELECT RACE')}</div>
+        <div class="sub">${isGameOver ? `FINAL SCORE: ${finalScore}` : 'ORIGINAL ARCADE SPRITES / 3D RACE'}</div>
+        <div class="courses">${courseButtons}</div>
+        <label class="music-control" for="menu-music-volume">
+          ${retroText('MUSIC')}
+          <input id="menu-music-volume" type="range" min="0" max="100" step="1" value="${Math.round(this.musicVolume * 100)}">
+          <output id="menu-music-output">${Math.round(this.musicVolume * 100)}%</output>
+        </label>
+        <button class="go click" id="menu-resume">${retroText(isGameOver ? 'PLAY AGAIN' : 'PRESS START')}</button>
+        <div class="fine">ARROWS / WASD STEER &nbsp; SPACE BRAKES &nbsp; M MUTES</div>
       </div>
     `;
 
@@ -365,6 +375,14 @@ export class HudManager {
       } else {
         if (this.onResumeGame) this.onResumeGame();
       }
+    });
+
+    const volume = this.menuEl.querySelector('#menu-music-volume') as HTMLInputElement | null;
+    const output = this.menuEl.querySelector('#menu-music-output');
+    volume?.addEventListener('input', () => {
+      this.musicVolume = Number(volume.value) / 100;
+      if (output) output.textContent = `${volume.value}%`;
+      this.onMusicVolumeChange?.(this.musicVolume);
     });
   }
 

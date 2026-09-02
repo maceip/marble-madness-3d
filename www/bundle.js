@@ -773,15 +773,17 @@ var LEVELS = DEFS.map((def) => buildLevel(def));
 
 // src/audio.ts
 var BGM_TABLE = {
-  intro: "marble-056.mp3",
-  "1": "marble-073.mp3",
-  "2": "marble-075.mp3",
-  "3": "marble-069.mp3",
-  "4": "marble-066.mp3",
-  "5": "marble-077.mp3",
-  "6": "marble-079.mp3",
-  "7": "marble-081.mp3",
-  "8": "marble-067.mp3"
+  intro: "bgm/practice-race.mp3",
+  "1": "bgm/practice-race.mp3",
+  "2": "bgm/beginner-race.mp3",
+  "3": "bgm/aerial-race.mp3",
+  // custom Astral Spire intentionally reuses Aerial
+  "4": "bgm/practice-race.mp3",
+  // custom Pyramid Oasis intentionally reuses Practice
+  "5": "bgm/intermediate-race.mp3",
+  "6": "bgm/aerial-race.mp3",
+  "7": "bgm/silly-race.mp3",
+  "8": "bgm/ultimate-race.mp3"
 };
 var SFX_TABLE = {
   roll: "marble-049.mp3",
@@ -800,6 +802,7 @@ var SoundManager = class {
   sounds = /* @__PURE__ */ new Map();
   currentBgm = null;
   isMuted = false;
+  musicVolume = this.loadMusicVolume();
   // Rolling-marble loop plumbing
   rollSource = null;
   rollGain = null;
@@ -868,7 +871,7 @@ var SoundManager = class {
       el = new Audio(AUDIO_ROOT + file);
       el.loop = true;
       el.preload = "auto";
-      el.volume = 0.5;
+      el.volume = this.musicVolume;
       this.sounds.set(mapKey, el);
     }
     el.currentTime = 0;
@@ -880,6 +883,19 @@ var SoundManager = class {
       }
     });
     this.currentBgm = el;
+  }
+  loadMusicVolume() {
+    const raw = globalThis.localStorage?.getItem("marble_music_volume");
+    const stored = raw === null || raw === void 0 ? Number.NaN : Number(raw);
+    return Number.isFinite(stored) ? Math.max(0, Math.min(1, stored)) : 0.16;
+  }
+  getMusicVolume() {
+    return this.musicVolume;
+  }
+  setMusicVolume(volume) {
+    this.musicVolume = Math.max(0, Math.min(1, volume));
+    globalThis.localStorage?.setItem("marble_music_volume", String(this.musicVolume));
+    if (this.currentBgm) this.currentBgm.volume = this.musicVolume;
   }
   /** Stop and dispose of the current background music playback. */
   stopBgm() {
@@ -1004,7 +1020,6 @@ var SoundManager = class {
     if (!ctx) return;
     const buf = this.sounds.get("roll");
     if (!buf || !(buf instanceof AudioBuffer)) {
-      void this.loadBuffer("roll", `${AUDIO_ROOT}roll.mp3`);
       return;
     }
     const src = ctx.createBufferSource();
@@ -1077,8 +1092,8 @@ var CAM_YAW = -45;
 var FOV = 30;
 var CAM_BACK = 62;
 var DT = 1 / 60;
-var MAX_SPEED = 0.32;
-var MAX_SPEED_AIR = 0.65;
+var MAX_SPEED = 0.085;
+var MAX_SPEED_AIR = 0.12;
 var TERMINAL_FALL = 1.05;
 var SPIKE_BOUNCE = 0.42;
 var CHECKPOINT_BONUS = 1e3;
@@ -1115,8 +1130,8 @@ var PhysicsEngine = class {
   marble;
   events = {};
   GRAVITY = -0.015;
-  ACCEL = 0.014;
-  BRAKE_DRAG = 0.86;
+  ACCEL = 18e-4;
+  BRAKE_DRAG = 0.78;
   SHATTER_VELOCITY = -0.42;
   // Falling faster than this splatters marble!
   constructor(level) {
@@ -1637,6 +1652,51 @@ var HazardManager = class {
   }
 };
 
+// src/game/retro-assets.ts
+var GLYPH_MIN = 36;
+var GLYPH_MAX = 95;
+function escapeAttribute(value) {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+function retroText(text, className = "") {
+  const label = text.toUpperCase();
+  const glyphs = [...label].map((char) => {
+    if (char === " ") return '<span class="retro-space" aria-hidden="true"></span>';
+    const code = char.charCodeAt(0);
+    if (code < GLYPH_MIN || code > GLYPH_MAX) return "";
+    return `<img class="retro-glyph" src="/sprites/retro-font/char-${String(code).padStart(3, "0")}.png" alt="" aria-hidden="true">`;
+  }).join("");
+  return `<span class="retro-text ${className}" aria-label="${escapeAttribute(label)}">${glyphs}</span>`;
+}
+function retroLogo() {
+  const upper = [0, 1, 2, 3, 4, 5, 6].map((id) => `<img src="/sprites/ui/title_${String(id).padStart(3, "0")}_${[16, 17, 28, 164, 28, 17, 16][id]}x30.png" alt="">`).join("");
+  const lowerWidths = [120, 40, 38, 42, 48];
+  const lower = lowerWidths.map((width, index) => `<img src="/sprites/ui/title_${String(index + 7).padStart(3, "0")}_${width}x32.png" alt="">`).join("");
+  return `<div class="retro-logo" role="img" aria-label="Marble Madness"><div>${upper}</div><div>${lower}</div></div>`;
+}
+function retroSpriteStrip() {
+  return `<div class="retro-sprite-strip" aria-label="Original extracted game sprites">
+    <img src="/sprites/retro-marble/blue-28.png" alt="Blue marble sprite">
+    <img src="/sprites/enemies/enemy_000_14x14.png" alt="Steelie sprite">
+    <img src="/sprites/enemies/enemy_020_14x14.png" alt="Muncher sprite">
+    <img src="/sprites/enemies/enemy_056_32x37.png" alt="Goal sprite">
+    <img src="/sprites/enemies/enemy_106_14x12.png" alt="Object sprite">
+    <img src="/sprites/retro-marble/red-28.png" alt="Red marble sprite">
+  </div>`;
+}
+var RETRO_OBJECT_SPRITES = {
+  blade: "/sprites/enemies/enemy_106_14x12.png",
+  bat: "/sprites/enemies/enemy_122_12x10.png",
+  bomber: "/sprites/enemies/enemy_145_10x7.png",
+  snake: "/sprites/enemies/enemy_131_14x9.png",
+  item: "/sprites/enemies/enemy_078_12x11.png",
+  checkpoint: "/sprites/enemies/enemy_056_32x37.png",
+  goal: "/sprites/enemies/enemy_057_32x37.png",
+  steelie: "/sprites/enemies/enemy_000_14x14.png",
+  muncher: "/sprites/enemies/enemy_020_14x14.png",
+  acid: "/sprites/enemies/enemy_124_12x10.png"
+};
+
 // src/game/hud.ts
 var HudManager = class {
   scoreEl;
@@ -1673,6 +1733,8 @@ var HudManager = class {
   onResumeGame;
   onRestartGame;
   onNameSubmitted;
+  onMusicVolumeChange;
+  musicVolume = 0.16;
   constructor() {
     this.scoreEl = document.getElementById("score");
     this.hiscoreEl = document.getElementById("hiscore");
@@ -1896,20 +1958,27 @@ var HudManager = class {
   showMenu(stageCount, currentStage, isGameOver = false, finalScore = 0) {
     if (!this.menuEl) return;
     this.menuEl.classList.remove("hidden");
+    const courseNames = ["PINK GARDENS", "ARCTIC ADVENTURE", "ASTRAL SPIRE", "PYRAMID OASIS", "EDGY MAZE", "DUSTY TRAIL", "DRILLIN' RYE", "SPACE DEMENTIA"];
     let courseButtons = "";
     for (let i = 1; i <= stageCount; i++) {
       const isCurrent = i === currentStage;
-      courseButtons += `<button class="click" data-stage="${i}" ${isCurrent ? 'aria-current="true"' : ""}>STAGE ${i}</button>`;
+      const label = `${i} ${courseNames[i - 1] ?? `STAGE ${i}`}`;
+      courseButtons += `<button class="click" data-stage="${i}" aria-label="${label}" ${isCurrent ? 'aria-current="true"' : ""}>${retroText(label)}</button>`;
     }
     this.menuEl.innerHTML = `
-      <img src="/images/marbletriangle.png" style="width:52px;height:auto;margin-bottom:8px;filter:drop-shadow(0 0 10px rgba(255,59,92,0.6));" alt="Marble Logo" />
-      <h1 class="title">${isGameOver ? "GAME OVER" : "MARBLE MADNESS"}</h1>
-      <div class="sub">${isGameOver ? `FINAL SCORE: ${finalScore}` : "3D ISOMETRIC ARCADE RUN \xB7 MULTIPLAYER SHARED WORLD"}</div>
-      <div class="courses">${courseButtons}</div>
-      <button class="go click" id="menu-resume">${isGameOver ? "PLAY AGAIN" : "PRESS START"}</button>
-      <div class="fine">
-        Steer with Device Tilt (Mobile Rotameter), Touch Joystick, or Arrow Keys / WASD.<br>
-        Multiplayer: Bump into other marbles to knock them off balance (+250 pts) or off ledges (+2500 pts vs Opposing Intelligence)!
+      <div class="retro-menu-panel">
+        ${retroLogo()}
+        ${retroSpriteStrip()}
+        <div class="retro-menu-state">${retroText(isGameOver ? "GAME OVER" : "SELECT RACE")}</div>
+        <div class="sub">${isGameOver ? `FINAL SCORE: ${finalScore}` : "ORIGINAL ARCADE SPRITES / 3D RACE"}</div>
+        <div class="courses">${courseButtons}</div>
+        <label class="music-control" for="menu-music-volume">
+          ${retroText("MUSIC")}
+          <input id="menu-music-volume" type="range" min="0" max="100" step="1" value="${Math.round(this.musicVolume * 100)}">
+          <output id="menu-music-output">${Math.round(this.musicVolume * 100)}%</output>
+        </label>
+        <button class="go click" id="menu-resume">${retroText(isGameOver ? "PLAY AGAIN" : "PRESS START")}</button>
+        <div class="fine">ARROWS / WASD STEER &nbsp; SPACE BRAKES &nbsp; M MUTES</div>
       </div>
     `;
     this.menuEl.querySelectorAll("button[data-stage]").forEach((btn) => {
@@ -1927,6 +1996,13 @@ var HudManager = class {
       } else {
         if (this.onResumeGame) this.onResumeGame();
       }
+    });
+    const volume = this.menuEl.querySelector("#menu-music-volume");
+    const output = this.menuEl.querySelector("#menu-music-output");
+    volume?.addEventListener("input", () => {
+      this.musicVolume = Number(volume.value) / 100;
+      if (output) output.textContent = `${volume.value}%`;
+      this.onMusicVolumeChange?.(this.musicVolume);
     });
   }
   hideMenu() {
@@ -17888,6 +17964,74 @@ var VectorKeyframeTrack = class extends KeyframeTrack {
   }
 };
 VectorKeyframeTrack.prototype.ValueTypeName = "vector";
+var Cache = {
+  /**
+   * Whether caching is enabled or not.
+   *
+   * @static
+   * @type {boolean}
+   * @default false
+   */
+  enabled: false,
+  /**
+   * A dictionary that holds cached files.
+   *
+   * @static
+   * @type {Object<string,Object>}
+   */
+  files: {},
+  /**
+   * Adds a cache entry with a key to reference the file. If this key already
+   * holds a file, it is overwritten.
+   *
+   * @static
+   * @param {string} key - The key to reference the cached file.
+   * @param {Object} file -  The file to be cached.
+   */
+  add: function(key, file) {
+    if (this.enabled === false) return;
+    if (isBlobURL(key)) return;
+    this.files[key] = file;
+  },
+  /**
+   * Gets the cached value for the given key.
+   *
+   * @static
+   * @param {string} key - The key to reference the cached file.
+   * @return {Object|undefined} The cached file. If the key does not exist `undefined` is returned.
+   */
+  get: function(key) {
+    if (this.enabled === false) return;
+    if (isBlobURL(key)) return;
+    return this.files[key];
+  },
+  /**
+   * Removes the cached file associated with the given key.
+   *
+   * @static
+   * @param {string} key - The key to reference the cached file.
+   */
+  remove: function(key) {
+    delete this.files[key];
+  },
+  /**
+   * Remove all values from the cache.
+   *
+   * @static
+   */
+  clear: function() {
+    this.files = {};
+  }
+};
+function isBlobURL(key) {
+  try {
+    const urlString = key.slice(key.indexOf(":") + 1);
+    const url = new URL(urlString);
+    return url.protocol === "blob:";
+  } catch (e) {
+    return false;
+  }
+}
 var LoadingManager = class {
   /**
    * Constructs a new loading manager.
@@ -18105,6 +18249,126 @@ var Loader = class {
   }
 };
 Loader.DEFAULT_MATERIAL_NAME = "__DEFAULT";
+var _loading = /* @__PURE__ */ new WeakMap();
+var ImageLoader = class extends Loader {
+  /**
+   * Constructs a new image loader.
+   *
+   * @param {LoadingManager} [manager] - The loading manager.
+   */
+  constructor(manager) {
+    super(manager);
+  }
+  /**
+   * Starts loading from the given URL and passes the loaded image
+   * to the `onLoad()` callback. The method also returns a new `Image` object which can
+   * directly be used for texture creation. If you do it this way, the texture
+   * may pop up in your scene once the respective loading process is finished.
+   *
+   * @param {string} url - The path/URL of the file to be loaded. This can also be a data URI.
+   * @param {function(Image)} onLoad - Executed when the loading process has been finished.
+   * @param {onProgressCallback} onProgress - Unsupported in this loader.
+   * @param {onErrorCallback} onError - Executed when errors occur.
+   * @return {Image} The image.
+   */
+  load(url, onLoad, onProgress, onError) {
+    if (this.path !== void 0) url = this.path + url;
+    url = this.manager.resolveURL(url);
+    const scope = this;
+    const cached = Cache.get(`image:${url}`);
+    if (cached !== void 0) {
+      if (cached.complete === true) {
+        scope.manager.itemStart(url);
+        setTimeout(function() {
+          if (onLoad) onLoad(cached);
+          scope.manager.itemEnd(url);
+        }, 0);
+      } else {
+        let arr = _loading.get(cached);
+        if (arr === void 0) {
+          arr = [];
+          _loading.set(cached, arr);
+        }
+        arr.push({ onLoad, onError });
+      }
+      return cached;
+    }
+    const image = createElementNS("img");
+    function onImageLoad() {
+      removeEventListeners();
+      if (onLoad) onLoad(this);
+      const callbacks = _loading.get(this) || [];
+      for (let i = 0; i < callbacks.length; i++) {
+        const callback = callbacks[i];
+        if (callback.onLoad) callback.onLoad(this);
+      }
+      _loading.delete(this);
+      scope.manager.itemEnd(url);
+    }
+    function onImageError(event) {
+      removeEventListeners();
+      if (onError) onError(event);
+      Cache.remove(`image:${url}`);
+      const callbacks = _loading.get(this) || [];
+      for (let i = 0; i < callbacks.length; i++) {
+        const callback = callbacks[i];
+        if (callback.onError) callback.onError(event);
+      }
+      _loading.delete(this);
+      scope.manager.itemError(url);
+      scope.manager.itemEnd(url);
+    }
+    function removeEventListeners() {
+      image.removeEventListener("load", onImageLoad, false);
+      image.removeEventListener("error", onImageError, false);
+    }
+    image.addEventListener("load", onImageLoad, false);
+    image.addEventListener("error", onImageError, false);
+    if (url.slice(0, 5) !== "data:") {
+      if (this.crossOrigin !== void 0) image.crossOrigin = this.crossOrigin;
+    }
+    Cache.add(`image:${url}`, image);
+    scope.manager.itemStart(url);
+    image.src = url;
+    return image;
+  }
+};
+var TextureLoader = class extends Loader {
+  /**
+   * Constructs a new texture loader.
+   *
+   * @param {LoadingManager} [manager] - The loading manager.
+   */
+  constructor(manager) {
+    super(manager);
+  }
+  /**
+   * Starts loading from the given URL and pass the fully loaded texture
+   * to the `onLoad()` callback. The method also returns a new texture object which can
+   * directly be used for material creation. If you do it this way, the texture
+   * may pop up in your scene once the respective loading process is finished.
+   *
+   * @param {string} url - The path/URL of the file to be loaded. This can also be a data URI.
+   * @param {function(Texture)} onLoad - Executed when the loading process has been finished.
+   * @param {onProgressCallback} onProgress - Unsupported in this loader.
+   * @param {onErrorCallback} onError - Executed when errors occur.
+   * @return {Texture} The texture.
+   */
+  load(url, onLoad, onProgress, onError) {
+    const texture = new Texture();
+    const loader = new ImageLoader(this.manager);
+    loader.setCrossOrigin(this.crossOrigin);
+    loader.setPath(this.path);
+    loader.load(url, function(image) {
+      texture.image = image;
+      texture.needsUpdate = true;
+      if (onLoad !== void 0) {
+        onLoad(texture);
+      }
+    }, onProgress, onError);
+    return texture;
+  }
+};
 var Light = class extends Object3D {
   /**
    * Constructs a new light.
@@ -31225,6 +31489,8 @@ var GameRenderer = class {
   remotePlayersGroup = new Group();
   particlesGroup = new Group();
   marbleMesh;
+  marbleSprite;
+  marbleSpriteFrames;
   marbleShadow;
   localLabelSprite;
   hazardMeshes = /* @__PURE__ */ new Map();
@@ -31250,6 +31516,7 @@ var GameRenderer = class {
   camFollowZ = 0;
   camInitialized = false;
   textureCache = /* @__PURE__ */ new Map();
+  pixelTextureCache = /* @__PURE__ */ new Map();
   constructor() {
     this.canvas = document.getElementById("gl");
     this.renderer = new WebGLRenderer({
@@ -31295,10 +31562,13 @@ var GameRenderer = class {
     this.scene.add(this.remotePlayersGroup);
     this.scene.add(this.particlesGroup);
     this.marbleMesh = this.createMarbleMesh("#ff3b5c", "#33e0ff");
+    this.marbleSpriteFrames = [28, 29, 30].map((frame) => this.loadPixelTexture(`/sprites/retro-marble/blue-${frame}.png`));
+    this.marbleSprite = this.createPixelSprite(this.marbleSpriteFrames[0], 0.74);
     this.marbleShadow = this.createShadowMesh();
     this.localLabelSprite = this.createPlayerLabel("YOU (P1)", "#ffd23f");
     this.localLabelSprite.position.set(0, 0.75, 0);
     this.scene.add(this.marbleMesh);
+    this.scene.add(this.marbleSprite);
     this.scene.add(this.marbleShadow);
     this.scene.add(this.localLabelSprite);
     window.addEventListener("resize", () => this.onResize());
@@ -31310,6 +31580,36 @@ var GameRenderer = class {
     this.localLabelSprite = this.createPlayerLabel(`${name} (YOU)`, "#ffd23f");
     this.scene.add(this.marbleMesh);
     this.scene.add(this.localLabelSprite);
+  }
+  loadPixelTexture(path) {
+    const cached = this.pixelTextureCache.get(path);
+    if (cached) return cached;
+    const texture = new TextureLoader().load(path, () => {
+      texture.userData.loaded = true;
+      for (const callback of texture.userData.readyCallbacks ?? []) callback();
+    });
+    texture.colorSpace = SRGBColorSpace;
+    texture.magFilter = NearestFilter;
+    texture.minFilter = NearestFilter;
+    texture.generateMipmaps = false;
+    texture.userData.loaded = false;
+    texture.userData.readyCallbacks = [];
+    this.pixelTextureCache.set(path, texture);
+    return texture;
+  }
+  createPixelSprite(texture, height) {
+    const material = new SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.02 });
+    const sprite = new Sprite(material);
+    sprite.visible = Boolean(texture.userData.loaded);
+    texture.userData.readyCallbacks.push(() => {
+      sprite.visible = true;
+    });
+    const image = texture.image;
+    const applyScale = () => sprite.scale.set(height * ((image?.naturalWidth || 1) / (image?.naturalHeight || 1)), height, 1);
+    if (image?.complete) applyScale();
+    else image?.addEventListener("load", applyScale, { once: true });
+    applyScale();
+    return sprite;
   }
   createMarbleTexture(primaryColor, accentColor) {
     const canvas = document.createElement("canvas");
@@ -32293,6 +32593,13 @@ var GameRenderer = class {
         break;
       }
     }
+    const spritePath = RETRO_OBJECT_SPRITES[h.def.kind];
+    if (spritePath) {
+      const sprite = this.createPixelSprite(this.loadPixelTexture(spritePath), h.def.kind === "goal" || h.def.kind === "checkpoint" ? 1.15 : 0.72);
+      sprite.position.y = h.def.kind === "goal" || h.def.kind === "checkpoint" ? 0.55 : 0.38;
+      sprite.name = "originalExtractedSprite";
+      group.add(sprite);
+    }
     return group;
   }
   // =========================================================================
@@ -32404,6 +32711,9 @@ var GameRenderer = class {
   render(marble, hazards, remotePlayers, stageId, dt) {
     this.totalTime += dt;
     this.marbleMesh.position.set(marble.x, marble.y, marble.z);
+    this.marbleSprite.position.set(marble.x, marble.y + 0.08, marble.z);
+    const marbleFrame = Math.floor(this.totalTime * (4 + marble.speed * 32)) % this.marbleSpriteFrames.length;
+    this.marbleSprite.material.map = this.marbleSpriteFrames[marbleFrame];
     if (marble.quat) {
       this.marbleMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
     } else {
@@ -32939,6 +33249,7 @@ var MultiplayerClient = class {
           console.log(`[Multiplayer] Welcomed as ${this.localName} (${this.localId})`);
           if (Array.isArray(msg.players)) {
             for (const p of msg.players) {
+              if (p.id === this.localId) continue;
               this.addOrUpdateRemotePlayer(p);
             }
           }
@@ -33184,7 +33495,7 @@ var MultiplayerClient = class {
     }
   }
   getOnlinePlayers() {
-    return Array.from(this.remotePlayers.values());
+    return Array.from(this.remotePlayers.values()).filter((player) => player.id !== this.localId);
   }
 };
 
@@ -33549,6 +33860,8 @@ var GameManager = class {
   respawnTimer = 0;
   countdownTimer = 3;
   isAudioStarted = false;
+  physicsAccumulator = 0;
+  physicsStep = 1 / 60;
   constructor() {
     this.currentLevel = LEVELS[0];
     this.input = new InputManager();
@@ -33647,6 +33960,8 @@ var GameManager = class {
       this.hud.showBanner(isMuted ? "MUTED" : "UNMUTED", "", 1200);
     };
     this.hud.onSelectCourse = (stage) => this.setupStage(stage - 1);
+    this.hud.musicVolume = soundManager.getMusicVolume();
+    this.hud.onMusicVolumeChange = (volume) => soundManager.setMusicVolume(volume);
     this.hud.onResumeGame = () => {
       this.startAudio();
       if (this.state === "TITLE") {
@@ -33818,6 +34133,7 @@ var GameManager = class {
     this.itemsCollected = 0;
     this.itemsTotal = this.currentLevel.props.filter((p) => p.kind === "item").length;
     this.physics.setLevel(this.currentLevel);
+    this.physicsAccumulator = 0;
     this.hazards.initLevel(this.currentLevel);
     this.renderer.buildLevelMesh(this.currentLevel);
     this.renderer.syncHazards(this.hazards.hazards);
@@ -33942,7 +34258,12 @@ var GameManager = class {
       if (this.timeLeft <= 0) {
         this.handleDeath("time");
       }
-      this.physics.update(inputSample);
+      this.physicsAccumulator = Math.min(this.physicsAccumulator + dt, this.physicsStep * 4);
+      while (this.physicsAccumulator >= this.physicsStep) {
+        this.physics.update(inputSample);
+        this.hazards.update(this.physicsStep, this.physics.marble);
+        this.physicsAccumulator -= this.physicsStep;
+      }
       this.multiplayer.checkPlayerCollisions(
         this.currentStageIndex + 1,
         this.physics.marble,
@@ -33963,7 +34284,6 @@ var GameManager = class {
       } else {
         soundManager.setRollVolume(0);
       }
-      this.hazards.update(dt, this.physics.marble);
     } else if (this.state === "RESPAWNING") {
       soundManager.setRollVolume(0);
       this.respawnTimer -= dt;
@@ -34011,6 +34331,27 @@ var GameManager = class {
 window.addEventListener("DOMContentLoaded", () => {
   console.log("[Marble Madness] Starting game engine...");
   const game = new GameManager();
+  if (new URLSearchParams(window.location.search).has("harness")) {
+    window.__marbleHarness = {
+      snapshot: () => ({
+        state: game.state,
+        stage: game.currentStageIndex + 1,
+        x: game.physics.marble.x,
+        y: game.physics.marble.y,
+        z: game.physics.marble.z,
+        vx: game.physics.marble.vx,
+        vy: game.physics.marble.vy,
+        vz: game.physics.marble.vz,
+        speed: game.physics.marble.speed,
+        grounded: game.physics.marble.grounded,
+        dead: game.physics.marble.dead,
+        timeLeft: game.timeLeft
+      }),
+      start: () => game.startGameDirect(),
+      selectStage: (stage) => game.setupStage(stage - 1, false),
+      showEndgame: () => game.hud.showMenu(8, game.currentStageIndex + 1, true, game.score)
+    };
+  }
   let lastTime = performance.now();
   function loop(now) {
     const dt = Math.min(0.1, (now - lastTime) / 1e3);

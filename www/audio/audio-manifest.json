@@ -1,0 +1,30 @@
+{
+  "musicDefaultVolume": 0.16,
+  "originalCourseMusic": {
+    "1 Pink Gardens / Practice": "bgm/practice-race.mp3",
+    "2 Arctic Adventure / Beginner": "bgm/beginner-race.mp3",
+    "5 Edgy Maze / Intermediate": "bgm/intermediate-race.mp3",
+    "6 Dusty Trail / Aerial": "bgm/aerial-race.mp3",
+    "7 Drillin' Rye / Silly": "bgm/silly-race.mp3",
+    "8 Space Dementia / Ultimate": "bgm/ultimate-race.mp3"
+  },
+  "customCourseReuse": {
+    "3 Astral Spire": "bgm/aerial-race.mp3",
+    "4 Pyramid Oasis": "bgm/practice-race.mp3"
+  },
+  "originalEffects": {
+    "roll": "marble-049.mp3",
+    "bounce": "marble-050.mp3",
+    "fall": "marble-051.mp3",
+    "shatter": "marble-052.mp3",
+    "muncher": "marble-053.mp3",
+    "checkpoint": "marble-054.mp3",
+    "springboard": "marble-060.mp3",
+    "goal": "marble-061.mp3",
+    "item": "marble-065.mp3"
+  },
+  "legacyNumberedMusicNotUsedForCourseIdentity": [
+    "marble-056.mp3", "marble-066.mp3", "marble-067.mp3", "marble-069.mp3",
+    "marble-073.mp3", "marble-075.mp3", "marble-077.mp3", "marble-079.mp3", "marble-081.mp3"
+  ]
+}

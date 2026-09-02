@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RETRO_OBJECT_SPRITES } from './retro-assets.js';
 import { STEP_H, type BuiltLevel } from '../data/build.js';
 import type { HazardInstance } from './hazards.js';
 import type { MarbleState } from './physics.js';
@@ -122,6 +123,8 @@ export class GameRenderer {
   private particlesGroup = new THREE.Group();
 
   private marbleMesh: THREE.Mesh;
+  private marbleSprite: THREE.Sprite;
+  private marbleSpriteFrames: THREE.Texture[];
   private marbleShadow: THREE.Mesh;
   private localLabelSprite: THREE.Sprite;
 
@@ -151,6 +154,7 @@ export class GameRenderer {
   private camFollowZ = 0;
   private camInitialized = false;
   private textureCache = new Map<string, THREE.CanvasTexture>();
+  private pixelTextureCache = new Map<string, THREE.Texture>();
 
   constructor() {
     this.canvas = document.getElementById('gl') as HTMLCanvasElement;
@@ -208,11 +212,14 @@ export class GameRenderer {
 
     // Local Marble
     this.marbleMesh = this.createMarbleMesh('#ff3b5c', '#33e0ff');
+    this.marbleSpriteFrames = [28, 29, 30].map((frame) => this.loadPixelTexture(`/sprites/retro-marble/blue-${frame}.png`));
+    this.marbleSprite = this.createPixelSprite(this.marbleSpriteFrames[0], 0.74);
     this.marbleShadow = this.createShadowMesh();
     this.localLabelSprite = this.createPlayerLabel('YOU (P1)', '#ffd23f');
     this.localLabelSprite.position.set(0, 0.75, 0);
 
     this.scene.add(this.marbleMesh);
+    this.scene.add(this.marbleSprite);
     this.scene.add(this.marbleShadow);
     this.scene.add(this.localLabelSprite);
 
@@ -228,6 +235,35 @@ export class GameRenderer {
 
     this.scene.add(this.marbleMesh);
     this.scene.add(this.localLabelSprite);
+  }
+
+  private loadPixelTexture(path: string): THREE.Texture {
+    const cached = this.pixelTextureCache.get(path);
+    if (cached) return cached;
+    const texture = new THREE.TextureLoader().load(path, () => {
+      texture.userData.loaded = true;
+      for (const callback of texture.userData.readyCallbacks ?? []) callback();
+    });
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.generateMipmaps = false;
+    texture.userData.loaded = false;
+    texture.userData.readyCallbacks = [];
+    this.pixelTextureCache.set(path, texture);
+    return texture;
+  }
+
+  private createPixelSprite(texture: THREE.Texture, height: number): THREE.Sprite {
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.02 });
+    const sprite = new THREE.Sprite(material);
+    sprite.visible = Boolean(texture.userData.loaded);
+    texture.userData.readyCallbacks.push(() => { sprite.visible = true; });
+    const image = texture.image as HTMLImageElement | undefined;
+    const applyScale = () => sprite.scale.set(height * ((image?.naturalWidth || 1) / (image?.naturalHeight || 1)), height, 1);
+    if (image?.complete) applyScale(); else image?.addEventListener('load', applyScale, { once: true });
+    applyScale();
+    return sprite;
   }
 
   private createMarbleTexture(primaryColor: string, accentColor: string): THREE.CanvasTexture {
@@ -1286,6 +1322,14 @@ export class GameRenderer {
       }
     }
 
+    const spritePath = RETRO_OBJECT_SPRITES[h.def.kind];
+    if (spritePath) {
+      const sprite = this.createPixelSprite(this.loadPixelTexture(spritePath), h.def.kind === 'goal' || h.def.kind === 'checkpoint' ? 1.15 : 0.72);
+      sprite.position.y = h.def.kind === 'goal' || h.def.kind === 'checkpoint' ? 0.55 : 0.38;
+      sprite.name = 'originalExtractedSprite';
+      group.add(sprite);
+    }
+
     return group;
   }
 
@@ -1429,6 +1473,9 @@ export class GameRenderer {
 
     // 1. Update local marble position & true 3D rolling orientation
     this.marbleMesh.position.set(marble.x, marble.y, marble.z);
+    this.marbleSprite.position.set(marble.x, marble.y + 0.08, marble.z);
+    const marbleFrame = Math.floor(this.totalTime * (4 + marble.speed * 32)) % this.marbleSpriteFrames.length;
+    (this.marbleSprite.material as THREE.SpriteMaterial).map = this.marbleSpriteFrames[marbleFrame];
     if (marble.quat) {
       this.marbleMesh.quaternion.set(marble.quat[0], marble.quat[1], marble.quat[2], marble.quat[3]);
     } else {
