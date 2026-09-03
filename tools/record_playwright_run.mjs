@@ -63,6 +63,8 @@ const dumpGrid = async (reason) => {
   console.log(`\n=== ${reason} ===\n${status}\nprobe: ${JSON.stringify(probe)}\n${grid}\n`);
 };
 
+// first-run overlays (desktop trackball tutorial) pause the intro until dismissed: mark them seen
+await context.addInitScript(() => { try { localStorage.setItem('mm_desktop_trackball_tutorial_v1', '1'); } catch {} });
 await page.goto(`${BASE}/?stage=${stage}`, { waitUntil: 'load' });
 
 // Wait for race screen

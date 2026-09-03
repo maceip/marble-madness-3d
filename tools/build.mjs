@@ -2,11 +2,37 @@ import * as esbuild from 'esbuild';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, readdir, copyFile, unlink } from 'node:fs/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const watch = process.argv.includes('--watch');
+
+// Collision assets (stageN.labels.png + stageN.comps.json) ship under content-hashed names. The bundle asks
+// for exactly the revision it was built with, so a stale copy on the server or in an HTTP cache
+// (public, max-age=3600 on .json/.png) can never pair old geometry with new code.
+const stagesDir = resolve(root, 'www/assets/stages');
+const collisionRev = {};
+{
+  const files = await readdir(stagesDir);
+  const stale = files.filter((f) => /^stage\d+\.[0-9a-f]{10}\.(comps\.json|labels\.png)$/.test(f));
+  for (const f of files) {
+    const m = f.match(/^(stage\d+)\.comps\.json$/);
+    if (!m) continue;
+    const base = m[1];
+    const comps = await readFile(resolve(stagesDir, `${base}.comps.json`));
+    const labels = await readFile(resolve(stagesDir, `${base}.labels.png`));
+    const rev = createHash('sha256').update(comps).update(labels).digest('hex').slice(0, 10);
+    collisionRev[`stages/${base}`] = rev;
+    for (const [src, ext] of [[comps, 'comps.json'], [labels, 'labels.png']]) {
+      const name = `${base}.${rev}.${ext}`;
+      if (!files.includes(name)) await writeFile(resolve(stagesDir, name), src);
+      const i = stale.indexOf(name); if (i >= 0) stale.splice(i, 1);
+    }
+  }
+  for (const f of stale) await unlink(resolve(stagesDir, f));
+  console.log(`[build] collision assets: ${Object.entries(collisionRev).map(([k, v]) => `${k.replace('stages/', '')}@${v}`).join(' ')}`);
+}
 
 const options = {
   entryPoints: [resolve(root, 'src/main.ts')],
@@ -18,6 +44,7 @@ const options = {
   minify: !watch,
   target: ['es2022'],
   logLevel: 'info',
+  define: { __MM_COLLISION_REV__: JSON.stringify(collisionRev) },
 };
 
 if (watch) {

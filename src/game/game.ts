@@ -1110,12 +1110,17 @@ export class Game {
 
 /* ------------------------------------------------------------------------ */
 
+/** content hash per stage of labels.png + comps.json, injected by tools/build.mjs (see there for why) */
+declare const __MM_COLLISION_REV__: Record<string, string> | undefined;
+
 async function loadHeightMap(stage: StageDef): Promise<HeightMap | null> {
   const base = stage.image.replace(/\.png$/, '');
+  const rev = typeof __MM_COLLISION_REV__ !== 'undefined' ? __MM_COLLISION_REV__[base] : undefined;
+  const name = rev ? `${base}.${rev}` : base;
   try {
     const [compsRes, img] = await Promise.all([
-      fetch(`/assets/${base}.comps.json`),
-      new Promise<HTMLImageElement>((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = `/assets/${base}.labels.png`; }),
+      fetch(`/assets/${name}.comps.json`),
+      new Promise<HTMLImageElement>((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = `/assets/${name}.labels.png`; }),
     ]);
     if (!compsRes.ok) return null;
     const comps = await compsRes.json() as { width: number; height: number; components: HmComponent[] };
