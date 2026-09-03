@@ -35,9 +35,9 @@ L.wallAt(238, 270, 125, 1.2, 1.2, 'tentSR');
 // screen-aligned half-pipe bands: straight down the screen with rails on both sides
 const chuteA = L.band(124, 188, 316, 14, 100, -2.15, -0.5, 'chuteA'); L.bandRails(chuteA);
 const chuteB = L.band(140, 216, 402, 7.5, 70, -4.0, -1.0, 'chuteB'); L.bandRails(chuteB);
-// goal corridor (dark shaded, with the GOAL sign) runs down-LEFT from the chute lip to the goal; widened a touch
-// so the chute exit lands on it cleanly (the marble curves left here toward the GOAL sign)
-L.strip(205, 448, 44, 40, 540, 38, 4.2, 'goalCorridor');
+// goal corridor (dark shaded, with the GOAL sign) runs down-LEFT from the chute lip to the goal. Wide with rails
+// so a fast marble off the chute stays on it all the way to the GOAL sign instead of skidding off into the void.
+const goalCorridor = L.strip(205, 448, 44, 40, 540, 38, 5.5, 'goalCorridor', 0.6); L.rails(goalCorridor, 0.7, 24);
 L.strip(232, 318, 100, 268, 336, 61, 3.2, 'rampRight');          // plateau -> right floor
 
 // --- start & checkpoints -----------------------------------------------------
