@@ -2226,18 +2226,7 @@ function flush() {
   });
 }
 function mmTraceInit() {
-  try {
-    const q = new URLSearchParams(location.search);
-    enabled = q.get("trace") === "1" || localStorage.getItem("mm_trace") === "1";
-    if (q.get("trace") === "1") localStorage.setItem("mm_trace", "1");
-    if (q.get("trace") === "0") {
-      localStorage.removeItem("mm_trace");
-      enabled = false;
-    }
-  } catch {
-    enabled = false;
-  }
-  if (!enabled) return;
+  enabled = true;
   mmTrace("boot", { sid: SID, ua: navigator.userAgent.slice(0, 80), vibrate: "vibrate" in navigator, dpr: window.devicePixelRatio, w: innerWidth, h: innerHeight, bridge: !!window.NativeBridge });
   setInterval(flush, 1e3);
   window.addEventListener("pagehide", flush);

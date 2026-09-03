@@ -1,7 +1,7 @@
 /**
  * Live trace channel for debugging the real prod session. Client buffers short lines and flushes them to the
  * server (sendBeacon), which prints them to its journal so a developer can `journalctl -u marbles -f` and watch
- * the player interact. On by default with ?trace=1 or localStorage.mm_trace='1'; capped so it never floods.
+ * the player interact. On for every session; capped so it never floods.
  *
  * mmTrace('tag', {..})  — record one line
  * mmTraceInit()         — start flushing (called once from main)
@@ -46,13 +46,7 @@ function flush(): void {
 }
 
 export function mmTraceInit(): void {
-  try {
-    const q = new URLSearchParams(location.search);
-    enabled = q.get('trace') === '1' || localStorage.getItem('mm_trace') === '1';
-    if (q.get('trace') === '1') localStorage.setItem('mm_trace', '1');
-    if (q.get('trace') === '0') { localStorage.removeItem('mm_trace'); enabled = false; }
-  } catch { enabled = false; }
-  if (!enabled) return;
+  enabled = true;
   mmTrace('boot', { sid: SID, ua: navigator.userAgent.slice(0, 80), vibrate: 'vibrate' in navigator, dpr: window.devicePixelRatio, w: innerWidth, h: innerHeight, bridge: !!(window as unknown as { NativeBridge?: unknown }).NativeBridge });
   setInterval(flush, 1000);
   window.addEventListener('pagehide', flush);
