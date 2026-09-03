@@ -203,6 +203,7 @@ export class ChromeLocalAgent {
       await bridge.callTool('set_name', { name: 'CHROME AI' });
       this.phase = 'thinking'; this.changed();
       await this.runGraph(bridge, this.session, abort.signal);
+      if (!abort.signal.aborted) this.stop();
     } catch (error) {
       if (!abort.signal.aborted) this.fail(error instanceof Error ? error.message : String(error));
     }
@@ -285,11 +286,17 @@ export class ChromeLocalAgent {
       .compile();
 
     let failures = 0;
+    let enteredRace = false;
     while (!signal.aborted) {
       try {
         const result = await graph.invoke({ snapshot: {}, course: {}, plan: { actions: [] } }, { signal, recursionLimit: 8 });
         failures = 0;
-        const screen = String((result.snapshot as { screen?: unknown })?.screen ?? '');
+        const snapshot = result.snapshot as { screen?: unknown; race?: { raceOver?: boolean } };
+        const screen = String(snapshot?.screen ?? '');
+        if (screen === 'race') enteredRace = true;
+        // The iframe starts on connect while it waits for the human, so that state is not terminal
+        // until a race has actually begun. Once it has, leaving race (or raceOver) is the end of this run.
+        if (enteredRace && (screen !== 'race' || snapshot.race?.raceOver)) break;
         if (screen !== 'race') { this.phase = 'joining'; this.changed(); }
         await delay(screen === 'race' ? 60 : 250, signal);
       } catch (error) {

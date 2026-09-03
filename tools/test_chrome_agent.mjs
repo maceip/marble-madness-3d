@@ -88,9 +88,11 @@ if (agentFrame) {
 check('human sees the Chrome AI opponent', await page.waitForFunction(() => [...window.game.remoteInfo.values()].some((p) => p.role === 'ai' && p.name === 'CHROME AI'), null, { timeout: 10000 }).then(() => true).catch(() => false));
 await page.screenshot({ path: 'artifacts/browser/chrome-ai-human-race.png' });
 
-await page.evaluate(() => window.game.go('title'));
-await page.waitForFunction(() => !document.querySelector('iframe.chrome-agent-frame'));
-check('leaving two-player destroys the model and iframe', await page.evaluate(() => window.__chromeAiTest.destroyed === 1 && !document.querySelector('iframe.chrome-agent-frame')));
+// Simulate the iframe's normal post-race transition. The parent must stop polling, destroy the
+// model session, and remove the hidden player frame without requiring the human to leave the page.
+if (agentFrame) await agentFrame.evaluate(() => window.game.go('connect'));
+await page.waitForFunction(() => window.__chromeAiTest.destroyed === 1 && !document.querySelector('iframe.chrome-agent-frame'));
+check('race end destroys the model and iframe automatically', await page.evaluate(() => window.__chromeAiTest.destroyed === 1 && !document.querySelector('iframe.chrome-agent-frame')));
 check('browser integration has no page or console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 
 const unsupportedContext = await browser.newContext({ viewport: { width: 1180, height: 820 } });
