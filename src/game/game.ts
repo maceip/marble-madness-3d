@@ -763,6 +763,8 @@ export class Game {
         this.renderAITracker();
         break;
       case 'title': case 'menu': case 'name': case 'connect':
+      case 'highrollers': case 'control': case 'gameover': case 'congrats':
+        // full-canvas (portrait) or drawFullScreenImage screens: they present themselves, no offscreen blit
         this.screens.render();
         break;
       default:

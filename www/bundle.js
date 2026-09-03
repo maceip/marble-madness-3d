@@ -5648,8 +5648,10 @@ Instructions for Codex / AI Agent:
           this.pline(c, `SCORE ${fmtScore(g.score)}`, cw / 2, ch * 0.52, Math.round(cw * 0.06), "#ffba3b");
           this.pline(c, "TAP TO CONTINUE", cw / 2, ch * 0.62, Math.round(cw * 0.04), "#656b88");
         } else {
+          r.clear("#000");
           r.textC("GAME OVER", VIEW_W / 2, 100, "lavender");
           r.textC(`SCORE ${fmtScore(g.score)}`, VIEW_W / 2, 124, "orange");
+          r.present();
         }
         break;
       case "congrats":
@@ -6082,6 +6084,7 @@ Instructions for Codex / AI Agent:
   renderControl() {
     const g = this.g;
     const r = g.r;
+    if (!this.isPortrait()) r.clear("#000");
     if (this.isPortrait()) {
       const c = this.pctx(), cw = r.canvas.width, ch = r.canvas.height;
       this.pline(c, "PLAYER 1", cw / 2, ch * 0.16, Math.round(cw * 0.06), "#cfd2ff");
@@ -6116,6 +6119,7 @@ Instructions for Codex / AI Agent:
       if (this.cursor === i) drawFrame(r.ctx, g.assets.sheets.marble, FRAMES.marble.roll[Math.floor(this.blink * 6) % 6], 94, y + 4);
     });
     r.textC("ARROWS/WASD  MOUSE=TRACKBALL", VIEW_W / 2, 200, "orange");
+    r.present();
   }
   renderConnect() {
     if (this.g.isAgentPage) {
@@ -6229,6 +6233,7 @@ Instructions for Codex / AI Agent:
       this.pline(c, `FINAL SCORE  ${fmtScore(g.score)}`, cw / 2, ch * 0.72, Math.round(cw * 0.055), "#ffe019", "900");
       return;
     }
+    r.clear("#000");
     const F = FRAMES.marble.roll;
     for (const m of this.rain) {
       r.ctx.save();
@@ -6254,6 +6259,7 @@ Instructions for Codex / AI Agent:
     });
     r.text("FINAL SCORE:", 84, 150, "lavender");
     r.textR(fmtScore(g.score), 268, 150, "lavender");
+    r.present();
   }
   /* ---------------------------------------------------------------------- */
   showConnect(show) {
@@ -7792,6 +7798,10 @@ var Game = class {
       case "menu":
       case "name":
       case "connect":
+      case "highrollers":
+      case "control":
+      case "gameover":
+      case "congrats":
         this.screens.render();
         break;
       default:
