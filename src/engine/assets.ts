@@ -20,6 +20,7 @@ export interface Sheets {
   bird: HTMLImageElement;
   hammer: HTMLImageElement;
   vacuum: HTMLImageElement;
+  riser: HTMLImageElement;
   objects: HTMLImageElement;
 }
 
@@ -29,10 +30,10 @@ export class Assets {
   stages = new Map<string, HTMLImageElement>();
 
   async load(onProgress?: (frac: number) => void): Promise<void> {
-    const names: (keyof Sheets)[] = ['marble', 'marbleRed', 'worm', 'slime', 'bird', 'hammer', 'vacuum', 'objects'];
+    const names: (keyof Sheets)[] = ['marble', 'marbleRed', 'worm', 'slime', 'bird', 'hammer', 'vacuum', 'riser', 'objects'];
     const files: Record<keyof Sheets, string> = {
       marble: 'sprites/marble_effects.png', marbleRed: 'sprites/marble_effects_red.png', worm: 'sprites/worm.png',
-      slime: 'sprites/slime.png', bird: 'sprites/bird.png', hammer: 'sprites/hammer.png', vacuum: 'sprites/vacuum.png',
+      slime: 'sprites/slime.png', bird: 'sprites/bird.png', hammer: 'sprites/hammer.png', vacuum: 'sprites/vacuum.png', riser: 'sprites/riser.png',
       objects: 'sprites/objects.png',
     };
     let done = 0;

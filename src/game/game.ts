@@ -612,6 +612,9 @@ export class Game {
       this.marbleSprites(o, info?.role === 'ai' ? this.assets.sheets.marbleRed : this.assets.sheets.marble, sprites);
     }
     r.drawSprites(sprites);
+    for (const h of this.hazards) h.drawOverlay?.(r.ctx, (u, v, z) => r.project(u, v, z), this.raceTime);
+    this.drawDeathParticles(this.marble);
+    for (const o of this.others) this.drawDeathParticles(o);
     // 2D callouts anchored to the (3D) marble positions
     for (const [id, o] of this.remote) {
       if (o.phase === 'hidden') continue;
@@ -706,6 +709,27 @@ export class Game {
     r.text(`U${m.u.toFixed(1)} V${m.v.toFixed(1)} S${m.speed.toFixed(1)}`, 2, 52, 'cyan');
   }
 
+  /** blue droplets flying out of a dissolving / vacuumed / zapped marble */
+  private drawDeathParticles(m: Marble): void {
+    if (m.phase !== 'dying') return;
+    const t = m.deathT;
+    let start = 0, dur = 0;
+    if (m.deathKind === 'dissolve') { start = 0.45; dur = 0.9; }
+    else if (m.deathKind === 'zap') { start = 0.3; dur = 1.2; }
+    else if (m.deathKind === 'squeeze') { start = 0.7; dur = 0.5; }
+    else return;
+    if (t < start || t > start + dur) return;
+    const k = (t - start) / dur;
+    const p = this.r.project(m.u, m.v, m.z);
+    const ctx = this.r.ctx;
+    ctx.fillStyle = '#4b6cff';
+    for (let i = 0; i < 9; i++) {
+      const a = i * 0.7 + 0.3, sp = 26 + (i % 3) * 9;
+      const x = p.x + Math.cos(a) * sp * k, y = p.y - 6 - Math.sin(a) * 14 * k + 40 * k * k;
+      ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+    }
+  }
+
   /** choose marble frame(s) from its state */
   marbleSprites(m: Marble, img: HTMLImageElement, out: Sprite[]): void {
     const F = FRAMES.marble;
@@ -735,7 +759,7 @@ export class Game {
           out.push({ ...base, frame: F.squeeze[idx], flip: m.squeezeDir < 0 });
           break;
         }
-        case 'dissolve': out.push({ ...base, frame: F.dissolve[Math.min(3, Math.floor(t / 0.3))] }); break;
+        case 'dissolve': if (t < 0.6) out.push({ ...base, frame: F.dissolve[Math.min(3, Math.floor(t / 0.15))] }); break;
         case 'crush': if (t > 0.3) out.push({ ...base, frame: F.pile[0] }); break;
         case 'void': {
           // keeps falling out of view

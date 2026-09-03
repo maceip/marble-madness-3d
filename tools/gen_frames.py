@@ -112,12 +112,20 @@ def main():
         'bird': simple_frames('bird.png', 'center'),
         'hammer': cell_frames('hammer.png', 'bottom'),
         'vacuum': cell_frames('vacuum.png', 'bottom'),
+        'riser': [f for f in cell_frames('riser.png', 'bottom') if f['w'] >= 3],
     }
     # objects sheet: steelie (black marble) and logo
     boxes, W, H = boxes_from_alpha(os.path.join(SPR, 'objects.png'), dilate=2)
     boxes.sort(key=lambda b: (b[1] // 8, b[0]))
     logo = boxes[0]
-    steelie = [b for b in boxes if 14 <= (b[2] - b[0]) <= 18 and 14 <= (b[3] - b[1]) <= 18 and b[1] > 900][0]
+    # steelie = the darkest ~16x16 sprite on the sheet (the black marble)
+    arr = np.asarray(Image.open(os.path.join(SPR, 'objects.png')).convert('RGBA')).astype(int)
+    def darkness(b):
+        sub = arr[b[1]:b[3], b[0]:b[2]]
+        vis = sub[..., 3] > 0
+        return sub[..., :3][vis].mean() if vis.any() else 999
+    cands = [b for b in boxes if 13 <= (b[2] - b[0]) <= 18 and 13 <= (b[3] - b[1]) <= 18]
+    steelie = min(cands, key=darkness)
     frames['objects'] = {
         'logo': [frame(logo, 0, 0)],
         'steelie': [frame(steelie, (steelie[2] - steelie[0]) // 2, (steelie[3] - steelie[1]) // 2)],

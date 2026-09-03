@@ -151,6 +151,17 @@ def main() -> None:
     key_out(Image.open(src('vaccuum_2.png')), [teal, blue]).save(os.path.join(OUT, 'sprites', 'vacuum.png'))
     Image.open(src('objects_spritesheet.png')).convert('RGBA').save(os.path.join(OUT, 'sprites', 'objects.png'))
 
+    # riser pistons (Master System sheet, tinted yellow like the NES/arcade pads)
+    ms = Image.open(src('Enemies & Obstacles.png')).convert('RGBA').crop((0, 128, 26, 154))
+    ra = np.asarray(ms).copy().astype(int)
+    bgm = np.zeros(ra.shape[:2], bool)
+    for c in ((49, 146, 202), (0, 91, 91)):
+        bgm |= (np.abs(ra[..., :3] - np.array(c)).sum(2) <= 8)
+    ra[bgm, 3] = 0
+    lum = ra[..., :3].mean(2); m = ~bgm
+    ra[m, 0] = np.clip(lum[m] * 1.05, 0, 255); ra[m, 1] = np.clip(lum[m] * 0.95, 0, 255); ra[m, 2] = np.clip(lum[m] * 0.25, 0, 255)
+    Image.fromarray(ra.astype(np.uint8), 'RGBA').save(os.path.join(OUT, 'sprites', 'riser.png'))
+
     atlas, meta = build_font(src('Font.png'))
     atlas.save(os.path.join(OUT, 'sprites', 'font.png'))
     with open(os.path.join(OUT, 'sprites', 'font.json'), 'w') as f:

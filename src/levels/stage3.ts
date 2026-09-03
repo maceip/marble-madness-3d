@@ -17,7 +17,9 @@ L.pipe({ u0: funnel.u - 1.4, v0: funnel.v - 1.4, u1: funnel.u + 1.4, v1: funnel.
   exit: { u: pipeOut.u, v: pipeOut.v, z: -25, vu: 1.5, vv: 1.5 }, duration: 1.5, bonus: 2000 });
 
 // bridge plate and the wave chutes down to the goal (approximated as straight strips)
-L.band(64, 272, 812, 12, -40, 0, 0, 'plate');
+const plate = L.band(64, 272, 812, 12, -40, 0, 0, 'plate');
+{ const a = L.uv(64, 836, -40), b = L.uv(272, 888, -40); L.hazard({ kind: 'wave', u: (a.u + b.u) / 2, v: (a.v + b.v) / 2, period: 2.6, rect: { u0: Math.min(a.u, b.u), v0: Math.min(a.v, b.v) - 4, u1: Math.max(a.u, b.u), v1: Math.max(a.v, b.v) + 4 } }); }
+void plate;
 L.strip(120, 880, -40, 60, 1000, -100, 3, 'waveL');
 L.strip(210, 880, -40, 140, 1000, -100, 3, 'waveR');
 L.strip(80, 1000, -100, 230, 1040, -120, 4, 'goalRun');
@@ -33,7 +35,7 @@ const goal = L.uv(232, 1036, -120);
 L.zone('goal', goal.u - 3.5, goal.v - 3.5, goal.u + 3.5, goal.v + 3.5, undefined, 'goal', -135, -105);
 
 // hazards: slimes at the pit ramp feet, a wand on the maze, worms on the lower maze
-for (const [x, y] of [[40, 300], [235, 300], [120, 560]] as const) { const p = L.uv(x, y, 100); L.hazard({ kind: 'slime', u: p.u, v: p.v, range: 2 }); }
+for (const [x, y] of [[60, 330], [220, 330], [120, 560]] as const) { const p = L.uv(x, y, 100); L.hazard({ kind: 'slime', u: p.u, v: p.v, range: 2 }); }
 L.hazard({ kind: 'wand', u: 0, v: 0, band: [40, 120] });
 { const p = L.uv(200, 520, 100); L.hazard({ kind: 'worm', u: p.u, v: p.v, range: 5 }); }
 

@@ -1,8 +1,9 @@
 import { StageDef, HazardSpawn, topAt, supportAt } from '../engine/level';
 import { Marble, MarbleEvent } from '../engine/physics';
 import { Sprite } from '../render/renderer';
-import { Assets, FRAMES } from '../engine/assets';
+import { Assets, FRAMES, Frame } from '../engine/assets';
 import { WAND_FREEZE, MARBLE_R } from '../engine/constants';
+import { screenDirToWorld } from '../engine/iso';
 
 export interface HazardContext {
   level: StageDef;
@@ -20,11 +21,15 @@ export type HazardEvent =
   | { type: 'sfx'; name: 'muncher' | 'bounce' | 'shatter' | 'springboard' | 'item' | 'fall' | 'checkpoint'; vol?: number }
   | { type: 'steelie-bump'; marble: Marble };
 
+export type Project = (u: number, v: number, z: number) => { x: number; y: number };
+
 export abstract class Hazard {
   u: number; v: number; z = 0;
   constructor(public spawn: HazardSpawn) { this.u = spawn.u; this.v = spawn.v; }
   abstract update(dt: number, ctx: HazardContext): void;
   abstract sprites(ctx: HazardContext, out: Sprite[]): void;
+  /** optional custom drawing on top of the sprites (waves, suction lines) */
+  drawOverlay?(ctx2d: CanvasRenderingContext2D, project: Project, time: number): void;
   /** called when the marble respawns / stage restarts */
   reset(ctx: HazardContext): void { void ctx; }
 }
@@ -43,10 +48,6 @@ export class Steelie extends Hazard {
   active = true;
   respawnT = 0;
 
-  constructor(spawn: HazardSpawn) {
-    super(spawn);
-  }
-
   reset(ctx: HazardContext): void {
     const top = topAt(ctx.level, this.spawn.u, this.spawn.v);
     this.ball.place(this.spawn.u, this.spawn.v, top ? top.z : 0);
@@ -61,12 +62,10 @@ export class Steelie extends Hazard {
     }
     const b = this.ball;
     const target = ctx.local;
-    // chase when within ~14 tiles and roughly same height, else wander
     let ax = 0, ay = 0;
     const d = dist(b, target);
     if (target.phase === 'alive' && d < 14 && Math.abs(target.z - b.z) < 30) {
       const dx = target.u - b.u, dy = target.v - b.v;
-      // convert world direction to screen dir for the shared physics input
       ax = (dx - dy) * 0.5; ay = (dx + dy) * 0.5;
       const m = Math.hypot(ax, ay) || 1; ax /= m; ay /= m;
       ax *= 0.75; ay *= 0.75;
@@ -77,17 +76,11 @@ export class Steelie extends Hazard {
     }
     const ev: MarbleEvent[] = [];
     b.step(ctx.level, { ax, ay }, dt, ev);
-    if (b.phase !== 'alive') {
-      // fell off / shattered: come back after a while
-      this.active = false; this.respawnT = 3;
-      return;
-    }
-    // collide with marbles
+    if (b.phase !== 'alive') { this.active = false; this.respawnT = 3; return; }
     for (const m of ctx.marbles) {
       if (m.phase !== 'alive' || m.inPipe) continue;
       const before = m.speed;
       if (m.collideBall(b.u, b.v, b.z, b.vu, b.vv, 2.2, MARBLE_R * 2)) {
-        // steelie recoils a little
         const dx = b.u - m.u, dy = b.v - m.v; const dd = Math.hypot(dx, dy) || 1;
         b.vu += (dx / dd) * 2; b.vv += (dy / dd) * 2;
         ctx.onEvent({ type: 'sfx', name: 'bounce', vol: Math.min(1, 0.4 + before * 0.06) });
@@ -106,15 +99,14 @@ export class Steelie extends Hazard {
 /* ------------------------------------------------------------------------ */
 /* Worm / Marble Muncher: slinkies end-over-end, eats the marble            */
 /* ------------------------------------------------------------------------ */
-const WORM_WALK = [0, 2, 4, 5, 9, 10, 13, 16, 20, 22, 24]; // body poses approximating the flip cycle
-const WORM_EAT = [7, 8, 12, 8, 7];                          // mouth up / open / looking down the throat
+const WORM_WALK = [0, 2, 4, 5, 9, 10, 13, 16, 20, 22, 24];
+const WORM_EAT = [7, 8, 12, 8, 7];
 
 export class Worm extends Hazard {
   t = 0;
   dirU = 1; dirV = 0;
   eating = 0;
   stunned = 0;
-  hop = 0;
 
   reset(ctx: HazardContext): void {
     this.u = this.spawn.u; this.v = this.spawn.v;
@@ -129,27 +121,23 @@ export class Worm extends Hazard {
     const range = this.spawn.range ?? 6;
     const target = ctx.local;
     const d = dist(this, target);
-    // pick direction: toward marble if near, else drift back toward home
     let tu: number, tv: number;
     if (target.phase === 'alive' && d < 9 && Math.abs(target.z - this.z) < 12) { tu = target.u; tv = target.v; }
     else { tu = this.spawn.u + Math.sin(this.t * 0.5) * range * 0.6; tv = this.spawn.v + Math.cos(this.t * 0.37) * range * 0.6; }
     const dx = tu - this.u, dy = tv - this.v; const m = Math.hypot(dx, dy) || 1;
     if (m > 0.3) { this.dirU = dx / m; this.dirV = dy / m; }
     const speed = this.stunned > 0 ? 0 : 2.1;
-    // slinky: moves in pulses
     const pulse = Math.max(0, Math.sin(this.t * 4.5));
     const nu = this.u + this.dirU * speed * pulse * dt * 1.6;
     const nv = this.v + this.dirV * speed * pulse * dt * 1.6;
     const sup = supportAt(ctx.level, nu, nv, this.z + 4, 6);
     if (sup && Math.abs(sup.z - this.z) < 6 && dist({ u: nu, v: nv }, this.spawn) < range + 1) { this.u = nu; this.v = nv; this.z = sup.z; }
     else { this.dirU = -this.dirU; this.dirV = -this.dirV; }
-    // interactions
     for (const mb of ctx.marbles) {
       if (mb.phase !== 'alive' || mb.inPipe) continue;
       const dd = dist(this, mb);
       if (dd < 1.0 && Math.abs(mb.z - this.z) < 10) {
         if (mb.speed > 7 && this.stunned <= 0) {
-          // bumped hard: knocked back and stunned
           this.stunned = 1.2;
           const kx = (this.u - mb.u) / (dd || 1), ky = (this.v - mb.v) / (dd || 1);
           this.u += kx * 1.2; this.v += ky * 1.2;
@@ -168,7 +156,7 @@ export class Worm extends Hazard {
 
   sprites(ctx: HazardContext, out: Sprite[]): void {
     const frames = FRAMES.worm;
-    let f;
+    let f: Frame;
     if (this.eating > 0) {
       const k = Math.min(WORM_EAT.length - 1, Math.floor((1.4 - this.eating) / 1.4 * WORM_EAT.length));
       f = frames[WORM_EAT[k]];
@@ -184,12 +172,12 @@ export class Worm extends Hazard {
 }
 
 /* ------------------------------------------------------------------------ */
-/* Slime / acid puddle: stays put, wanders a few tiles, stuns the marble    */
+/* Slime / acid puddle: stays in one spot wandering a few tiles; dissolves  */
+/* the marble on contact (review clip: marble melts into drops).            */
 /* ------------------------------------------------------------------------ */
 export class Slime extends Hazard {
   t = 0;
   phase = 0;
-  cool = 0;
   reset(ctx: HazardContext): void {
     this.u = this.spawn.u; this.v = this.spawn.v;
     const top = topAt(ctx.level, this.u, this.v); this.z = top ? top.z : 0;
@@ -202,14 +190,12 @@ export class Slime extends Hazard {
     const tv = this.spawn.v + Math.sin(this.t * 0.31 + this.phase * 1.7) * range;
     const sup = supportAt(ctx.level, tu, tv, this.z + 4, 6);
     if (sup && Math.abs(sup.z - this.z) < 6) { this.u = tu; this.v = tv; this.z = sup.z; }
-    if (this.cool > 0) this.cool -= dt;
     for (const mb of ctx.marbles) {
       if (mb.phase !== 'alive' || mb.inPipe || !mb.grounded) continue;
-      if (dist(this, mb) < 1.0 && Math.abs(mb.z - this.z) < 8 && this.cool <= 0 && mb.dizzyT <= 0) {
-        mb.dizzyT = 1.4;
-        mb.vu *= 0.5; mb.vv *= 0.5;
-        this.cool = 1.5;
-        ctx.onEvent({ type: 'sfx', name: 'fall', vol: 0.6 });
+      if (dist(this, mb) < 0.9 && Math.abs(mb.z - this.z) < 8) {
+        mb.u = this.u; mb.v = this.v;
+        mb.die('dissolve');
+        ctx.onEvent({ type: 'sfx', name: 'fall', vol: 0.8 });
       }
     }
   }
@@ -221,7 +207,8 @@ export class Slime extends Hazard {
 }
 
 /* ------------------------------------------------------------------------ */
-/* Hammer: fixed spot, pounds periodically                                  */
+/* Hammer: a mallet that swings round its pivot like a clock hand and       */
+/* flattens anything the head sweeps over (review clip: intermedidate_hammers) */
 /* ------------------------------------------------------------------------ */
 export class Hammer extends Hazard {
   t = 0;
@@ -229,15 +216,22 @@ export class Hammer extends Hazard {
     const top = topAt(ctx.level, this.spawn.u, this.spawn.v); this.z = top ? top.z : 0;
     this.t = this.spawn.phase ?? 0;
   }
-  /** 0..1 within the pound cycle */
-  cycle(): number { const p = this.spawn.period ?? 2.2; return (this.t % p) / p; }
-  headDown(): boolean { const c = this.cycle(); return c > 0.62 && c < 0.8; }
+  /** current angle of the handle in screen space (0 = pointing right, grows clockwise) */
+  angle(): number { const p = this.spawn.period ?? 2.4; return ((this.t % p) / p) * Math.PI * 2 * (this.spawn.facing === -1 ? -1 : 1); }
+  /** world position of the head */
+  head(): { u: number; v: number } {
+    const a = this.angle(); const R = 14;
+    const d = screenDirToWorld(Math.cos(a) * R / 8, Math.sin(a) * R / 8);
+    // screenDirToWorld preserves magnitude in tiles; scale so the head is ~1.75 tiles out
+    const m = Math.hypot(d.du, d.dv) || 1;
+    return { u: this.u + (d.du / m) * 1.75, v: this.v + (d.dv / m) * 1.75 };
+  }
   update(dt: number, ctx: HazardContext): void {
     this.t += dt;
-    if (!this.headDown()) return;
+    const h = this.head();
     for (const mb of ctx.marbles) {
       if (mb.phase !== 'alive' || mb.inPipe) continue;
-      if (dist(this, mb) < 1.1 && Math.abs(mb.z - this.z) < 10) {
+      if (dist(h, mb) < 0.95 && Math.abs(mb.z - this.z) < 12) {
         mb.die('crush');
         ctx.onEvent({ type: 'sfx', name: 'shatter' });
       }
@@ -245,61 +239,165 @@ export class Hammer extends Hazard {
   }
   sprites(ctx: HazardContext, out: Sprite[]): void {
     const frames = FRAMES.hammer;
-    const c = this.cycle();
-    // raise slowly (frames 0..3), fall fast (4..7), rest down
-    let idx: number;
-    if (c < 0.6) idx = Math.min(3, Math.floor(c / 0.6 * 4));
-    else if (c < 0.7) idx = 4 + Math.min(3, Math.floor((c - 0.6) / 0.1 * 4));
-    else idx = 7;
-    const f = frames[idx];
-    out.push({ img: ctx.assets.sheets.hammer, frame: f, u: this.u, v: this.v, z: this.z, dy: 2, flip: this.spawn.facing === -1, depthBias: 3 });
+    const a = ((this.angle() % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const idx = Math.floor(a / (Math.PI * 2) * frames.length) % frames.length;
+    out.push({ img: ctx.assets.sheets.hammer, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 4, depthBias: 3 });
   }
 }
 
 /* ------------------------------------------------------------------------ */
-/* Vacuum: fixed spot, rises periodically and sucks the marble in           */
+/* Vacuum: a box on the floor that inhales a marble rolling past its mouth  */
+/* (review clip: vaccum_review).                                            */
 /* ------------------------------------------------------------------------ */
 export class Vacuum extends Hazard {
   t = 0;
-  victim: Marble | null = null;
+  pull = 0;          // 0..1 how hard it is currently sucking
+  swallow = 0;
   reset(ctx: HazardContext): void {
     const top = topAt(ctx.level, this.spawn.u, this.spawn.v); this.z = top ? top.z : 0;
-    this.t = this.spawn.phase ?? 0; this.victim = null;
-  }
-  /** 0..1 raised amount */
-  raised(): number {
-    const p = this.spawn.period ?? 5;
-    const c = (this.t % p) / p;
-    if (c < 0.25) return c / 0.25;          // rising
-    if (c < 0.6) return 1;                  // up
-    if (c < 0.75) return 1 - (c - 0.6) / 0.15; // lowering
-    return 0;                               // hidden
+    this.t = this.spawn.phase ?? 0; this.pull = 0; this.swallow = 0;
   }
   update(dt: number, ctx: HazardContext): void {
     this.t += dt;
-    const r = this.raised();
-    if (r < 0.9) return;
+    if (this.swallow > 0) this.swallow -= dt;
+    let sucking = false;
+    const R = this.spawn.range ?? 3.4;
     for (const mb of ctx.marbles) {
       if (mb.phase !== 'alive' || mb.inPipe) continue;
       const d = dist(this, mb);
-      if (d < 3.2 && Math.abs(mb.z - this.z) < 12) {
-        // suction toward the nozzle
-        const k = (1 - d / 3.2) * 26 * dt;
+      if (d < R && Math.abs(mb.z - this.z) < 12) {
+        sucking = true;
+        const k = (1 - d / R) * 30 * dt;
         mb.impU += (this.u - mb.u) / (d || 1) * k; mb.impV += (this.v - mb.v) / (d || 1) * k;
         if (d < 0.9) {
           mb.squeezeDir = (mb.u - mb.v) < (this.u - this.v) ? 1 : -1;
           mb.die('squeeze');
+          this.swallow = 1.2;
           ctx.onEvent({ type: 'sfx', name: 'springboard' });
+        }
+      }
+    }
+    this.pull += ((sucking || this.swallow > 0 ? 1 : 0) - this.pull) * Math.min(1, dt * 6);
+  }
+  sprites(ctx: HazardContext, out: Sprite[]): void {
+    const frames = FRAMES.vacuum;
+    // idle: slot barely moves; sucking: mouth animation runs through the frames
+    const idx = this.pull > 0.2 ? Math.floor(this.t * 12) % frames.length : Math.floor(this.t * 1.5) % 3;
+    out.push({ img: ctx.assets.sheets.vacuum, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 3, flip: this.spawn.facing === -1, depthBias: 2 });
+  }
+}
+
+/* ------------------------------------------------------------------------ */
+/* Risers: a pad of pistons that pop up in a travelling wave. Up pistons    */
+/* block; a piston rising under the marble launches it ("catapult").        */
+/* (review clip: aerial_race_catapault_and_risers)                          */
+/* ------------------------------------------------------------------------ */
+interface Piston { u: number; v: number; phase: number; rise: number; wasUp: boolean }
+export class Risers extends Hazard {
+  t = 0;
+  pistons: Piston[] = [];
+  reset(ctx: HazardContext): void {
+    const top = topAt(ctx.level, this.spawn.u, this.spawn.v); this.z = top ? top.z : 0;
+    const [nu, nv] = this.spawn.size ?? [3, 3];
+    this.pistons = [];
+    for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
+      this.pistons.push({ u: this.spawn.u + (i - (nu - 1) / 2), v: this.spawn.v + (j - (nv - 1) / 2), phase: (i + j) * 0.18 + (this.spawn.phase ?? 0), rise: 0, wasUp: false });
+    }
+    this.t = 0;
+  }
+  private riseAt(p: Piston): number {
+    const period = this.spawn.period ?? 3.2;
+    const c = (((this.t + p.phase) % period) + period) % period / period;
+    if (c < 0.55) return 0;
+    if (c < 0.65) return (c - 0.55) / 0.10;
+    if (c < 0.90) return 1;
+    return 1 - (c - 0.90) / 0.10;
+  }
+  update(dt: number, ctx: HazardContext): void {
+    this.t += dt;
+    const launch = this.spawn.launch ?? { du: 0, dv: 0 };
+    for (const p of this.pistons) {
+      const before = p.rise;
+      p.rise = this.riseAt(p);
+      for (const mb of ctx.marbles) {
+        if (mb.phase !== 'alive' || mb.inPipe) continue;
+        const d = dist(p, mb);
+        if (d > 0.9 || Math.abs(mb.z - this.z) > 16) continue;
+        if (before <= 0.05 && p.rise > 0.05 && mb.grounded && d < 0.7) {
+          // popped underneath: catapult
+          mb.grounded = false; mb.vz = 150; mb.maxZ = mb.z; mb.airT = 0;
+          mb.vu += launch.du; mb.vv += launch.dv;
+          ctx.onEvent({ type: 'sfx', name: 'springboard' });
+        } else if (p.rise > 0.4 && mb.grounded) {
+          // solid piston: shove the marble off it
+          const k = (0.9 - d) * 22 * dt + 0.02;
+          mb.impU += (mb.u - p.u) / (d || 1) * k; mb.impV += (mb.v - p.v) / (d || 1) * k;
+          mb.u += (mb.u - p.u) / (d || 1) * Math.max(0, 0.75 - d);
+          mb.v += (mb.v - p.v) / (d || 1) * Math.max(0, 0.75 - d);
         }
       }
     }
   }
   sprites(ctx: HazardContext, out: Sprite[]): void {
-    const frames = FRAMES.vacuum;
-    const r = this.raised();
-    if (r <= 0.01) return;
-    const idx = Math.min(frames.length - 1, Math.floor(r * (frames.length - 1)));
-    out.push({ img: ctx.assets.sheets.vacuum, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 4, flip: this.spawn.facing === -1, depthBias: 3 });
+    const frames = [...FRAMES.riser].sort((a, b) => a.h - b.h);
+    for (const p of this.pistons) {
+      if (p.rise <= 0.02) continue;
+      const idx = Math.min(frames.length - 1, Math.floor(p.rise * frames.length));
+      out.push({ img: ctx.assets.sheets.riser, frame: frames[idx], u: p.u, v: p.v, z: this.z, dy: 3, depthBias: 2 });
+    }
+  }
+}
+
+/* ------------------------------------------------------------------------ */
+/* Wave plate: a hump travels along the plate and carries the marble with it */
+/* (review clip: intermediate_level_waves).                                 */
+/* ------------------------------------------------------------------------ */
+export class WavePlate extends Hazard {
+  t = 0;
+  reset(ctx: HazardContext): void { const top = topAt(ctx.level, this.spawn.u, this.spawn.v); this.z = top ? top.z : 0; this.t = 0; }
+  /** hump centre along u for the current time */
+  humpU(): number {
+    const r = this.spawn.rect!; const period = this.spawn.period ?? 2.6;
+    const c = (this.t % period) / period;
+    return r.u0 - 1.5 + c * (r.u1 - r.u0 + 3);
+  }
+  update(dt: number, ctx: HazardContext): void {
+    this.t += dt;
+    const r = this.spawn.rect; if (!r) return;
+    const hu = this.humpU();
+    for (const mb of ctx.marbles) {
+      if (mb.phase !== 'alive' || mb.inPipe || !mb.grounded) continue;
+      if (mb.v < r.v0 || mb.v > r.v1 || Math.abs(mb.z - this.z) > 14) continue;
+      const d = mb.u - hu;
+      if (Math.abs(d) < 1.6) {
+        // ride the hump: push forward, stronger on the front slope
+        mb.impU += (d < 0 ? 5.5 : 2.5) * dt;
+        if (Math.abs(d) < 0.6 && mb.vz <= 0 && mb.grounded && ctx.rng() < dt * 4) { mb.grounded = false; mb.vz = 60; mb.maxZ = mb.z; mb.airT = 0; }
+      }
+    }
+  }
+  sprites(): void { /* drawn as an overlay */ }
+  drawOverlay(ctx2d: CanvasRenderingContext2D, project: Project): void {
+    const r = this.spawn.rect; if (!r) return;
+    const hu = this.humpU();
+    const u0 = Math.max(r.u0, hu - 1.6), u1 = Math.min(r.u1, hu + 1.6);
+    if (u1 <= u0) return;
+    const H = 9; // hump height in px
+    const p = (u: number, v: number, dz: number) => project(u, v, this.z + dz);
+    // lit front slope
+    ctx2d.fillStyle = 'rgba(120,190,80,0.95)';
+    ctx2d.beginPath();
+    let a = p(u0, r.v0, 0), b = p(hu, r.v0, H), c = p(hu, r.v1, H), d = p(u0, r.v1, 0);
+    ctx2d.moveTo(a.x, a.y); ctx2d.lineTo(b.x, b.y); ctx2d.lineTo(c.x, c.y); ctx2d.lineTo(d.x, d.y); ctx2d.closePath(); ctx2d.fill();
+    // shaded back slope
+    ctx2d.fillStyle = 'rgba(40,90,40,0.95)';
+    ctx2d.beginPath();
+    a = p(hu, r.v0, H); b = p(u1, r.v0, 0); c = p(u1, r.v1, 0); d = p(hu, r.v1, H);
+    ctx2d.moveTo(a.x, a.y); ctx2d.lineTo(b.x, b.y); ctx2d.lineTo(c.x, c.y); ctx2d.lineTo(d.x, d.y); ctx2d.closePath(); ctx2d.fill();
+    // crest line
+    ctx2d.strokeStyle = 'rgba(200,240,160,0.9)'; ctx2d.lineWidth = 1;
+    a = p(hu, r.v0, H); b = p(hu, r.v1, H);
+    ctx2d.beginPath(); ctx2d.moveTo(a.x, a.y); ctx2d.lineTo(b.x, b.y); ctx2d.stroke();
   }
 }
 
@@ -321,7 +419,6 @@ export class Birds extends Hazard {
     const inBand = !band || (target.u + target.v >= band[0] && target.u + target.v <= band[1]);
     this.next -= dt;
     if (this.next <= 0 && inBand && target.phase === 'alive') {
-      // launch a flock across the marble in screen space
       const n = this.spawn.count ?? 4;
       const fromLeft = ctx.rng() < 0.5;
       const sx = (target.u - target.v) * 8, sy = (target.u + target.v) * 4 - target.z;
@@ -337,7 +434,6 @@ export class Birds extends Hazard {
     if (this.zapT > 0) this.zapT -= dt;
     for (const b of this.units) {
       b.x += b.vx * dt; b.y += b.vy * dt;
-      // zap check (screen-space proximity to the marble)
       const sx = (target.u - target.v) * 8, sy = (target.u + target.v) * 4 - target.z - 6;
       if (target.phase === 'alive' && !target.inPipe && Math.abs(b.x - sx) < 7 && Math.abs(b.y - sy) < 9 && ctx.rng() < 0.35) {
         this.zapT = 0.5; this.zapAt = { u: target.u, v: target.v, z: target.z };
@@ -350,7 +446,6 @@ export class Birds extends Hazard {
     const frames = FRAMES.bird;
     for (const b of this.units) {
       const f = frames[2 + (Math.floor((this.t + b.phase) * 10) % 2)];
-      // convert screen (map) coordinates back to a world point with z=0 for sorting
       const S = b.y / 4, D = b.x / 8;
       out.push({ img: ctx.assets.sheets.bird, frame: f, u: (S + D) / 2, v: (S - D) / 2, z: 0, flip: b.vx < 0, depthBias: 500 });
     }
@@ -410,5 +505,7 @@ export function makeHazard(h: HazardSpawn): Hazard {
     case 'vacuum': return new Vacuum(h);
     case 'birds': return new Birds(h);
     case 'wand': return new Wand(h);
+    case 'risers': return new Risers(h);
+    case 'wave': return new WavePlate(h);
   }
 }

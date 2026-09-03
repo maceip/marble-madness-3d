@@ -102,7 +102,7 @@ export interface Pipe {
   bonus?: number;
 }
 
-export type HazardKind = 'steelie' | 'worm' | 'slime' | 'hammer' | 'vacuum' | 'birds' | 'wand';
+export type HazardKind = 'steelie' | 'worm' | 'slime' | 'hammer' | 'vacuum' | 'birds' | 'wand' | 'risers' | 'wave';
 
 export interface HazardSpawn {
   kind: HazardKind;
@@ -115,6 +115,11 @@ export interface HazardSpawn {
   phase?: number;
   count?: number;
   facing?: 1 | -1;
+  /** riser pad: tiles along u and v; launch velocity given to a marble popped by a piston */
+  size?: [number, number];
+  launch?: { du: number; dv: number };
+  /** wave plate: rectangle in world tiles the hump travels along (+u) */
+  rect?: { u0: number; v0: number; u1: number; v1: number };
 }
 
 export interface StageDef {

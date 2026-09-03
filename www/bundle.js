@@ -864,6 +864,32 @@ var FRAMES = {
       "py": 11
     }
   ],
+  "riser": [
+    {
+      "x": 0,
+      "y": 17,
+      "w": 7,
+      "h": 8,
+      "px": 3,
+      "py": 7
+    },
+    {
+      "x": 8,
+      "y": 9,
+      "w": 7,
+      "h": 16,
+      "px": 3,
+      "py": 15
+    },
+    {
+      "x": 16,
+      "y": 1,
+      "w": 7,
+      "h": 24,
+      "px": 3,
+      "py": 23
+    }
+  ],
   "objects": {
     "logo": [
       {
@@ -877,12 +903,12 @@ var FRAMES = {
     ],
     "steelie": [
       {
-        "x": 329,
-        "y": 963,
-        "w": 18,
-        "h": 14,
-        "px": 9,
-        "py": 7
+        "x": 10,
+        "y": 482,
+        "w": 16,
+        "h": 16,
+        "px": 8,
+        "py": 8
       }
     ]
   }
@@ -966,7 +992,7 @@ var Assets = class {
   font;
   stages = /* @__PURE__ */ new Map();
   async load(onProgress) {
-    const names = ["marble", "marbleRed", "worm", "slime", "bird", "hammer", "vacuum", "objects"];
+    const names = ["marble", "marbleRed", "worm", "slime", "bird", "hammer", "vacuum", "riser", "objects"];
     const files = {
       marble: "sprites/marble_effects.png",
       marbleRed: "sprites/marble_effects_red.png",
@@ -975,6 +1001,7 @@ var Assets = class {
       bird: "sprites/bird.png",
       hammer: "sprites/hammer.png",
       vacuum: "sprites/vacuum.png",
+      riser: "sprites/riser.png",
       objects: "sprites/objects.png"
     };
     let done = 0;
@@ -1037,7 +1064,7 @@ var DIZZY_FALL = 18;
 var SHATTER_FALL = 46;
 var DIZZY_TIME = 1.25;
 var VOID_FALL_TIME = 1.1;
-var DEATH_ANIM = { shatter: 2.6, squeeze: 1.1, dissolve: 1.2, crush: 0.6, zap: 2.2, void: 1 };
+var DEATH_ANIM = { shatter: 2.6, squeeze: 1.2, dissolve: 1.5, crush: 0.6, zap: 2.2, void: 1 };
 var RESPAWN_DELAY = 0.4;
 var PROGRESS_STEP = 2;
 var PROGRESS_POINTS = 10;
@@ -2278,7 +2305,11 @@ L3.pipe({
   duration: 1.5,
   bonus: 2e3
 });
-L3.band(64, 272, 812, 12, -40, 0, 0, "plate");
+var plate = L3.band(64, 272, 812, 12, -40, 0, 0, "plate");
+{
+  const a = L3.uv(64, 836, -40), b = L3.uv(272, 888, -40);
+  L3.hazard({ kind: "wave", u: (a.u + b.u) / 2, v: (a.v + b.v) / 2, period: 2.6, rect: { u0: Math.min(a.u, b.u), v0: Math.min(a.v, b.v) - 4, u1: Math.max(a.u, b.u), v1: Math.max(a.v, b.v) + 4 } });
+}
 L3.strip(120, 880, -40, 60, 1e3, -100, 3, "waveL");
 L3.strip(210, 880, -40, 140, 1e3, -100, 3, "waveR");
 L3.strip(80, 1e3, -100, 230, 1040, -120, 4, "goalRun");
@@ -2298,7 +2329,7 @@ L3.checkpoint(c32.u, c32.v);
 L3.zone("checkpoint", c32.u - 6, c32.v - 6, c32.u + 6, c32.v + 6, 3, "cp3", -55, -25);
 var goal3 = L3.uv(232, 1036, -120);
 L3.zone("goal", goal3.u - 3.5, goal3.v - 3.5, goal3.u + 3.5, goal3.v + 3.5, void 0, "goal", -135, -105);
-for (const [x, y] of [[40, 300], [235, 300], [120, 560]]) {
+for (const [x, y] of [[60, 330], [220, 330], [120, 560]]) {
   const p = L3.uv(x, y, 100);
   L3.hazard({ kind: "slime", u: p.u, v: p.v, range: 2 });
 }
@@ -2346,13 +2377,21 @@ var signC3 = L4.uv(88, 972, -112);
 L4.rect(signC3.u - 3.5, signC3.v - 3.5, signC3.u + 3.5, signC3.v + 3.5, -112, 0, 0, "goalSign");
 L4.zone("bonus", signC3.u - 4, signC3.v - 4, signC3.u + 4, signC3.v + 4, 4e3, "goalflags", -130, -95);
 L4.zone("goal", signC3.u - 3.5, signC3.v - 3.5, signC3.u + 3.5, signC3.v + 3.5, void 0, "goal", -130, -95);
-for (const [x, y, f] of [[120, 330, 1], [190, 470, -1]]) {
+for (const [x, y, f] of [[135, 330, 1], [210, 420, -1], [95, 505, 1]]) {
   const p = L4.uv(x, y, 100);
+  L4.hazard({ kind: "vacuum", u: p.u, v: p.v, range: 3.2, facing: f });
+}
+for (const [x, y, du, dv] of [[27, 515, 3, -1], [91, 567, 3, -1], [123, 639, 1, 3], [165, 553, 3, 1]]) {
+  const p = L4.uv(x, y, 100);
+  L4.hazard({ kind: "risers", u: p.u, v: p.v, size: [3, 3], period: 3.2, phase: Math.random() * 3, launch: { du, dv } });
+}
+for (const [x, y, f] of [[150, 930, 1], [205, 905, -1]]) {
+  const p = L4.uv(x, y, -80);
   L4.hazard({ kind: "hammer", u: p.u, v: p.v, period: 2.4, phase: Math.random() * 2, facing: f });
 }
-for (const [x, y] of [[26, 516], [90, 568], [122, 640]]) {
-  const p = L4.uv(x, y, 100);
-  L4.hazard({ kind: "vacuum", u: p.u, v: p.v, period: 6, phase: Math.random() * 6 });
+{
+  const p = L4.uv(200, 700, 8);
+  L4.hazard({ kind: "steelie", u: p.u, v: p.v });
 }
 var stage4 = L4.build();
 
@@ -2395,10 +2434,6 @@ var goalC = L5.uv(150, 62, 385);
 L5.rect(goalC.u - 3.5, goalC.v - 3.5, goalC.u + 3.5, goalC.v + 3.5, 385, 0, 0, "goalSign");
 L5.zone("bonus", goalC.u - 4, goalC.v - 4, goalC.u + 4, goalC.v + 4, 2e3, "goalflags", 370, 400);
 L5.zone("goal", goalC.u - 3.5, goalC.v - 3.5, goalC.u + 3.5, goalC.v + 3.5, void 0, "goal", 370, 400);
-for (const [x, y] of [[100, 800], [190, 810], [150, 845]]) {
-  const p = L5.uv(x, y, 177);
-  L5.hazard({ kind: "slime", u: p.u, v: p.v, range: 2 });
-}
 L5.hazard({ kind: "birds", u: 0, v: 0, band: [40, 140], period: 7, count: 4 });
 L5.hazard({ kind: "wand", u: 0, v: 0, band: [150, 260] });
 var stage5 = L5.build();
@@ -2469,9 +2504,6 @@ var Steelie = class extends Hazard {
   wv = 0;
   active = true;
   respawnT = 0;
-  constructor(spawn) {
-    super(spawn);
-  }
   reset(ctx) {
     const top = topAt(ctx.level, this.spawn.u, this.spawn.v);
     this.ball.place(this.spawn.u, this.spawn.v, top ? top.z : 0);
@@ -2541,7 +2573,6 @@ var Worm = class extends Hazard {
   dirV = 0;
   eating = 0;
   stunned = 0;
-  hop = 0;
   reset(ctx) {
     this.u = this.spawn.u;
     this.v = this.spawn.v;
@@ -2631,7 +2662,6 @@ var Worm = class extends Hazard {
 var Slime = class extends Hazard {
   t = 0;
   phase = 0;
-  cool = 0;
   reset(ctx) {
     this.u = this.spawn.u;
     this.v = this.spawn.v;
@@ -2650,15 +2680,13 @@ var Slime = class extends Hazard {
       this.v = tv;
       this.z = sup.z;
     }
-    if (this.cool > 0) this.cool -= dt;
     for (const mb of ctx.marbles) {
       if (mb.phase !== "alive" || mb.inPipe || !mb.grounded) continue;
-      if (dist(this, mb) < 1 && Math.abs(mb.z - this.z) < 8 && this.cool <= 0 && mb.dizzyT <= 0) {
-        mb.dizzyT = 1.4;
-        mb.vu *= 0.5;
-        mb.vv *= 0.5;
-        this.cool = 1.5;
-        ctx.onEvent({ type: "sfx", name: "fall", vol: 0.6 });
+      if (dist(this, mb) < 0.9 && Math.abs(mb.z - this.z) < 8) {
+        mb.u = this.u;
+        mb.v = this.v;
+        mb.die("dissolve");
+        ctx.onEvent({ type: "sfx", name: "fall", vol: 0.8 });
       }
     }
   }
@@ -2675,21 +2703,25 @@ var Hammer = class extends Hazard {
     this.z = top ? top.z : 0;
     this.t = this.spawn.phase ?? 0;
   }
-  /** 0..1 within the pound cycle */
-  cycle() {
-    const p = this.spawn.period ?? 2.2;
-    return this.t % p / p;
+  /** current angle of the handle in screen space (0 = pointing right, grows clockwise) */
+  angle() {
+    const p = this.spawn.period ?? 2.4;
+    return this.t % p / p * Math.PI * 2 * (this.spawn.facing === -1 ? -1 : 1);
   }
-  headDown() {
-    const c = this.cycle();
-    return c > 0.62 && c < 0.8;
+  /** world position of the head */
+  head() {
+    const a = this.angle();
+    const R = 14;
+    const d = screenDirToWorld(Math.cos(a) * R / 8, Math.sin(a) * R / 8);
+    const m = Math.hypot(d.du, d.dv) || 1;
+    return { u: this.u + d.du / m * 1.75, v: this.v + d.dv / m * 1.75 };
   }
   update(dt, ctx) {
     this.t += dt;
-    if (!this.headDown()) return;
+    const h = this.head();
     for (const mb of ctx.marbles) {
       if (mb.phase !== "alive" || mb.inPipe) continue;
-      if (dist(this, mb) < 1.1 && Math.abs(mb.z - this.z) < 10) {
+      if (dist(h, mb) < 0.95 && Math.abs(mb.z - this.z) < 12) {
         mb.die("crush");
         ctx.onEvent({ type: "sfx", name: "shatter" });
       }
@@ -2697,58 +2729,183 @@ var Hammer = class extends Hazard {
   }
   sprites(ctx, out) {
     const frames = FRAMES.hammer;
-    const c = this.cycle();
-    let idx;
-    if (c < 0.6) idx = Math.min(3, Math.floor(c / 0.6 * 4));
-    else if (c < 0.7) idx = 4 + Math.min(3, Math.floor((c - 0.6) / 0.1 * 4));
-    else idx = 7;
-    const f = frames[idx];
-    out.push({ img: ctx.assets.sheets.hammer, frame: f, u: this.u, v: this.v, z: this.z, dy: 2, flip: this.spawn.facing === -1, depthBias: 3 });
+    const a = (this.angle() % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+    const idx = Math.floor(a / (Math.PI * 2) * frames.length) % frames.length;
+    out.push({ img: ctx.assets.sheets.hammer, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 4, depthBias: 3 });
   }
 };
 var Vacuum = class extends Hazard {
   t = 0;
-  victim = null;
+  pull = 0;
+  // 0..1 how hard it is currently sucking
+  swallow = 0;
   reset(ctx) {
     const top = topAt(ctx.level, this.spawn.u, this.spawn.v);
     this.z = top ? top.z : 0;
     this.t = this.spawn.phase ?? 0;
-    this.victim = null;
-  }
-  /** 0..1 raised amount */
-  raised() {
-    const p = this.spawn.period ?? 5;
-    const c = this.t % p / p;
-    if (c < 0.25) return c / 0.25;
-    if (c < 0.6) return 1;
-    if (c < 0.75) return 1 - (c - 0.6) / 0.15;
-    return 0;
+    this.pull = 0;
+    this.swallow = 0;
   }
   update(dt, ctx) {
     this.t += dt;
-    const r = this.raised();
-    if (r < 0.9) return;
+    if (this.swallow > 0) this.swallow -= dt;
+    let sucking = false;
+    const R = this.spawn.range ?? 3.4;
     for (const mb of ctx.marbles) {
       if (mb.phase !== "alive" || mb.inPipe) continue;
       const d = dist(this, mb);
-      if (d < 3.2 && Math.abs(mb.z - this.z) < 12) {
-        const k = (1 - d / 3.2) * 26 * dt;
+      if (d < R && Math.abs(mb.z - this.z) < 12) {
+        sucking = true;
+        const k = (1 - d / R) * 30 * dt;
         mb.impU += (this.u - mb.u) / (d || 1) * k;
         mb.impV += (this.v - mb.v) / (d || 1) * k;
         if (d < 0.9) {
           mb.squeezeDir = mb.u - mb.v < this.u - this.v ? 1 : -1;
           mb.die("squeeze");
+          this.swallow = 1.2;
           ctx.onEvent({ type: "sfx", name: "springboard" });
+        }
+      }
+    }
+    this.pull += ((sucking || this.swallow > 0 ? 1 : 0) - this.pull) * Math.min(1, dt * 6);
+  }
+  sprites(ctx, out) {
+    const frames = FRAMES.vacuum;
+    const idx = this.pull > 0.2 ? Math.floor(this.t * 12) % frames.length : Math.floor(this.t * 1.5) % 3;
+    out.push({ img: ctx.assets.sheets.vacuum, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 3, flip: this.spawn.facing === -1, depthBias: 2 });
+  }
+};
+var Risers = class extends Hazard {
+  t = 0;
+  pistons = [];
+  reset(ctx) {
+    const top = topAt(ctx.level, this.spawn.u, this.spawn.v);
+    this.z = top ? top.z : 0;
+    const [nu, nv] = this.spawn.size ?? [3, 3];
+    this.pistons = [];
+    for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
+      this.pistons.push({ u: this.spawn.u + (i - (nu - 1) / 2), v: this.spawn.v + (j - (nv - 1) / 2), phase: (i + j) * 0.18 + (this.spawn.phase ?? 0), rise: 0, wasUp: false });
+    }
+    this.t = 0;
+  }
+  riseAt(p) {
+    const period = this.spawn.period ?? 3.2;
+    const c = ((this.t + p.phase) % period + period) % period / period;
+    if (c < 0.55) return 0;
+    if (c < 0.65) return (c - 0.55) / 0.1;
+    if (c < 0.9) return 1;
+    return 1 - (c - 0.9) / 0.1;
+  }
+  update(dt, ctx) {
+    this.t += dt;
+    const launch = this.spawn.launch ?? { du: 0, dv: 0 };
+    for (const p of this.pistons) {
+      const before = p.rise;
+      p.rise = this.riseAt(p);
+      for (const mb of ctx.marbles) {
+        if (mb.phase !== "alive" || mb.inPipe) continue;
+        const d = dist(p, mb);
+        if (d > 0.9 || Math.abs(mb.z - this.z) > 16) continue;
+        if (before <= 0.05 && p.rise > 0.05 && mb.grounded && d < 0.7) {
+          mb.grounded = false;
+          mb.vz = 150;
+          mb.maxZ = mb.z;
+          mb.airT = 0;
+          mb.vu += launch.du;
+          mb.vv += launch.dv;
+          ctx.onEvent({ type: "sfx", name: "springboard" });
+        } else if (p.rise > 0.4 && mb.grounded) {
+          const k = (0.9 - d) * 22 * dt + 0.02;
+          mb.impU += (mb.u - p.u) / (d || 1) * k;
+          mb.impV += (mb.v - p.v) / (d || 1) * k;
+          mb.u += (mb.u - p.u) / (d || 1) * Math.max(0, 0.75 - d);
+          mb.v += (mb.v - p.v) / (d || 1) * Math.max(0, 0.75 - d);
         }
       }
     }
   }
   sprites(ctx, out) {
-    const frames = FRAMES.vacuum;
-    const r = this.raised();
-    if (r <= 0.01) return;
-    const idx = Math.min(frames.length - 1, Math.floor(r * (frames.length - 1)));
-    out.push({ img: ctx.assets.sheets.vacuum, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 4, flip: this.spawn.facing === -1, depthBias: 3 });
+    const frames = [...FRAMES.riser].sort((a, b) => a.h - b.h);
+    for (const p of this.pistons) {
+      if (p.rise <= 0.02) continue;
+      const idx = Math.min(frames.length - 1, Math.floor(p.rise * frames.length));
+      out.push({ img: ctx.assets.sheets.riser, frame: frames[idx], u: p.u, v: p.v, z: this.z, dy: 3, depthBias: 2 });
+    }
+  }
+};
+var WavePlate = class extends Hazard {
+  t = 0;
+  reset(ctx) {
+    const top = topAt(ctx.level, this.spawn.u, this.spawn.v);
+    this.z = top ? top.z : 0;
+    this.t = 0;
+  }
+  /** hump centre along u for the current time */
+  humpU() {
+    const r = this.spawn.rect;
+    const period = this.spawn.period ?? 2.6;
+    const c = this.t % period / period;
+    return r.u0 - 1.5 + c * (r.u1 - r.u0 + 3);
+  }
+  update(dt, ctx) {
+    this.t += dt;
+    const r = this.spawn.rect;
+    if (!r) return;
+    const hu = this.humpU();
+    for (const mb of ctx.marbles) {
+      if (mb.phase !== "alive" || mb.inPipe || !mb.grounded) continue;
+      if (mb.v < r.v0 || mb.v > r.v1 || Math.abs(mb.z - this.z) > 14) continue;
+      const d = mb.u - hu;
+      if (Math.abs(d) < 1.6) {
+        mb.impU += (d < 0 ? 5.5 : 2.5) * dt;
+        if (Math.abs(d) < 0.6 && mb.vz <= 0 && mb.grounded && ctx.rng() < dt * 4) {
+          mb.grounded = false;
+          mb.vz = 60;
+          mb.maxZ = mb.z;
+          mb.airT = 0;
+        }
+      }
+    }
+  }
+  sprites() {
+  }
+  drawOverlay(ctx2d, project) {
+    const r = this.spawn.rect;
+    if (!r) return;
+    const hu = this.humpU();
+    const u0 = Math.max(r.u0, hu - 1.6), u1 = Math.min(r.u1, hu + 1.6);
+    if (u1 <= u0) return;
+    const H = 9;
+    const p = (u, v, dz) => project(u, v, this.z + dz);
+    ctx2d.fillStyle = "rgba(120,190,80,0.95)";
+    ctx2d.beginPath();
+    let a = p(u0, r.v0, 0), b = p(hu, r.v0, H), c = p(hu, r.v1, H), d = p(u0, r.v1, 0);
+    ctx2d.moveTo(a.x, a.y);
+    ctx2d.lineTo(b.x, b.y);
+    ctx2d.lineTo(c.x, c.y);
+    ctx2d.lineTo(d.x, d.y);
+    ctx2d.closePath();
+    ctx2d.fill();
+    ctx2d.fillStyle = "rgba(40,90,40,0.95)";
+    ctx2d.beginPath();
+    a = p(hu, r.v0, H);
+    b = p(u1, r.v0, 0);
+    c = p(u1, r.v1, 0);
+    d = p(hu, r.v1, H);
+    ctx2d.moveTo(a.x, a.y);
+    ctx2d.lineTo(b.x, b.y);
+    ctx2d.lineTo(c.x, c.y);
+    ctx2d.lineTo(d.x, d.y);
+    ctx2d.closePath();
+    ctx2d.fill();
+    ctx2d.strokeStyle = "rgba(200,240,160,0.9)";
+    ctx2d.lineWidth = 1;
+    a = p(hu, r.v0, H);
+    b = p(hu, r.v1, H);
+    ctx2d.beginPath();
+    ctx2d.moveTo(a.x, a.y);
+    ctx2d.lineTo(b.x, b.y);
+    ctx2d.stroke();
   }
 };
 var Birds = class extends Hazard {
@@ -2868,6 +3025,10 @@ function makeHazard(h) {
       return new Birds(h);
     case "wand":
       return new Wand(h);
+    case "risers":
+      return new Risers(h);
+    case "wave":
+      return new WavePlate(h);
   }
 }
 
@@ -4275,6 +4436,9 @@ var Game = class {
       this.marbleSprites(o, info?.role === "ai" ? this.assets.sheets.marbleRed : this.assets.sheets.marble, sprites);
     }
     r.drawSprites(sprites);
+    for (const h of this.hazards) h.drawOverlay?.(r.ctx, (u, v, z) => r.project(u, v, z), this.raceTime);
+    this.drawDeathParticles(this.marble);
+    for (const o of this.others) this.drawDeathParticles(o);
     for (const [id, o] of this.remote) {
       if (o.phase === "hidden") continue;
       const info = this.remoteInfo.get(id);
@@ -4387,6 +4551,32 @@ var Game = class {
     r.text(`${(m.support ? m.support.s.name ?? "" : "AIR").toUpperCase().slice(0, 14)} ${m.grounded ? "" : "FALL"}`, 2, 42, "cyan");
     r.text(`U${m.u.toFixed(1)} V${m.v.toFixed(1)} S${m.speed.toFixed(1)}`, 2, 52, "cyan");
   }
+  /** blue droplets flying out of a dissolving / vacuumed / zapped marble */
+  drawDeathParticles(m) {
+    if (m.phase !== "dying") return;
+    const t = m.deathT;
+    let start7 = 0, dur = 0;
+    if (m.deathKind === "dissolve") {
+      start7 = 0.45;
+      dur = 0.9;
+    } else if (m.deathKind === "zap") {
+      start7 = 0.3;
+      dur = 1.2;
+    } else if (m.deathKind === "squeeze") {
+      start7 = 0.7;
+      dur = 0.5;
+    } else return;
+    if (t < start7 || t > start7 + dur) return;
+    const k = (t - start7) / dur;
+    const p = this.r.project(m.u, m.v, m.z);
+    const ctx = this.r.ctx;
+    ctx.fillStyle = "#4b6cff";
+    for (let i = 0; i < 9; i++) {
+      const a = i * 0.7 + 0.3, sp = 26 + i % 3 * 9;
+      const x = p.x + Math.cos(a) * sp * k, y = p.y - 6 - Math.sin(a) * 14 * k + 40 * k * k;
+      ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+    }
+  }
   /** choose marble frame(s) from its state */
   marbleSprites(m, img, out) {
     const F = FRAMES.marble;
@@ -4418,7 +4608,7 @@ var Game = class {
           break;
         }
         case "dissolve":
-          out.push({ ...base, frame: F.dissolve[Math.min(3, Math.floor(t / 0.3))] });
+          if (t < 0.6) out.push({ ...base, frame: F.dissolve[Math.min(3, Math.floor(t / 0.15))] });
           break;
         case "crush":
           if (t > 0.3) out.push({ ...base, frame: F.pile[0] });

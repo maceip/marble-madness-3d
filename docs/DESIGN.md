@@ -37,7 +37,7 @@ Timer caps at 99. Wand: +10 s. Silly plaza zone: +3 SEC every ~1.7 s while insid
 Sprite sheet `marble_effects.png` (40 px cell grid):
 - roll: row 0 cols 0–5 (dot pattern advances with distance rolled)
 - squeeze/suck: rows 0–5 cols 7–8 (vacuum / muncher death)
-- dissolve: row 6 cols 0–3 (acid, unused for player since slime → dizzy per brief)
+- dissolve: row 6 cols 0–3 (acid death from slime, followed by blue droplets)
 - dizzy: row 7 cols 0–5 (wisps)
 - crack: row 8 cols 0–2, shards 3, pile+sparkle 4–5
 - sweep: row 9 broom cols 1–6, pile 7
@@ -45,15 +45,18 @@ Physics: world (u,v) tile units, height z px. Projection `sx = 8(u−v)`, `sy = 
 Falls > 40 px → crack + broom; falls 12–40 px → dizzy 1.2 s; step tolerance 3 px; walls bounce (restitution 0.35).
 
 ## Hazards
+Behaviour confirmed from the review clips in `video_review/` where noted.
 | Hazard | Sheet | Stages | Behaviour |
 |---|---|---|---|
-| Steelie (black marble) | objects.png #62 | 2, 6 | AI chases player, elastic bump, can fall off |
+| Steelie (black marble) | objects.png #62 | 2, 4, 6 | AI chases player, elastic bump, can fall off |
 | Worm / Muncher | worm.png | 2, 3 | slinkies end-over-end freely; touching mouth eats marble (squeeze anim, death); bumping its body at speed knocks it back |
-| Slime (acid puddle) | slime.png | 3, 5, 6 | stays in one spot wandering a few tiles; contact → dizzy (brief override of arcade death) |
-| Hammer | hammer.png | 4 | fixed spot, periodic pound; contact while head down → death |
-| Vacuum | vacuum.png | 4 | fixed spot, rises periodically; marble within range while up → sucked (squeeze anim, death) |
+| Slime (acid puddle) | slime.png | 3, 6 | stays in one spot wandering a few tiles; contact **dissolves** the marble into drops (slime_review.mov) |
+| Hammer | hammer.png | 4 (goal run) | mallet swings round its pivot like a clock hand; head sweep flattens the marble (intermedidate_hammers.mov) |
+| Vacuum | vacuum.png (box row of the MS sheet) | 4 (upper zigzag) | yellow box on the floor; marbles within ~3 tiles are pulled in and swallowed (vaccum_review.mov) |
+| Risers / catapult | riser.png (MS pistons, tinted) | 4 (disc pads) | pistons pop up in a travelling wave; up pistons block, one rising under the marble launches it along the pad (aerial_race_catapault_and_risers.mov) |
+| Wave plate | drawn | 3 (green plate) | a hump travels along the plate every ~2.6 s and carries the marble forward (intermediate_level_waves.mov) |
 | Bird | bird.png | 5, 6 | fast fly-bys in flocks; zap (sparkle) → shatter; **brief: respawn at level start** (`BIRD_ZAP_RESETS_TO_START`) |
-| Wand | drawn star | 3 (random) | freezes marble ~1.5 s then +10 s |
+| Wand | drawn star | 3, 5 (random) | freezes marble ~1.5 s then +10 s |
 | Time zone | none | 5 plaza | +3 SEC every 1.7 s |
 
 Deaths respawn at nearest checkpoint behind the death point after the death animation. Every death counts −1000 at the end.

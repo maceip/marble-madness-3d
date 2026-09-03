@@ -28,7 +28,6 @@ L.zone('bonus', goalC.u - 4, goalC.v - 4, goalC.u + 4, goalC.v + 4, 2000, 'goalf
 L.zone('goal', goalC.u - 3.5, goalC.v - 3.5, goalC.u + 3.5, goalC.v + 3.5, undefined, 'goal', 370, 400);
 
 // hazards: slimes on the plaza, birds over the tent field, wand on the green paths
-for (const [x, y] of [[100, 800], [190, 810], [150, 845]] as const) { const p = L.uv(x, y, 177); L.hazard({ kind: 'slime', u: p.u, v: p.v, range: 2 }); }
 L.hazard({ kind: 'birds', u: 0, v: 0, band: [40, 140], period: 7, count: 4 });
 L.hazard({ kind: 'wand', u: 0, v: 0, band: [150, 260] });
 

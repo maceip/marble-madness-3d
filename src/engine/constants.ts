@@ -19,7 +19,7 @@ export const DIZZY_FALL = 18;          // px fall height that stuns
 export const SHATTER_FALL = 46;        // px fall height that shatters
 export const DIZZY_TIME = 1.25;
 export const VOID_FALL_TIME = 1.1;     // s of falling with no floor below before death
-export const DEATH_ANIM = { shatter: 2.6, squeeze: 1.1, dissolve: 1.2, crush: 0.6, zap: 2.2, void: 1.0 } as const;
+export const DEATH_ANIM = { shatter: 2.6, squeeze: 1.2, dissolve: 1.5, crush: 0.6, zap: 2.2, void: 1.0 } as const;
 export const RESPAWN_DELAY = 0.4;
 
 export const PROGRESS_STEP = 2;        // tiles of (u+v) advance per +10 points

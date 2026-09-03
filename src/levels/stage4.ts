@@ -27,8 +27,14 @@ const signC = L.uv(88, 972, -112); L.rect(signC.u - 3.5, signC.v - 3.5, signC.u 
 L.zone('bonus', signC.u - 4, signC.v - 4, signC.u + 4, signC.v + 4, 4000, 'goalflags', -130, -95);
 L.zone('goal', signC.u - 3.5, signC.v - 3.5, signC.u + 3.5, signC.v + 3.5, undefined, 'goal', -130, -95);
 
-// hazards: hammers on the path bends, vacuums on the disc pads
-for (const [x, y, f] of [[120, 330, 1], [190, 470, -1]] as const) { const p = L.uv(x, y, 100); L.hazard({ kind: 'hammer', u: p.u, v: p.v, period: 2.4, phase: Math.random() * 2, facing: f }); }
-for (const [x, y] of [[26, 516], [90, 568], [122, 640]] as const) { const p = L.uv(x, y, 100); L.hazard({ kind: 'vacuum', u: p.u, v: p.v, period: 6, phase: Math.random() * 6 }); }
+// hazards (from the review clips): vacuum boxes on the upper zigzag path, riser pads on the disc
+// fields (pistons pop in a wave; one rising under you catapults you along the launch direction),
+// rotating hammers by the goal run, a steelie on the lower floor
+for (const [x, y, f] of [[135, 330, 1], [210, 420, -1], [95, 505, 1]] as const) { const p = L.uv(x, y, 100); L.hazard({ kind: 'vacuum', u: p.u, v: p.v, range: 3.2, facing: f }); }
+for (const [x, y, du, dv] of [[27, 515, 3, -1], [91, 567, 3, -1], [123, 639, 1, 3], [165, 553, 3, 1]] as const) {
+  const p = L.uv(x, y, 100); L.hazard({ kind: 'risers', u: p.u, v: p.v, size: [3, 3], period: 3.2, phase: Math.random() * 3, launch: { du, dv } });
+}
+for (const [x, y, f] of [[150, 930, 1], [205, 905, -1]] as const) { const p = L.uv(x, y, -80); L.hazard({ kind: 'hammer', u: p.u, v: p.v, period: 2.4, phase: Math.random() * 2, facing: f }); }
+{ const p = L.uv(200, 700, 8); L.hazard({ kind: 'steelie', u: p.u, v: p.v }); }
 
 export const stage4 = L.build();
