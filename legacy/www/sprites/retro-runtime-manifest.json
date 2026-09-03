@@ -1,0 +1,868 @@
+{
+  "source": "Master System Marble Madness sprite sheets",
+  "font": [
+    {
+      "character": "$",
+      "codepoint": 36,
+      "file": "www/sprites/retro-font/char-036.png"
+    },
+    {
+      "character": "%",
+      "codepoint": 37,
+      "file": "www/sprites/retro-font/char-037.png"
+    },
+    {
+      "character": "&",
+      "codepoint": 38,
+      "file": "www/sprites/retro-font/char-038.png"
+    },
+    {
+      "character": "'",
+      "codepoint": 39,
+      "file": "www/sprites/retro-font/char-039.png"
+    },
+    {
+      "character": "(",
+      "codepoint": 40,
+      "file": "www/sprites/retro-font/char-040.png"
+    },
+    {
+      "character": ")",
+      "codepoint": 41,
+      "file": "www/sprites/retro-font/char-041.png"
+    },
+    {
+      "character": "*",
+      "codepoint": 42,
+      "file": "www/sprites/retro-font/char-042.png"
+    },
+    {
+      "character": "+",
+      "codepoint": 43,
+      "file": "www/sprites/retro-font/char-043.png"
+    },
+    {
+      "character": ",",
+      "codepoint": 44,
+      "file": "www/sprites/retro-font/char-044.png"
+    },
+    {
+      "character": "-",
+      "codepoint": 45,
+      "file": "www/sprites/retro-font/char-045.png"
+    },
+    {
+      "character": ".",
+      "codepoint": 46,
+      "file": "www/sprites/retro-font/char-046.png"
+    },
+    {
+      "character": "/",
+      "codepoint": 47,
+      "file": "www/sprites/retro-font/char-047.png"
+    },
+    {
+      "character": "0",
+      "codepoint": 48,
+      "file": "www/sprites/retro-font/char-048.png"
+    },
+    {
+      "character": "1",
+      "codepoint": 49,
+      "file": "www/sprites/retro-font/char-049.png"
+    },
+    {
+      "character": "2",
+      "codepoint": 50,
+      "file": "www/sprites/retro-font/char-050.png"
+    },
+    {
+      "character": "3",
+      "codepoint": 51,
+      "file": "www/sprites/retro-font/char-051.png"
+    },
+    {
+      "character": "4",
+      "codepoint": 52,
+      "file": "www/sprites/retro-font/char-052.png"
+    },
+    {
+      "character": "5",
+      "codepoint": 53,
+      "file": "www/sprites/retro-font/char-053.png"
+    },
+    {
+      "character": "6",
+      "codepoint": 54,
+      "file": "www/sprites/retro-font/char-054.png"
+    },
+    {
+      "character": "7",
+      "codepoint": 55,
+      "file": "www/sprites/retro-font/char-055.png"
+    },
+    {
+      "character": "8",
+      "codepoint": 56,
+      "file": "www/sprites/retro-font/char-056.png"
+    },
+    {
+      "character": "9",
+      "codepoint": 57,
+      "file": "www/sprites/retro-font/char-057.png"
+    },
+    {
+      "character": ":",
+      "codepoint": 58,
+      "file": "www/sprites/retro-font/char-058.png"
+    },
+    {
+      "character": ";",
+      "codepoint": 59,
+      "file": "www/sprites/retro-font/char-059.png"
+    },
+    {
+      "character": "<",
+      "codepoint": 60,
+      "file": "www/sprites/retro-font/char-060.png"
+    },
+    {
+      "character": "=",
+      "codepoint": 61,
+      "file": "www/sprites/retro-font/char-061.png"
+    },
+    {
+      "character": ">",
+      "codepoint": 62,
+      "file": "www/sprites/retro-font/char-062.png"
+    },
+    {
+      "character": "?",
+      "codepoint": 63,
+      "file": "www/sprites/retro-font/char-063.png"
+    },
+    {
+      "character": "@",
+      "codepoint": 64,
+      "file": "www/sprites/retro-font/char-064.png"
+    },
+    {
+      "character": "A",
+      "codepoint": 65,
+      "file": "www/sprites/retro-font/char-065.png"
+    },
+    {
+      "character": "B",
+      "codepoint": 66,
+      "file": "www/sprites/retro-font/char-066.png"
+    },
+    {
+      "character": "C",
+      "codepoint": 67,
+      "file": "www/sprites/retro-font/char-067.png"
+    },
+    {
+      "character": "D",
+      "codepoint": 68,
+      "file": "www/sprites/retro-font/char-068.png"
+    },
+    {
+      "character": "E",
+      "codepoint": 69,
+      "file": "www/sprites/retro-font/char-069.png"
+    },
+    {
+      "character": "F",
+      "codepoint": 70,
+      "file": "www/sprites/retro-font/char-070.png"
+    },
+    {
+      "character": "G",
+      "codepoint": 71,
+      "file": "www/sprites/retro-font/char-071.png"
+    },
+    {
+      "character": "H",
+      "codepoint": 72,
+      "file": "www/sprites/retro-font/char-072.png"
+    },
+    {
+      "character": "I",
+      "codepoint": 73,
+      "file": "www/sprites/retro-font/char-073.png"
+    },
+    {
+      "character": "J",
+      "codepoint": 74,
+      "file": "www/sprites/retro-font/char-074.png"
+    },
+    {
+      "character": "K",
+      "codepoint": 75,
+      "file": "www/sprites/retro-font/char-075.png"
+    },
+    {
+      "character": "L",
+      "codepoint": 76,
+      "file": "www/sprites/retro-font/char-076.png"
+    },
+    {
+      "character": "M",
+      "codepoint": 77,
+      "file": "www/sprites/retro-font/char-077.png"
+    },
+    {
+      "character": "N",
+      "codepoint": 78,
+      "file": "www/sprites/retro-font/char-078.png"
+    },
+    {
+      "character": "O",
+      "codepoint": 79,
+      "file": "www/sprites/retro-font/char-079.png"
+    },
+    {
+      "character": "P",
+      "codepoint": 80,
+      "file": "www/sprites/retro-font/char-080.png"
+    },
+    {
+      "character": "Q",
+      "codepoint": 81,
+      "file": "www/sprites/retro-font/char-081.png"
+    },
+    {
+      "character": "R",
+      "codepoint": 82,
+      "file": "www/sprites/retro-font/char-082.png"
+    },
+    {
+      "character": "S",
+      "codepoint": 83,
+      "file": "www/sprites/retro-font/char-083.png"
+    },
+    {
+      "character": "T",
+      "codepoint": 84,
+      "file": "www/sprites/retro-font/char-084.png"
+    },
+    {
+      "character": "U",
+      "codepoint": 85,
+      "file": "www/sprites/retro-font/char-085.png"
+    },
+    {
+      "character": "V",
+      "codepoint": 86,
+      "file": "www/sprites/retro-font/char-086.png"
+    },
+    {
+      "character": "W",
+      "codepoint": 87,
+      "file": "www/sprites/retro-font/char-087.png"
+    },
+    {
+      "character": "X",
+      "codepoint": 88,
+      "file": "www/sprites/retro-font/char-088.png"
+    },
+    {
+      "character": "Y",
+      "codepoint": 89,
+      "file": "www/sprites/retro-font/char-089.png"
+    },
+    {
+      "character": "Z",
+      "codepoint": 90,
+      "file": "www/sprites/retro-font/char-090.png"
+    },
+    {
+      "character": "[",
+      "codepoint": 91,
+      "file": "www/sprites/retro-font/char-091.png"
+    },
+    {
+      "character": "\\",
+      "codepoint": 92,
+      "file": "www/sprites/retro-font/char-092.png"
+    },
+    {
+      "character": "]",
+      "codepoint": 93,
+      "file": "www/sprites/retro-font/char-093.png"
+    },
+    {
+      "character": "^",
+      "codepoint": 94,
+      "file": "www/sprites/retro-font/char-094.png"
+    },
+    {
+      "character": "_",
+      "codepoint": 95,
+      "file": "www/sprites/retro-font/char-095.png"
+    }
+  ],
+  "marbles": [
+    {
+      "color": "blue",
+      "frame": 0,
+      "file": "www/sprites/retro-marble/blue-00.png"
+    },
+    {
+      "color": "blue",
+      "frame": 1,
+      "file": "www/sprites/retro-marble/blue-01.png"
+    },
+    {
+      "color": "blue",
+      "frame": 2,
+      "file": "www/sprites/retro-marble/blue-02.png"
+    },
+    {
+      "color": "blue",
+      "frame": 3,
+      "file": "www/sprites/retro-marble/blue-03.png"
+    },
+    {
+      "color": "blue",
+      "frame": 4,
+      "file": "www/sprites/retro-marble/blue-04.png"
+    },
+    {
+      "color": "blue",
+      "frame": 5,
+      "file": "www/sprites/retro-marble/blue-05.png"
+    },
+    {
+      "color": "blue",
+      "frame": 6,
+      "file": "www/sprites/retro-marble/blue-06.png"
+    },
+    {
+      "color": "blue",
+      "frame": 7,
+      "file": "www/sprites/retro-marble/blue-07.png"
+    },
+    {
+      "color": "blue",
+      "frame": 8,
+      "file": "www/sprites/retro-marble/blue-08.png"
+    },
+    {
+      "color": "blue",
+      "frame": 9,
+      "file": "www/sprites/retro-marble/blue-09.png"
+    },
+    {
+      "color": "blue",
+      "frame": 10,
+      "file": "www/sprites/retro-marble/blue-10.png"
+    },
+    {
+      "color": "blue",
+      "frame": 11,
+      "file": "www/sprites/retro-marble/blue-11.png"
+    },
+    {
+      "color": "blue",
+      "frame": 12,
+      "file": "www/sprites/retro-marble/blue-12.png"
+    },
+    {
+      "color": "blue",
+      "frame": 13,
+      "file": "www/sprites/retro-marble/blue-13.png"
+    },
+    {
+      "color": "blue",
+      "frame": 14,
+      "file": "www/sprites/retro-marble/blue-14.png"
+    },
+    {
+      "color": "blue",
+      "frame": 15,
+      "file": "www/sprites/retro-marble/blue-15.png"
+    },
+    {
+      "color": "blue",
+      "frame": 16,
+      "file": "www/sprites/retro-marble/blue-16.png"
+    },
+    {
+      "color": "blue",
+      "frame": 17,
+      "file": "www/sprites/retro-marble/blue-17.png"
+    },
+    {
+      "color": "blue",
+      "frame": 18,
+      "file": "www/sprites/retro-marble/blue-18.png"
+    },
+    {
+      "color": "blue",
+      "frame": 19,
+      "file": "www/sprites/retro-marble/blue-19.png"
+    },
+    {
+      "color": "blue",
+      "frame": 20,
+      "file": "www/sprites/retro-marble/blue-20.png"
+    },
+    {
+      "color": "blue",
+      "frame": 21,
+      "file": "www/sprites/retro-marble/blue-21.png"
+    },
+    {
+      "color": "blue",
+      "frame": 22,
+      "file": "www/sprites/retro-marble/blue-22.png"
+    },
+    {
+      "color": "blue",
+      "frame": 23,
+      "file": "www/sprites/retro-marble/blue-23.png"
+    },
+    {
+      "color": "blue",
+      "frame": 24,
+      "file": "www/sprites/retro-marble/blue-24.png"
+    },
+    {
+      "color": "blue",
+      "frame": 25,
+      "file": "www/sprites/retro-marble/blue-25.png"
+    },
+    {
+      "color": "blue",
+      "frame": 26,
+      "file": "www/sprites/retro-marble/blue-26.png"
+    },
+    {
+      "color": "blue",
+      "frame": 27,
+      "file": "www/sprites/retro-marble/blue-27.png"
+    },
+    {
+      "color": "blue",
+      "frame": 28,
+      "file": "www/sprites/retro-marble/blue-28.png"
+    },
+    {
+      "color": "blue",
+      "frame": 29,
+      "file": "www/sprites/retro-marble/blue-29.png"
+    },
+    {
+      "color": "blue",
+      "frame": 30,
+      "file": "www/sprites/retro-marble/blue-30.png"
+    },
+    {
+      "color": "blue",
+      "frame": 31,
+      "file": "www/sprites/retro-marble/blue-31.png"
+    },
+    {
+      "color": "blue",
+      "frame": 32,
+      "file": "www/sprites/retro-marble/blue-32.png"
+    },
+    {
+      "color": "blue",
+      "frame": 33,
+      "file": "www/sprites/retro-marble/blue-33.png"
+    },
+    {
+      "color": "blue",
+      "frame": 34,
+      "file": "www/sprites/retro-marble/blue-34.png"
+    },
+    {
+      "color": "blue",
+      "frame": 35,
+      "file": "www/sprites/retro-marble/blue-35.png"
+    },
+    {
+      "color": "blue",
+      "frame": 36,
+      "file": "www/sprites/retro-marble/blue-36.png"
+    },
+    {
+      "color": "blue",
+      "frame": 37,
+      "file": "www/sprites/retro-marble/blue-37.png"
+    },
+    {
+      "color": "blue",
+      "frame": 38,
+      "file": "www/sprites/retro-marble/blue-38.png"
+    },
+    {
+      "color": "blue",
+      "frame": 39,
+      "file": "www/sprites/retro-marble/blue-39.png"
+    },
+    {
+      "color": "blue",
+      "frame": 40,
+      "file": "www/sprites/retro-marble/blue-40.png"
+    },
+    {
+      "color": "blue",
+      "frame": 41,
+      "file": "www/sprites/retro-marble/blue-41.png"
+    },
+    {
+      "color": "blue",
+      "frame": 42,
+      "file": "www/sprites/retro-marble/blue-42.png"
+    },
+    {
+      "color": "blue",
+      "frame": 43,
+      "file": "www/sprites/retro-marble/blue-43.png"
+    },
+    {
+      "color": "blue",
+      "frame": 44,
+      "file": "www/sprites/retro-marble/blue-44.png"
+    },
+    {
+      "color": "blue",
+      "frame": 45,
+      "file": "www/sprites/retro-marble/blue-45.png"
+    },
+    {
+      "color": "blue",
+      "frame": 46,
+      "file": "www/sprites/retro-marble/blue-46.png"
+    },
+    {
+      "color": "blue",
+      "frame": 47,
+      "file": "www/sprites/retro-marble/blue-47.png"
+    },
+    {
+      "color": "blue",
+      "frame": 48,
+      "file": "www/sprites/retro-marble/blue-48.png"
+    },
+    {
+      "color": "blue",
+      "frame": 49,
+      "file": "www/sprites/retro-marble/blue-49.png"
+    },
+    {
+      "color": "blue",
+      "frame": 50,
+      "file": "www/sprites/retro-marble/blue-50.png"
+    },
+    {
+      "color": "blue",
+      "frame": 51,
+      "file": "www/sprites/retro-marble/blue-51.png"
+    },
+    {
+      "color": "blue",
+      "frame": 52,
+      "file": "www/sprites/retro-marble/blue-52.png"
+    },
+    {
+      "color": "blue",
+      "frame": 53,
+      "file": "www/sprites/retro-marble/blue-53.png"
+    },
+    {
+      "color": "blue",
+      "frame": 54,
+      "file": "www/sprites/retro-marble/blue-54.png"
+    },
+    {
+      "color": "blue",
+      "frame": 55,
+      "file": "www/sprites/retro-marble/blue-55.png"
+    },
+    {
+      "color": "red",
+      "frame": 0,
+      "file": "www/sprites/retro-marble/red-00.png"
+    },
+    {
+      "color": "red",
+      "frame": 1,
+      "file": "www/sprites/retro-marble/red-01.png"
+    },
+    {
+      "color": "red",
+      "frame": 2,
+      "file": "www/sprites/retro-marble/red-02.png"
+    },
+    {
+      "color": "red",
+      "frame": 3,
+      "file": "www/sprites/retro-marble/red-03.png"
+    },
+    {
+      "color": "red",
+      "frame": 4,
+      "file": "www/sprites/retro-marble/red-04.png"
+    },
+    {
+      "color": "red",
+      "frame": 5,
+      "file": "www/sprites/retro-marble/red-05.png"
+    },
+    {
+      "color": "red",
+      "frame": 6,
+      "file": "www/sprites/retro-marble/red-06.png"
+    },
+    {
+      "color": "red",
+      "frame": 7,
+      "file": "www/sprites/retro-marble/red-07.png"
+    },
+    {
+      "color": "red",
+      "frame": 8,
+      "file": "www/sprites/retro-marble/red-08.png"
+    },
+    {
+      "color": "red",
+      "frame": 9,
+      "file": "www/sprites/retro-marble/red-09.png"
+    },
+    {
+      "color": "red",
+      "frame": 10,
+      "file": "www/sprites/retro-marble/red-10.png"
+    },
+    {
+      "color": "red",
+      "frame": 11,
+      "file": "www/sprites/retro-marble/red-11.png"
+    },
+    {
+      "color": "red",
+      "frame": 12,
+      "file": "www/sprites/retro-marble/red-12.png"
+    },
+    {
+      "color": "red",
+      "frame": 13,
+      "file": "www/sprites/retro-marble/red-13.png"
+    },
+    {
+      "color": "red",
+      "frame": 14,
+      "file": "www/sprites/retro-marble/red-14.png"
+    },
+    {
+      "color": "red",
+      "frame": 15,
+      "file": "www/sprites/retro-marble/red-15.png"
+    },
+    {
+      "color": "red",
+      "frame": 16,
+      "file": "www/sprites/retro-marble/red-16.png"
+    },
+    {
+      "color": "red",
+      "frame": 17,
+      "file": "www/sprites/retro-marble/red-17.png"
+    },
+    {
+      "color": "red",
+      "frame": 18,
+      "file": "www/sprites/retro-marble/red-18.png"
+    },
+    {
+      "color": "red",
+      "frame": 19,
+      "file": "www/sprites/retro-marble/red-19.png"
+    },
+    {
+      "color": "red",
+      "frame": 20,
+      "file": "www/sprites/retro-marble/red-20.png"
+    },
+    {
+      "color": "red",
+      "frame": 21,
+      "file": "www/sprites/retro-marble/red-21.png"
+    },
+    {
+      "color": "red",
+      "frame": 22,
+      "file": "www/sprites/retro-marble/red-22.png"
+    },
+    {
+      "color": "red",
+      "frame": 23,
+      "file": "www/sprites/retro-marble/red-23.png"
+    },
+    {
+      "color": "red",
+      "frame": 24,
+      "file": "www/sprites/retro-marble/red-24.png"
+    },
+    {
+      "color": "red",
+      "frame": 25,
+      "file": "www/sprites/retro-marble/red-25.png"
+    },
+    {
+      "color": "red",
+      "frame": 26,
+      "file": "www/sprites/retro-marble/red-26.png"
+    },
+    {
+      "color": "red",
+      "frame": 27,
+      "file": "www/sprites/retro-marble/red-27.png"
+    },
+    {
+      "color": "red",
+      "frame": 28,
+      "file": "www/sprites/retro-marble/red-28.png"
+    },
+    {
+      "color": "red",
+      "frame": 29,
+      "file": "www/sprites/retro-marble/red-29.png"
+    },
+    {
+      "color": "red",
+      "frame": 30,
+      "file": "www/sprites/retro-marble/red-30.png"
+    },
+    {
+      "color": "red",
+      "frame": 31,
+      "file": "www/sprites/retro-marble/red-31.png"
+    },
+    {
+      "color": "red",
+      "frame": 32,
+      "file": "www/sprites/retro-marble/red-32.png"
+    },
+    {
+      "color": "red",
+      "frame": 33,
+      "file": "www/sprites/retro-marble/red-33.png"
+    },
+    {
+      "color": "red",
+      "frame": 34,
+      "file": "www/sprites/retro-marble/red-34.png"
+    },
+    {
+      "color": "red",
+      "frame": 35,
+      "file": "www/sprites/retro-marble/red-35.png"
+    },
+    {
+      "color": "red",
+      "frame": 36,
+      "file": "www/sprites/retro-marble/red-36.png"
+    },
+    {
+      "color": "red",
+      "frame": 37,
+      "file": "www/sprites/retro-marble/red-37.png"
+    },
+    {
+      "color": "red",
+      "frame": 38,
+      "file": "www/sprites/retro-marble/red-38.png"
+    },
+    {
+      "color": "red",
+      "frame": 39,
+      "file": "www/sprites/retro-marble/red-39.png"
+    },
+    {
+      "color": "red",
+      "frame": 40,
+      "file": "www/sprites/retro-marble/red-40.png"
+    },
+    {
+      "color": "red",
+      "frame": 41,
+      "file": "www/sprites/retro-marble/red-41.png"
+    },
+    {
+      "color": "red",
+      "frame": 42,
+      "file": "www/sprites/retro-marble/red-42.png"
+    },
+    {
+      "color": "red",
+      "frame": 43,
+      "file": "www/sprites/retro-marble/red-43.png"
+    },
+    {
+      "color": "red",
+      "frame": 44,
+      "file": "www/sprites/retro-marble/red-44.png"
+    },
+    {
+      "color": "red",
+      "frame": 45,
+      "file": "www/sprites/retro-marble/red-45.png"
+    },
+    {
+      "color": "red",
+      "frame": 46,
+      "file": "www/sprites/retro-marble/red-46.png"
+    },
+    {
+      "color": "red",
+      "frame": 47,
+      "file": "www/sprites/retro-marble/red-47.png"
+    },
+    {
+      "color": "red",
+      "frame": 48,
+      "file": "www/sprites/retro-marble/red-48.png"
+    },
+    {
+      "color": "red",
+      "frame": 49,
+      "file": "www/sprites/retro-marble/red-49.png"
+    },
+    {
+      "color": "red",
+      "frame": 50,
+      "file": "www/sprites/retro-marble/red-50.png"
+    },
+    {
+      "color": "red",
+      "frame": 51,
+      "file": "www/sprites/retro-marble/red-51.png"
+    },
+    {
+      "color": "red",
+      "frame": 52,
+      "file": "www/sprites/retro-marble/red-52.png"
+    },
+    {
+      "color": "red",
+      "frame": 53,
+      "file": "www/sprites/retro-marble/red-53.png"
+    },
+    {
+      "color": "red",
+      "frame": 54,
+      "file": "www/sprites/retro-marble/red-54.png"
+    },
+    {
+      "color": "red",
+      "frame": 55,
+      "file": "www/sprites/retro-marble/red-55.png"
+    }
+  ],
+  "objectSpritesValidated": 96
+}

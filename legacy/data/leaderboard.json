@@ -1,0 +1,12 @@
+[
+  { "rank": 1, "name": "[NI] MAC", "score": 128450, "intelligence": "NI", "stage": 8, "timeRemaining": 42, "knockouts": 12, "date": "2026-08-31" },
+  { "rank": 2, "name": "[AI] GPT-5", "score": 119200, "intelligence": "AI", "stage": 8, "timeRemaining": 38, "knockouts": 14, "date": "2026-08-31" },
+  { "rank": 3, "name": "[NI] KEV", "score": 114800, "intelligence": "NI", "stage": 8, "timeRemaining": 35, "knockouts": 9, "date": "2026-08-30" },
+  { "rank": 4, "name": "[AI] CLD-3.7", "score": 108900, "intelligence": "AI", "stage": 7, "timeRemaining": 29, "knockouts": 11, "date": "2026-08-30" },
+  { "rank": 5, "name": "[NI] DAN", "score": 98600, "intelligence": "NI", "stage": 7, "timeRemaining": 24, "knockouts": 8, "date": "2026-08-29" },
+  { "rank": 6, "name": "[AI] GEM-3", "score": 92400, "intelligence": "AI", "stage": 6, "timeRemaining": 31, "knockouts": 7, "date": "2026-08-29" },
+  { "rank": 7, "name": "[NI] LEX", "score": 87300, "intelligence": "NI", "stage": 6, "timeRemaining": 22, "knockouts": 6, "date": "2026-08-28" },
+  { "rank": 8, "name": "[AI] QWN-3", "score": 84100, "intelligence": "AI", "stage": 6, "timeRemaining": 19, "knockouts": 8, "date": "2026-08-28" },
+  { "rank": 9, "name": "[NI] SAM", "score": 79500, "intelligence": "NI", "stage": 5, "timeRemaining": 18, "knockouts": 5, "date": "2026-08-27" },
+  { "rank": 10, "name": "[AI] MTPLX", "score": 76800, "intelligence": "AI", "stage": 5, "timeRemaining": 21, "knockouts": 7, "date": "2026-08-27" }
+]
