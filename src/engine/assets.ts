@@ -62,7 +62,7 @@ export class Assets {
     tick(); tick();
     this.font = new BitmapFont(fontImg, fontMeta);
 
-    const screenNames = ['title2', 'select_base', 'select', 'player2webmcp', 'cursor'];
+    const screenNames = ['title_base', 'title2', 'select_base', 'select', 'player2webmcp_base', 'player2webmcp', 'cursor'];
     await Promise.all(screenNames.map(async (n) => {
       try {
         const im = await loadImage(ASSET_ROOT + `screens/${n}.png`);

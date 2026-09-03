@@ -49,11 +49,12 @@ function saveLeaderboard() {
   try { writeFileSync(LEADERBOARD_FILE, JSON.stringify(leaderboard, null, 2)); } catch (e) { console.warn('[serve] leaderboard write failed', e.message); }
 }
 function addEntry(p) {
-  const name = String(p.name || 'ACE').toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 6) || 'ACE';
+  const name = String(p.name || 'ACE').trim().slice(0, 16) || 'ACE';
   const score = Math.max(0, Math.min(9_999_999, Math.floor(+p.score || 0)));
+  const intel = (p.intelligence === 'AI' || p.intelligence === 'Artificial') ? 'Artificial' : 'Natural';
   const entry = {
     name, score,
-    intelligence: p.intelligence === 'AI' ? 'AI' : 'NI',
+    intelligence: intel,
     stage: Math.max(1, Math.min(8, Math.floor(+p.stage || 1))),
     timeRemaining: Math.max(0, Math.min(99, Math.floor(+p.timeRemaining || 0))),
     deaths: Math.max(0, Math.min(999, Math.floor(+p.deaths || 0))),

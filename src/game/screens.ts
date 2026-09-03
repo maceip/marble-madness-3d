@@ -245,9 +245,54 @@ export class Screens {
 
   private renderTitle(): void {
     const g = this.g; const r = g.r;
-    const img = g.assets.screenCache.get('title2');
+    const img = g.assets.screenCache.get('title_base') || g.assets.screenCache.get('title2');
     if (img) {
-      r.drawFullScreenImage(img);
+      const bounds = r.drawFullScreenImage(img);
+      const { rx, ry, rw, rh } = bounds;
+      const iw = img.width, ih = img.height;
+      const sx = (x: number) => rx + (x / iw) * rw;
+      const sy = (y: number) => ry + (y / ih) * rh;
+
+      // Render the dynamic leaderboard rows into the 5 table slots!
+      const rows = g.rollers.slice(0, 5);
+      const ys = [495, 548, 602, 656, 712];
+      const fontSize = Math.max(12, Math.round((28 / ih) * rh));
+      r.screenCtx.font = `bold ${fontSize}px "Courier New", monospace`;
+      r.screenCtx.textBaseline = 'middle';
+
+      for (let i = 0; i < 5; i++) {
+        const e = rows[i];
+        if (!e) continue;
+        const cy = sy(ys[i]);
+
+        // 1. Rank: gold (#ffe019), centered at x=478
+        r.screenCtx.fillStyle = '#ffe019';
+        r.screenCtx.textAlign = 'center';
+        r.screenCtx.fillText(String(e.rank ?? (i + 1)), sx(478), cy);
+
+        // 2. Player Name: left-aligned at x=540
+        const isUser = e.name === '@MACEIP' || (g.playerName && e.name.toUpperCase() === g.playerName.toUpperCase());
+        r.screenCtx.fillStyle = isUser ? '#79a8ff' : '#ffffff';
+        r.screenCtx.textAlign = 'left';
+        r.screenCtx.fillText(e.name, sx(540), cy);
+
+        // Underline current user
+        if (isUser) {
+          const nw = r.screenCtx.measureText(e.name).width;
+          r.screenCtx.strokeStyle = '#79a8ff';
+          r.screenCtx.lineWidth = Math.max(1, Math.round(2 * (rh / ih)));
+          r.screenCtx.beginPath();
+          r.screenCtx.moveTo(sx(540), cy + fontSize * 0.55);
+          r.screenCtx.lineTo(sx(540) + nw, cy + fontSize * 0.55);
+          r.screenCtx.stroke();
+        }
+
+        // 3. Intelligence: centered at x=1035, white (#ffffff)
+        const intel = e.intelligence || 'Natural';
+        r.screenCtx.fillStyle = '#ffffff';
+        r.screenCtx.textAlign = 'center';
+        r.screenCtx.fillText(intel, sx(1035), cy);
+      }
     } else {
       r.logo(VIEW_W / 2, 52);
       r.textC('PRESS START', VIEW_W / 2, 160, 'orange');
@@ -323,7 +368,7 @@ export class Screens {
 
   private renderConnect(): void {
     const g = this.g; const r = g.r;
-    const img = g.assets.screenCache.get('player2webmcp');
+    const img = g.assets.screenCache.get('player2webmcp_base') || g.assets.screenCache.get('player2webmcp');
     if (img) {
       const bounds = r.drawFullScreenImage(img);
       const { rx, ry, rw, rh } = bounds;
@@ -331,14 +376,49 @@ export class Screens {
       const sx = (x: number) => rx + (x / iw) * rw;
       const sy = (y: number) => ry + (y / ih) * rh;
 
-      // 1. Center animated rolling blue marble over (721, 771)
-      const cx = sx(721), cy = sy(771);
+      // 1. Dynamic Instructions inside the blue frame with unique slug!
+      const fontSize = Math.max(12, Math.round((28 / ih) * rh));
+      r.screenCtx.font = `bold ${fontSize}px "Courier New", monospace`;
+      r.screenCtx.textBaseline = 'middle';
+
+      const cx = sx(724);
+      const y0 = sy(460);
+      const dy = (52 / ih) * rh;
+
+      // Line 1: 'Open ' (white) + 'https://marbles.secure.build/<slug>' (electric cyan)
+      const prefix = 'Open ';
+      const slug = g.lobbyId || 'lobby';
+      const urlText = `https://marbles.secure.build/${slug}`;
+      const wPrefix = r.screenCtx.measureText(prefix).width;
+      const wUrl = r.screenCtx.measureText(urlText).width;
+      const totalW = wPrefix + wUrl;
+      const startX = cx - totalW / 2;
+
+      r.screenCtx.textAlign = 'left';
+      r.screenCtx.fillStyle = '#ffffff';
+      r.screenCtx.fillText(prefix, startX, y0);
+      r.screenCtx.fillStyle = '#61afef';
+      r.screenCtx.fillText(urlText, startX + wPrefix, y0);
+
+      // Line 2: 'in your embedded browser and' (white)
+      r.screenCtx.textAlign = 'center';
+      r.screenCtx.fillStyle = '#ffffff';
+      r.screenCtx.fillText('in your embedded browser and', cx, y0 + dy);
+
+      // Line 3: 'use WebMCP to challenge and' (white)
+      r.screenCtx.fillText('use WebMCP to challenge and', cx, y0 + dy * 2);
+
+      // Line 4: 'beat your human opponent' (white)
+      r.screenCtx.fillText('beat your human opponent', cx, y0 + dy * 3);
+
+      // 2. Center animated rolling blue marble over (721, 771)
+      const mcx = sx(721), mcy = sy(771);
       const mw = (78 / iw) * rw;
       const mh = (78 / ih) * rh;
       const f = FRAMES.marble.roll[Math.floor(this.blink * 8) % 6];
-      r.screenCtx.drawImage(g.assets.sheets.marble, f.x, f.y, f.w, f.h, cx - mw / 2, cy - mh / 2, mw, mh);
+      r.screenCtx.drawImage(g.assets.sheets.marble, f.x, f.y, f.w, f.h, mcx - mw / 2, mcy - mh / 2, mw, mh);
 
-      // 2. Feedback badge if copied to clipboard
+      // 3. Feedback badge if copied to clipboard
       if (this.copiedTimer > 0) {
         const bx = sx(860), by = sy(55), bw = (520 / iw) * rw, bh = (125 / ih) * rh;
         r.screenCtx.fillStyle = '#fff44f';
@@ -353,25 +433,18 @@ export class Screens {
         r.screenCtx.fillText('COPIED TO CLIPBOARD!', bx + bw / 2, by + bh / 2);
       }
 
-      // 3. Status text at bottom (x=724, y=962)
-      r.screenCtx.fillStyle = '#000000';
-      r.screenCtx.fillRect(sx(300), sy(940), (848 / iw) * rw, (45 / ih) * rh);
+      // 4. Status text at bottom (x=724, y=962)
       r.screenCtx.font = `bold ${Math.round((22 / ih) * rh)}px "Courier New", monospace`;
       r.screenCtx.textAlign = 'center';
       r.screenCtx.textBaseline = 'middle';
       if (g.agentJoined) {
         r.screenCtx.fillStyle = '#50fa7b';
-        r.screenCtx.fillText('AGENT CONNECTED! STARTING RACE...', sx(724), sy(962));
+        r.screenCtx.fillText('AGENT CONNECTED! STARTING RACE...', cx, sy(962));
       } else {
         const dots = '.'.repeat(1 + (Math.floor(this.blink * 2) % 3));
         r.screenCtx.fillStyle = '#79a8ff';
-        r.screenCtx.fillText(`Waiting for agent to join${dots}`, sx(724), sy(962));
+        r.screenCtx.fillText(`Waiting for agent to join${dots}`, cx, sy(962));
       }
-
-      // 4. Lobby code badge
-      r.screenCtx.font = `bold ${Math.round((18 / ih) * rh)}px "Courier New", monospace`;
-      r.screenCtx.fillStyle = '#f1fa8c';
-      r.screenCtx.fillText(`LOBBY: ${g.lobbyId.slice(0, 8).toUpperCase()}`, sx(724), sy(330));
     } else {
       r.textC('PLAYER VS AI', VIEW_W / 2, 30, 'lavender');
       r.textC('CONNECT YOUR AGENT', VIEW_W / 2, 46, 'lavender');

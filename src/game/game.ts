@@ -23,12 +23,19 @@ export type Screen = 'boot' | 'highrollers' | 'title' | 'menu' | 'name' | 'contr
 
 interface Popup { text: string; u: number; v: number; z: number; t: number; big?: boolean }
 
-export interface HighRoller { name: string; score: number }
+export interface HighRoller {
+  name: string;
+  score: number;
+  intelligence?: string;
+  rank?: number;
+}
 
 const DEFAULT_ROLLERS: HighRoller[] = [
-  { name: 'ALEX', score: 152730 }, { name: 'SWEEP', score: 52500 }, { name: 'JULIE', score: 52250 },
-  { name: 'TESS', score: 42000 }, { name: 'BARRY', score: 41750 }, { name: 'KEV', score: 31500 },
-  { name: 'POPPI', score: 31250 }, { name: 'RACHEL', score: 21000 }, { name: 'PAUL', score: 20750 }, { name: 'ALI', score: 10500 },
+  { name: '@MACEIP', score: 152730, intelligence: 'Natural', rank: 1 },
+  { name: 'Qwen 3.8', score: 148900, intelligence: 'Artificial', rank: 2 },
+  { name: 'DeepMarble', score: 139500, intelligence: 'Artificial', rank: 3 },
+  { name: 'RollingJoe', score: 126400, intelligence: 'Natural', rank: 4 },
+  { name: 'PixelPilot', score: 118200, intelligence: 'Natural', rank: 5 },
 ];
 
 export class Game {
@@ -107,7 +114,7 @@ export class Game {
     };
     this.net.onStart = (stage) => { if (this.isAgentPage) { this.sound.init(); this.newGame(Math.max(0, stage - 1)); } };
     this.net.onBump = (iu, iv) => { this.marble.impU += iu; this.marble.impV += iv; this.sound.sfx('bounce', 0.6); };
-    this.net.onLeaderboard = (top) => { if (top.length) this.rollers = top.slice(0, 10).map((e) => ({ name: e.name.toUpperCase(), score: e.score })); };
+    this.net.onLeaderboard = (top) => { if (top.length) this.rollers = top.slice(0, 10).map((e, i) => ({ name: e.name, score: e.score, intelligence: (e as any).intelligence || 'Natural', rank: (e as any).rank ?? (i + 1) })); };
     this.webmcp = new WebMCP(this);
   }
 
@@ -239,8 +246,15 @@ export class Game {
     try {
       const res = await fetch('/api/leaderboard');
       if (!res.ok) return;
-      const j = await res.json() as { top50?: { name: string; score: number }[] };
-      if (j.top50 && j.top50.length) this.rollers = j.top50.slice(0, 10).map((e) => ({ name: e.name.toUpperCase(), score: e.score }));
+      const j = await res.json() as { top50?: { name: string; score: number; intelligence?: string; rank?: number }[] };
+      if (j.top50 && j.top50.length) {
+        this.rollers = j.top50.slice(0, 10).map((e, i) => ({
+          name: e.name,
+          score: e.score,
+          intelligence: e.intelligence || 'Natural',
+          rank: e.rank ?? (i + 1),
+        }));
+      }
     } catch { /* offline */ }
   }
 
@@ -912,6 +926,9 @@ export class Game {
       if (m.dizzyT > 0) { out.push({ ...base, frame: F.dizzy[Math.floor(m.dizzyT * 12) % F.dizzy.length], shadowZ: m.grounded ? 0 : m.z - groundZ }); return; }
       const rs = rollSprite(m.rollDist * 3.2);
       out.push({ ...base, img: rs.img, frame: rs.frame, shadowZ: m.grounded ? 0 : m.z - groundZ });
+      if ((this.goalReached || this.finished) && Math.floor(this.t * 8) % 2 === 0 && F.sparkle && F.sparkle.length) {
+        out.push({ ...base, frame: F.sparkle[0], dy: -18, alpha: 0.95 });
+      }
       return;
     }
     if (m.phase === 'dying') {

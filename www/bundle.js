@@ -1789,7 +1789,7 @@ var Assets = class {
     tick();
     tick();
     this.font = new BitmapFont(fontImg, fontMeta);
-    const screenNames = ["title2", "select_base", "select", "player2webmcp", "cursor"];
+    const screenNames = ["title_base", "title2", "select_base", "select", "player2webmcp_base", "player2webmcp", "cursor"];
     await Promise.all(screenNames.map(async (n) => {
       try {
         const im = await loadImage(ASSET_ROOT + `screens/${n}.png`);
@@ -3983,8 +3983,11 @@ var Steelie = class extends Hazard {
     out.push({ img: ctx.assets.sheets.objects, frame: FRAMES.objects.steelie[0], u: b.u, v: b.v, z: b.z, dy: -6, shadowZ: b.grounded ? 0 : b.z - (b.support?.z ?? b.z) });
   }
 };
-var WORM_WALK = [0, 2, 4, 5, 9, 10, 13, 16, 20, 22, 24];
-var WORM_EAT = [7, 8, 12, 8, 7];
+var WORM_HOP_SW = [13, 16, 20, 22, 24, 22, 20, 16];
+var WORM_HOP_SE = [13, 17, 21, 23, 25, 23, 21, 17];
+var WORM_HOP_NW = [13, 9, 5, 2, 0, 2, 5, 9];
+var WORM_HOP_NE = [13, 10, 6, 3, 1, 3, 6, 10];
+var WORM_EAT = [4, 8, 12, 19, 15, 12, 8, 4];
 var Worm = class extends Hazard {
   t = 0;
   dirU = 1;
@@ -4069,11 +4072,20 @@ var Worm = class extends Hazard {
     } else if (this.stunned > 0) {
       f = frames[15];
     } else {
-      const k = Math.floor(this.t * 4.5 / (Math.PI * 2) * WORM_WALK.length) % WORM_WALK.length;
-      f = frames[WORM_WALK[k]];
+      let hopSeq;
+      if (this.dirU >= 0 && this.dirV >= 0) {
+        hopSeq = this.dirU > this.dirV ? WORM_HOP_SW : WORM_HOP_SE;
+      } else if (this.dirU <= 0 && this.dirV <= 0) {
+        hopSeq = this.dirU < this.dirV ? WORM_HOP_NW : WORM_HOP_NE;
+      } else if (this.dirU >= 0) {
+        hopSeq = WORM_HOP_SW;
+      } else {
+        hopSeq = WORM_HOP_NW;
+      }
+      const k = Math.floor(this.t * 4.5 / (Math.PI * 2) * hopSeq.length) % hopSeq.length;
+      f = frames[hopSeq[k]];
     }
-    const flip = this.dirU - this.dirV < 0;
-    out.push({ img: ctx.assets.sheets.worm, frame: f, u: this.u, v: this.v, z: this.z, dy: 2, flip, depthBias: 1 });
+    out.push({ img: ctx.assets.sheets.worm, frame: f, u: this.u, v: this.v, z: this.z, dy: 2, flip: false, depthBias: 1 });
   }
 };
 var Slime = class extends Hazard {
@@ -4772,9 +4784,43 @@ var Screens = class {
   renderTitle() {
     const g = this.g;
     const r = g.r;
-    const img = g.assets.screenCache.get("title2");
+    const img = g.assets.screenCache.get("title_base") || g.assets.screenCache.get("title2");
     if (img) {
-      r.drawFullScreenImage(img);
+      const bounds = r.drawFullScreenImage(img);
+      const { rx, ry, rw, rh } = bounds;
+      const iw = img.width, ih = img.height;
+      const sx = (x) => rx + x / iw * rw;
+      const sy = (y) => ry + y / ih * rh;
+      const rows = g.rollers.slice(0, 5);
+      const ys = [495, 548, 602, 656, 712];
+      const fontSize = Math.max(12, Math.round(28 / ih * rh));
+      r.screenCtx.font = `bold ${fontSize}px "Courier New", monospace`;
+      r.screenCtx.textBaseline = "middle";
+      for (let i = 0; i < 5; i++) {
+        const e = rows[i];
+        if (!e) continue;
+        const cy = sy(ys[i]);
+        r.screenCtx.fillStyle = "#ffe019";
+        r.screenCtx.textAlign = "center";
+        r.screenCtx.fillText(String(e.rank ?? i + 1), sx(478), cy);
+        const isUser = e.name === "@MACEIP" || g.playerName && e.name.toUpperCase() === g.playerName.toUpperCase();
+        r.screenCtx.fillStyle = isUser ? "#79a8ff" : "#ffffff";
+        r.screenCtx.textAlign = "left";
+        r.screenCtx.fillText(e.name, sx(540), cy);
+        if (isUser) {
+          const nw = r.screenCtx.measureText(e.name).width;
+          r.screenCtx.strokeStyle = "#79a8ff";
+          r.screenCtx.lineWidth = Math.max(1, Math.round(2 * (rh / ih)));
+          r.screenCtx.beginPath();
+          r.screenCtx.moveTo(sx(540), cy + fontSize * 0.55);
+          r.screenCtx.lineTo(sx(540) + nw, cy + fontSize * 0.55);
+          r.screenCtx.stroke();
+        }
+        const intel = e.intelligence || "Natural";
+        r.screenCtx.fillStyle = "#ffffff";
+        r.screenCtx.textAlign = "center";
+        r.screenCtx.fillText(intel, sx(1035), cy);
+      }
     } else {
       r.logo(VIEW_W / 2, 52);
       r.textC("PRESS START", VIEW_W / 2, 160, "orange");
@@ -4852,18 +4898,41 @@ var Screens = class {
   renderConnect() {
     const g = this.g;
     const r = g.r;
-    const img = g.assets.screenCache.get("player2webmcp");
+    const img = g.assets.screenCache.get("player2webmcp_base") || g.assets.screenCache.get("player2webmcp");
     if (img) {
       const bounds = r.drawFullScreenImage(img);
       const { rx, ry, rw, rh } = bounds;
       const iw = img.width, ih = img.height;
       const sx = (x) => rx + x / iw * rw;
       const sy = (y) => ry + y / ih * rh;
-      const cx = sx(721), cy = sy(771);
+      const fontSize = Math.max(12, Math.round(28 / ih * rh));
+      r.screenCtx.font = `bold ${fontSize}px "Courier New", monospace`;
+      r.screenCtx.textBaseline = "middle";
+      const cx = sx(724);
+      const y0 = sy(460);
+      const dy = 52 / ih * rh;
+      const prefix = "Open ";
+      const slug = g.lobbyId || "lobby";
+      const urlText = `https://marbles.secure.build/${slug}`;
+      const wPrefix = r.screenCtx.measureText(prefix).width;
+      const wUrl = r.screenCtx.measureText(urlText).width;
+      const totalW = wPrefix + wUrl;
+      const startX = cx - totalW / 2;
+      r.screenCtx.textAlign = "left";
+      r.screenCtx.fillStyle = "#ffffff";
+      r.screenCtx.fillText(prefix, startX, y0);
+      r.screenCtx.fillStyle = "#61afef";
+      r.screenCtx.fillText(urlText, startX + wPrefix, y0);
+      r.screenCtx.textAlign = "center";
+      r.screenCtx.fillStyle = "#ffffff";
+      r.screenCtx.fillText("in your embedded browser and", cx, y0 + dy);
+      r.screenCtx.fillText("use WebMCP to challenge and", cx, y0 + dy * 2);
+      r.screenCtx.fillText("beat your human opponent", cx, y0 + dy * 3);
+      const mcx = sx(721), mcy = sy(771);
       const mw = 78 / iw * rw;
       const mh = 78 / ih * rh;
       const f = FRAMES.marble.roll[Math.floor(this.blink * 8) % 6];
-      r.screenCtx.drawImage(g.assets.sheets.marble, f.x, f.y, f.w, f.h, cx - mw / 2, cy - mh / 2, mw, mh);
+      r.screenCtx.drawImage(g.assets.sheets.marble, f.x, f.y, f.w, f.h, mcx - mw / 2, mcy - mh / 2, mw, mh);
       if (this.copiedTimer > 0) {
         const bx = sx(860), by = sy(55), bw = 520 / iw * rw, bh = 125 / ih * rh;
         r.screenCtx.fillStyle = "#fff44f";
@@ -4877,22 +4946,17 @@ var Screens = class {
         r.screenCtx.textBaseline = "middle";
         r.screenCtx.fillText("COPIED TO CLIPBOARD!", bx + bw / 2, by + bh / 2);
       }
-      r.screenCtx.fillStyle = "#000000";
-      r.screenCtx.fillRect(sx(300), sy(940), 848 / iw * rw, 45 / ih * rh);
       r.screenCtx.font = `bold ${Math.round(22 / ih * rh)}px "Courier New", monospace`;
       r.screenCtx.textAlign = "center";
       r.screenCtx.textBaseline = "middle";
       if (g.agentJoined) {
         r.screenCtx.fillStyle = "#50fa7b";
-        r.screenCtx.fillText("AGENT CONNECTED! STARTING RACE...", sx(724), sy(962));
+        r.screenCtx.fillText("AGENT CONNECTED! STARTING RACE...", cx, sy(962));
       } else {
         const dots = ".".repeat(1 + Math.floor(this.blink * 2) % 3);
         r.screenCtx.fillStyle = "#79a8ff";
-        r.screenCtx.fillText(`Waiting for agent to join${dots}`, sx(724), sy(962));
+        r.screenCtx.fillText(`Waiting for agent to join${dots}`, cx, sy(962));
       }
-      r.screenCtx.font = `bold ${Math.round(18 / ih * rh)}px "Courier New", monospace`;
-      r.screenCtx.fillStyle = "#f1fa8c";
-      r.screenCtx.fillText(`LOBBY: ${g.lobbyId.slice(0, 8).toUpperCase()}`, sx(724), sy(330));
     } else {
       r.textC("PLAYER VS AI", VIEW_W / 2, 30, "lavender");
       r.textC("CONNECT YOUR AGENT", VIEW_W / 2, 46, "lavender");
@@ -5434,16 +5498,11 @@ var WebMCP = class {
 
 // src/game/game.ts
 var DEFAULT_ROLLERS = [
-  { name: "ALEX", score: 152730 },
-  { name: "SWEEP", score: 52500 },
-  { name: "JULIE", score: 52250 },
-  { name: "TESS", score: 42e3 },
-  { name: "BARRY", score: 41750 },
-  { name: "KEV", score: 31500 },
-  { name: "POPPI", score: 31250 },
-  { name: "RACHEL", score: 21e3 },
-  { name: "PAUL", score: 20750 },
-  { name: "ALI", score: 10500 }
+  { name: "@MACEIP", score: 152730, intelligence: "Natural", rank: 1 },
+  { name: "Qwen 3.8", score: 148900, intelligence: "Artificial", rank: 2 },
+  { name: "DeepMarble", score: 139500, intelligence: "Artificial", rank: 3 },
+  { name: "RollingJoe", score: 126400, intelligence: "Natural", rank: 4 },
+  { name: "PixelPilot", score: 118200, intelligence: "Natural", rank: 5 }
 ];
 var Game = class {
   constructor(assets, r, input, sound) {
@@ -5483,7 +5542,7 @@ var Game = class {
       this.sound.sfx("bounce", 0.6);
     };
     this.net.onLeaderboard = (top) => {
-      if (top.length) this.rollers = top.slice(0, 10).map((e) => ({ name: e.name.toUpperCase(), score: e.score }));
+      if (top.length) this.rollers = top.slice(0, 10).map((e, i) => ({ name: e.name, score: e.score, intelligence: e.intelligence || "Natural", rank: e.rank ?? i + 1 }));
     };
     this.webmcp = new WebMCP(this);
   }
@@ -5681,7 +5740,14 @@ var Game = class {
       const res = await fetch("/api/leaderboard");
       if (!res.ok) return;
       const j = await res.json();
-      if (j.top50 && j.top50.length) this.rollers = j.top50.slice(0, 10).map((e) => ({ name: e.name.toUpperCase(), score: e.score }));
+      if (j.top50 && j.top50.length) {
+        this.rollers = j.top50.slice(0, 10).map((e, i) => ({
+          name: e.name,
+          score: e.score,
+          intelligence: e.intelligence || "Natural",
+          rank: e.rank ?? i + 1
+        }));
+      }
     } catch {
     }
   }
@@ -6432,6 +6498,9 @@ var Game = class {
       }
       const rs = rollSprite(m.rollDist * 3.2);
       out.push({ ...base, img: rs.img, frame: rs.frame, shadowZ: m.grounded ? 0 : m.z - groundZ });
+      if ((this.goalReached || this.finished) && Math.floor(this.t * 8) % 2 === 0 && F.sparkle && F.sparkle.length) {
+        out.push({ ...base, frame: F.sparkle[0], dy: -18, alpha: 0.95 });
+      }
       return;
     }
     if (m.phase === "dying") {

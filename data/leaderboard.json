@@ -1,102 +1,52 @@
 [
   {
     "rank": 1,
-    "name": "ALEX",
+    "name": "@MACEIP",
     "score": 152730,
-    "intelligence": "NI",
+    "intelligence": "Natural",
     "stage": 6,
-    "timeRemaining": 0,
+    "timeRemaining": 12,
     "deaths": 0,
-    "date": "1984-12-15"
+    "date": "2026-09-02"
   },
   {
     "rank": 2,
-    "name": "SWEEP",
-    "score": 52500,
-    "intelligence": "NI",
+    "name": "Qwen 3.8",
+    "score": 148900,
+    "intelligence": "Artificial",
     "stage": 6,
-    "timeRemaining": 0,
-    "deaths": 0,
-    "date": "1984-12-15"
+    "timeRemaining": 8,
+    "deaths": 1,
+    "date": "2026-09-02"
   },
   {
     "rank": 3,
-    "name": "JULIE",
-    "score": 52250,
-    "intelligence": "NI",
+    "name": "DeepMarble",
+    "score": 139500,
+    "intelligence": "Artificial",
     "stage": 6,
-    "timeRemaining": 0,
+    "timeRemaining": 5,
     "deaths": 0,
-    "date": "1984-12-15"
+    "date": "2026-09-02"
   },
   {
     "rank": 4,
-    "name": "TESS",
-    "score": 42000,
-    "intelligence": "NI",
-    "stage": 6,
+    "name": "RollingJoe",
+    "score": 126400,
+    "intelligence": "Natural",
+    "stage": 5,
     "timeRemaining": 0,
-    "deaths": 0,
-    "date": "1984-12-15"
+    "deaths": 2,
+    "date": "2026-09-02"
   },
   {
     "rank": 5,
-    "name": "BARRY",
-    "score": 41750,
-    "intelligence": "NI",
-    "stage": 6,
+    "name": "PixelPilot",
+    "score": 118200,
+    "intelligence": "Natural",
+    "stage": 5,
     "timeRemaining": 0,
-    "deaths": 0,
-    "date": "1984-12-15"
-  },
-  {
-    "rank": 6,
-    "name": "KEV",
-    "score": 31500,
-    "intelligence": "NI",
-    "stage": 6,
-    "timeRemaining": 0,
-    "deaths": 0,
-    "date": "1984-12-15"
-  },
-  {
-    "rank": 7,
-    "name": "POPPI",
-    "score": 31250,
-    "intelligence": "NI",
-    "stage": 6,
-    "timeRemaining": 0,
-    "deaths": 0,
-    "date": "1984-12-15"
-  },
-  {
-    "rank": 8,
-    "name": "RACHEL",
-    "score": 21000,
-    "intelligence": "NI",
-    "stage": 6,
-    "timeRemaining": 0,
-    "deaths": 0,
-    "date": "1984-12-15"
-  },
-  {
-    "rank": 9,
-    "name": "PAUL",
-    "score": 20750,
-    "intelligence": "NI",
-    "stage": 6,
-    "timeRemaining": 0,
-    "deaths": 0,
-    "date": "1984-12-15"
-  },
-  {
-    "rank": 10,
-    "name": "ALI",
-    "score": 10500,
-    "intelligence": "NI",
-    "stage": 6,
-    "timeRemaining": 0,
-    "deaths": 0,
-    "date": "1984-12-15"
+    "deaths": 3,
+    "date": "2026-09-02"
   }
 ]

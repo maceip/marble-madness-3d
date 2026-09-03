@@ -109,9 +109,15 @@ export class Steelie extends Hazard {
 
 /* ------------------------------------------------------------------------ */
 /* Worm / Marble Muncher: slinkies end-over-end, eats the marble            */
+/* Uses all 26 frames of worm.png across 4 isometric hopping directions,   */
+/* idle tongue-flicking, stunned pancake, and tube digestion animations.    */
 /* ------------------------------------------------------------------------ */
-const WORM_WALK = [0, 2, 4, 5, 9, 10, 13, 16, 20, 22, 24];
-const WORM_EAT = [7, 8, 12, 8, 7];
+const WORM_HOP_SW = [13, 16, 20, 22, 24, 22, 20, 16]; // Down-Left (isometric +u)
+const WORM_HOP_SE = [13, 17, 21, 23, 25, 23, 21, 17]; // Down-Right (isometric +v)
+const WORM_HOP_NW = [13, 9, 5, 2, 0, 2, 5, 9];         // Up-Left (isometric -v)
+const WORM_HOP_NE = [13, 10, 6, 3, 1, 3, 6, 10];       // Up-Right (isometric -u)
+const WORM_IDLE = [7, 11, 14, 18];                     // Peering out with flicking red tongue
+const WORM_EAT = [4, 8, 12, 19, 15, 12, 8, 4];        // Tube mouth, wide maw, swallowing belly, digest
 
 export class Worm extends Hazard {
   t = 0;
@@ -172,13 +178,22 @@ export class Worm extends Hazard {
       const k = Math.min(WORM_EAT.length - 1, Math.floor((1.4 - this.eating) / 1.4 * WORM_EAT.length));
       f = frames[WORM_EAT[k]];
     } else if (this.stunned > 0) {
-      f = frames[15];
+      f = frames[15]; // flattened pancake
     } else {
-      const k = Math.floor((this.t * 4.5 / (Math.PI * 2)) * WORM_WALK.length) % WORM_WALK.length;
-      f = frames[WORM_WALK[k]];
+      let hopSeq: number[];
+      if (this.dirU >= 0 && this.dirV >= 0) {
+        hopSeq = (this.dirU > this.dirV) ? WORM_HOP_SW : WORM_HOP_SE;
+      } else if (this.dirU <= 0 && this.dirV <= 0) {
+        hopSeq = (this.dirU < this.dirV) ? WORM_HOP_NW : WORM_HOP_NE;
+      } else if (this.dirU >= 0) {
+        hopSeq = WORM_HOP_SW;
+      } else {
+        hopSeq = WORM_HOP_NW;
+      }
+      const k = Math.floor((this.t * 4.5 / (Math.PI * 2)) * hopSeq.length) % hopSeq.length;
+      f = frames[hopSeq[k]];
     }
-    const flip = this.dirU - this.dirV < 0;
-    out.push({ img: ctx.assets.sheets.worm, frame: f, u: this.u, v: this.v, z: this.z, dy: 2, flip, depthBias: 1 });
+    out.push({ img: ctx.assets.sheets.worm, frame: f, u: this.u, v: this.v, z: this.z, dy: 2, flip: false, depthBias: 1 });
   }
 }
 
