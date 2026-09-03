@@ -2094,7 +2094,7 @@ var Trackball = class {
       this.dragAccumPx += dist2;
       if (this.dragAccumPx >= this.stictionPx) {
         this.brokenOut = true;
-        this.vibrate(10);
+        this.vibrate(8);
       } else {
         return;
       }
@@ -2153,12 +2153,15 @@ var Trackball = class {
       const ay = -this.wy / speed;
       const az = 0;
       this.rotateAroundAxis(ax, ay, az, angle);
-      if (this.dragging) {
+      const now = performance.now();
+      if (this.dragging && speed > 0.4 && speed < 3.5) {
         this.hapticAccumRad += angle;
-        if (this.hapticAccumRad >= this.hapticStepRad) {
-          this.hapticAccumRad %= this.hapticStepRad;
-          this.vibrate(4);
+        if (this.hapticAccumRad > 0.45 && now - this.lastHapticTime > 75) {
+          this.vibrate(2);
+          this.hapticAccumRad = 0;
         }
+      } else {
+        this.hapticAccumRad = 0;
       }
       const decay = Math.exp(-this.friction * dt);
       this.wx *= decay;
@@ -2525,7 +2528,10 @@ var Sound = class {
     this.muted = m;
     localStorage.setItem("mm_muted", m ? "1" : "0");
     if (this.bgmEl) this.bgmEl.volume = m ? 0 : this.musicVolume;
-    if (m) this.stopRoll();
+    if (m) {
+      this.stopRoll();
+      this.stopTrackballRoll();
+    }
   }
   playBgm(key, loop = true) {
     const file = BGM[key];
@@ -2629,6 +2635,79 @@ var Sound = class {
     if (this.rollGain) {
       this.rollGain.disconnect();
       this.rollGain = null;
+    }
+  }
+  // --- mechanical rotary bearing friction loop (Web Audio bandpass synth) ---
+  bearingSrc = null;
+  bearingFilter = null;
+  bearingGain = null;
+  initBearingLoop() {
+    const ctx = this.ctx;
+    if (!ctx || this.bearingSrc) return;
+    try {
+      const len = Math.floor(ctx.sampleRate * 1.5);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      let lastVal = 0;
+      for (let i = 0; i < len; i++) {
+        const white = Math.random() * 2 - 1;
+        lastVal = (lastVal + 0.04 * white) / 1.04;
+        d[i] = lastVal * 2.8;
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 220;
+      filter.Q.value = 2.4;
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      src.connect(filter).connect(g).connect(ctx.destination);
+      src.start();
+      this.bearingSrc = src;
+      this.bearingFilter = filter;
+      this.bearingGain = g;
+    } catch {
+    }
+  }
+  /**
+   * Continuous mechanical bearing rumble linked to trackball angular speed (omega in rad/s).
+   * Modulates bandpass filter and gain dynamically per physics/momentum.
+   */
+  setTrackballRoll(omegaRadS) {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== "running") return;
+    if (!this.bearingSrc) this.initBearingLoop();
+    if (!this.bearingGain || !this.bearingFilter) return;
+    const speed = Math.max(0, omegaRadS);
+    const maxSpeed = 30;
+    const t = ctx.currentTime;
+    if (this.muted || speed < 0.25) {
+      this.bearingGain.gain.setTargetAtTime(0, t, 0.03);
+      return;
+    }
+    const vol = Math.min(speed / maxSpeed, 1) * 0.38 * this.sfxVolume;
+    const freq = 190 + speed * 16;
+    this.bearingGain.gain.setTargetAtTime(vol, t, 0.012);
+    this.bearingFilter.frequency.setTargetAtTime(freq, t, 0.012);
+  }
+  stopTrackballRoll() {
+    if (this.bearingSrc) {
+      try {
+        this.bearingSrc.stop();
+      } catch {
+      }
+      this.bearingSrc.disconnect();
+      this.bearingSrc = null;
+    }
+    if (this.bearingFilter) {
+      this.bearingFilter.disconnect();
+      this.bearingFilter = null;
+    }
+    if (this.bearingGain) {
+      this.bearingGain.disconnect();
+      this.bearingGain = null;
     }
   }
 };
@@ -5610,23 +5689,31 @@ var Game = class {
     this.popups = this.popups.filter((p) => p.t < 2.6);
     const sp = this.marble.phase === "alive" && this.marble.grounded && !this.marble.inPipe ? this.marble.speed / 15 : 0;
     this.sound.setRoll(sp);
+    const tbSpeed = Math.hypot(this.input.trackball.wx, this.input.trackball.wy);
+    this.sound.setTrackballRoll(tbSpeed);
     this.centerCameraOnMarble(false, dt);
   }
   onMarbleEvent(e) {
     switch (e.type) {
       case "bounce":
         this.sound.sfx("bounce", Math.min(1, 0.3 + (e.speed ?? 0) * 0.06));
+        this.input.trackball.vibrate(12);
         break;
       case "land":
-        if ((e.fall ?? 0) > 6) this.sound.sfx("bounce", 0.5, 0.8);
+        if ((e.fall ?? 0) > 6) {
+          this.sound.sfx("bounce", 0.5, 0.8);
+          this.input.trackball.vibrate(25);
+        }
         break;
       case "dizzy":
         this.sound.sfx("fall", 0.7);
+        this.input.trackball.vibrate(25);
         break;
       case "die":
         this.deaths++;
         if (e.kind === "shatter" || e.kind === "void" || e.kind === "zap") this.sound.sfx("shatter");
         else if (e.kind === "squeeze") this.sound.sfx("muncher");
+        this.input.trackball.vibrate([15, 30, 40]);
         this.respawnT = 0;
         break;
       case "airborne":

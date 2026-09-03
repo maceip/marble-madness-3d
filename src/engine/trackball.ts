@@ -79,7 +79,7 @@ export class Trackball {
       this.dragAccumPx += dist;
       if (this.dragAccumPx >= this.stictionPx) {
         this.brokenOut = true;
-        this.vibrate(10); // Crisp breakout haptic click
+        this.vibrate(8); // Crisp breakout click
       } else {
         // Still resisting: slight elastic nudge
         return;
@@ -163,13 +163,17 @@ export class Trackball {
 
       this.rotateAroundAxis(ax, ay, az, angle);
 
-      // Encoder ratchet haptics based on angular distance traveled
-      if (this.dragging) {
+      // Distance-threshold haptic ticks (Low Speed Only: under 3.5 rad/s):
+      // Enforces at most once every 75ms past a fixed arc to prevent Android motor washout
+      const now = performance.now();
+      if (this.dragging && speed > 0.4 && speed < 3.5) {
         this.hapticAccumRad += angle;
-        if (this.hapticAccumRad >= this.hapticStepRad) {
-          this.hapticAccumRad %= this.hapticStepRad;
-          this.vibrate(4); // Subtle ratchet pulse
+        if (this.hapticAccumRad > 0.45 && now - this.lastHapticTime > 75) {
+          this.vibrate(2); // Shortest possible tick
+          this.hapticAccumRad = 0;
         }
+      } else {
+        this.hapticAccumRad = 0;
       }
 
       // Dynamic bearing friction decay

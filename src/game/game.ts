@@ -497,22 +497,36 @@ export class Game {
     for (const p of this.popups) p.t += dt;
     this.popups = this.popups.filter((p) => p.t < 2.6);
 
-    // roll sound
+    // roll sound: marble surface rolling + mechanical trackball bearing loop
     const sp = this.marble.phase === 'alive' && this.marble.grounded && !this.marble.inPipe ? this.marble.speed / 15 : 0;
     this.sound.setRoll(sp);
+    const tbSpeed = Math.hypot(this.input.trackball.wx, this.input.trackball.wy);
+    this.sound.setTrackballRoll(tbSpeed);
 
     this.centerCameraOnMarble(false, dt);
   }
 
   private onMarbleEvent(e: MarbleEvent): void {
     switch (e.type) {
-      case 'bounce': this.sound.sfx('bounce', Math.min(1, 0.3 + (e.speed ?? 0) * 0.06)); break;
-      case 'land': if ((e.fall ?? 0) > 6) this.sound.sfx('bounce', 0.5, 0.8); break;
-      case 'dizzy': this.sound.sfx('fall', 0.7); break;
+      case 'bounce':
+        this.sound.sfx('bounce', Math.min(1, 0.3 + (e.speed ?? 0) * 0.06));
+        this.input.trackball.vibrate(12); // Wall/barrier bounce
+        break;
+      case 'land':
+        if ((e.fall ?? 0) > 6) {
+          this.sound.sfx('bounce', 0.5, 0.8);
+          this.input.trackball.vibrate(25); // Drop landing after vertical drop
+        }
+        break;
+      case 'dizzy':
+        this.sound.sfx('fall', 0.7);
+        this.input.trackball.vibrate(25);
+        break;
       case 'die':
         this.deaths++;
         if (e.kind === 'shatter' || e.kind === 'void' || e.kind === 'zap') this.sound.sfx('shatter');
         else if (e.kind === 'squeeze') this.sound.sfx('muncher');
+        this.input.trackball.vibrate([15, 30, 40]); // Ledge fall / shatter
         this.respawnT = 0;
         break;
       case 'airborne': break;
