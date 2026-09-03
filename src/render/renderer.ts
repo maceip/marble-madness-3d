@@ -34,6 +34,7 @@ export class Renderer {
   readonly off: HTMLCanvasElement;
   readonly ctx: CanvasRenderingContext2D;
   readonly screenCtx: CanvasRenderingContext2D;
+  /** uniform scale of the 288x240 view onto the screen canvas, recomputed in present() */
   scale = 3;
   cam: Camera = { x: 0, y: 0 };
   font: BitmapFont;
@@ -56,9 +57,11 @@ export class Renderer {
     const parent = this.canvas.parentElement;
     const w = (parent && parent !== document.body && parent.clientWidth > 0) ? parent.clientWidth : window.innerWidth;
     const h = (parent && parent !== document.body && parent.clientHeight > 0) ? parent.clientHeight : window.innerHeight;
+    // The arcade view is always 288x240 and scrolls with the marble (see video_review/*). It is scaled uniformly
+    // to fit the screen in present(); the rest stays black. Growing the view to the phone's aspect ratio showed
+    // whole stages at once and killed the scroll.
     this.viewW = VIEW_W;
-    // Adapt viewH to match aspect ratio so game fills the container without black borders
-    this.viewH = Math.max(VIEW_H, Math.min(640, Math.round(VIEW_W * (h / w))));
+    this.viewH = VIEW_H;
     this.off.width = this.viewW;
     this.off.height = this.viewH;
 
@@ -207,9 +210,19 @@ export class Renderer {
     drawFrame(this.ctx, this.assets.sheets.objects, f, Math.round(cx - f.w / 2), y);
   }
 
+  /** where the uniformly scaled 288x240 view lands on the screen canvas (input mapping); `scale` is the field above */
+  offX = 0;
+  offY = 0;
+
   present(): void {
+    const cw = this.canvas.width, ch = this.canvas.height;
+    this.scale = Math.min(cw / this.viewW, ch / this.viewH);
+    const dw = Math.round(this.viewW * this.scale), dh = Math.round(this.viewH * this.scale);
+    this.offX = Math.round((cw - dw) / 2);
+    this.offY = Math.round((ch - dh) / 2);
     this.screenCtx.imageSmoothingEnabled = false;
-    this.screenCtx.drawImage(this.off, 0, 0, this.viewW, this.viewH, 0, 0, this.canvas.width, this.canvas.height);
+    if (dw < cw || dh < ch) { this.screenCtx.fillStyle = '#000'; this.screenCtx.fillRect(0, 0, cw, ch); }
+    this.screenCtx.drawImage(this.off, 0, 0, this.viewW, this.viewH, this.offX, this.offY, dw, dh);
   }
 
   drawLitGoal(overlay: HTMLImageElement, stageId: number): void {

@@ -32,6 +32,8 @@
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
         <!-- read by MainActivity at start -->
         <meta-data android:name="build.secure.marbles.SERVER_ORIGIN" android:value="${serverOrigin}" />
+        <!-- true = WebView remote debugging (chrome://inspect) for profiling on a real phone; never for store builds -->
+        <meta-data android:name="build.secure.marbles.DEBUG_WEBVIEW" android:value="${debugWebView}" />
 
         <activity
             android:name=".MainActivity"

@@ -18,6 +18,7 @@ SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/opt/homebrew/share/android-commandline
 APP_ID="${APP_ID:-build.secure.marbles}"; APP_LABEL="${APP_LABEL:-Marble Madness}"
 SERVER_ORIGIN="${SERVER_ORIGIN:-https://marbles.secure.build}"; OAUTH_SCHEME="${OAUTH_SCHEME:-marbles}"
 VERSION_CODE="${VERSION_CODE:-1}"; VERSION_NAME="${VERSION_NAME:-0.1}"; MIN_SDK=30; TARGET_SDK=36
+DEBUG_WEBVIEW="${DEBUG_WEBVIEW:-false}"   # DEBUG_WEBVIEW=true enables chrome://inspect profiling of the WebView
 
 BUILD_TOOLS_DIR=$(ls -d "$SDK/build-tools/"* 2>/dev/null | sort -V | tail -n 1)
 PLATFORM_DIR=$(ls -d "$SDK/platforms/android-"* 2>/dev/null | sort -V | tail -n 1)
@@ -34,13 +35,13 @@ rm -rf build; mkdir -p build/classes build/dex build/aab .keys
 # 0. manifest: fill the ${placeholders} (Gradle does the same via manifestPlaceholders), add the package
 #    attribute aapt2 needs; a plain-http SERVER_ORIGIN (emulator testing) also needs cleartext permission
 CLEAR=""; case "$SERVER_ORIGIN" in http://*) CLEAR=' android:usesCleartextTraffic="true"';; esac
-sed -e "s#\${appLabel}#$APP_LABEL#g" -e "s#\${serverOrigin}#$SERVER_ORIGIN#g" -e "s#\${oauthScheme}#$OAUTH_SCHEME#g" \
+sed -e "s#\${appLabel}#$APP_LABEL#g" -e "s#\${serverOrigin}#$SERVER_ORIGIN#g" -e "s#\${oauthScheme}#$OAUTH_SCHEME#g" -e "s#\${debugWebView}#$DEBUG_WEBVIEW#g" \
     -e "s#<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">#<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"com.example.minweb\">#" \
     -e "s#android:allowBackup=\"false\"#android:allowBackup=\"false\"$CLEAR#" AndroidManifest.xml > build/AndroidManifest.xml
 
 # 1. resources (icon) + manifest, binary for the APK and proto for the AAB
 "$AAPT2" compile --dir res -o build/res.zip
-LINK=(--manifest build/AndroidManifest.xml -I "$ANDROID_JAR" build/res.zip --no-version-vectors --rename-manifest-package "$APP_ID"
+LINK=(--manifest build/AndroidManifest.xml -I "$ANDROID_JAR" build/res.zip --no-version-vectors --rename-manifest-package "$APP_ID" -A assets
       --min-sdk-version "$MIN_SDK" --target-sdk-version "$TARGET_SDK" --version-code "$VERSION_CODE" --version-name "$VERSION_NAME")
 "$AAPT2" link -o build/base.apk "${LINK[@]}"
 "$AAPT2" link -o build/base-proto.apk "${LINK[@]}" --proto-format
@@ -76,7 +77,10 @@ proto = zipfile.ZipFile('build/base-proto.apk'); mod = zipfile.ZipFile('build/aa
 for n in proto.namelist():
     if n == 'AndroidManifest.xml': mod.writestr('manifest/AndroidManifest.xml', proto.read(n))
     elif n == 'resources.pb' or n.startswith('res/'): mod.writestr(n, proto.read(n))
-mod.write('build/dex/classes.dex', 'dex/classes.dex'); mod.close()
+mod.write('build/dex/classes.dex', 'dex/classes.dex')
+import os
+for f in sorted(os.listdir('assets')): mod.write(os.path.join('assets', f), 'assets/' + f)
+mod.close()
 EOF
     echo '{ "optimizations": { "splitsConfig": { "splitDimension": [ { "value": "LANGUAGE", "negate": true }, { "value": "SCREEN_DENSITY", "negate": true } ] } } }' > build/BundleConfig.json
     java -jar "$BUNDLETOOL" build-bundle --modules=build/aab/base.zip --config=build/BundleConfig.json --output=build/unsigned.aab --overwrite

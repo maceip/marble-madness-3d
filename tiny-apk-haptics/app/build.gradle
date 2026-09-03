@@ -17,13 +17,14 @@ android {
         targetSdk 36       // Play requires API 36 for new apps / updates from 31 Aug 2026
         versionCode 1
         versionName '0.1'
-        manifestPlaceholders = [appLabel: 'Marble Madness', serverOrigin: serverOrigin, oauthScheme: oauthScheme]
+        manifestPlaceholders = [appLabel: 'Marble Madness', serverOrigin: serverOrigin, oauthScheme: oauthScheme, debugWebView: (System.getenv('MM_DEBUG_WEBVIEW') ?: 'false')]
     }
 
     sourceSets.main {
         manifest.srcFile '../AndroidManifest.xml'
         java.srcDirs = ['../src']
         res.srcDirs = ['../res']
+        assets.srcDirs = ['../assets']      // title.webp + bitmap font for the native splash
     }
 
     signingConfigs {

@@ -14,7 +14,10 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
@@ -38,7 +41,12 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
+import java.io.InputStream;
 import java.io.PrintWriter;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import java.io.StringWriter;
 import java.net.InetAddress;
 import java.security.KeyPairGenerator;
@@ -69,7 +77,7 @@ public class MainActivity extends Activity {
     private String serverOrigin = "https://marbles.secure.build";
     private String serverHost = "marbles.secure.build";
     private WebView web;
-    private TitleMask overlay;
+    private TitleSplash overlay;          // the game's own title screen, drawn natively for frame 1; lifted when the page is ready
     private boolean webReady, startRequested, bound;
     private volatile boolean warmed, session, hinted;
     private String pendingResult;
@@ -191,12 +199,21 @@ public class MainActivity extends Activity {
         });
         root.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
-        // layer 1: the title mask, a single flat View (no measure/layout tree, one onDraw)
-        overlay = new TitleMask(this, String.valueOf(getApplicationInfo().loadLabel(getPackageManager())), () -> {
-            hapticClick();
-            if (webReady) dismissOverlay(); else { startRequested = true; overlay.setLoading(); }
-        });
+        // layer 1: the game's title screen (logo, live High Rollers, PRESS START, Chrome + MCP icons) drawn natively
+        // and laid out for the phone's height, so the first frame already looks like the game. The page's own title
+        // screen has the same composition and takes over on onWebReady(); 8 s timeout so an offline error page is
+        // never hidden forever.
+        overlay = new TitleSplash(this);
         root.addView(overlay, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        root.postDelayed(this::dismissOverlay, 8000);
+        loadSplash();
+        // keep the page clear of the navigation/gesture zone and display cutouts: swipes that start in the system's
+        // bottom gesture area never reach the page, and the on-screen trackball lives at the bottom of the page
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets in = insets.getInsets(WindowInsets.Type.navigationBars() | WindowInsets.Type.displayCutout());
+            v.setPadding(in.left, 0, in.right, in.bottom);
+            return WindowInsets.CONSUMED;
+        });
         setContentView(root);
         getWindow().setBackgroundDrawable(null);         // root paints BG itself: drop the window background layer (no overdraw)
         goFullscreen();
@@ -359,14 +376,15 @@ public class MainActivity extends Activity {
             ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
             String o = ai.metaData == null ? null : ai.metaData.getString("build.secure.marbles.SERVER_ORIGIN");
             if (o != null && !o.isEmpty()) { serverOrigin = o.replaceAll("/+$", ""); serverHost = Uri.parse(serverOrigin).getHost(); }
+            if (ai.metaData != null && ai.metaData.getBoolean("build.secure.marbles.DEBUG_WEBVIEW", false)) WebView.setWebContentsDebuggingEnabled(true);   // chrome://inspect
         } catch (Exception ignored) {}
     }
 
     private void goFullscreen() {
-        getWindow().setDecorFitsSystemWindows(false);            // edge to edge: content spans the glass, bars overlay it
+        getWindow().setDecorFitsSystemWindows(false);            // edge to edge; the root pads itself for the nav bar / cutout
         WindowInsetsController c = getWindow().getInsetsController();
         if (c != null) {
-            c.hide(WindowInsets.Type.systemBars());
+            c.hide(WindowInsets.Type.statusBars());               // status bar only: the nav/gesture bar stays, below the page
             c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             // when the bars do peek in, light icons on our black background
             c.setSystemBarsAppearance(0, WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
@@ -475,7 +493,7 @@ public class MainActivity extends Activity {
     }
 
     // ------------------------------------------------------------------ window.NativeBridge
-    @JavascriptInterface public void onWebReady() { runOnUiThread(() -> { webReady = true; if (startRequested) dismissOverlay(); }); }
+    @JavascriptInterface public void onWebReady() { runOnUiThread(() -> { webReady = true; dismissOverlay(); }); }
     @JavascriptInterface public String takeAuthResult() { String r = pendingResult; pendingResult = null; return r; }
     @JavascriptInterface public String launchAuth(String url) { return openInBrowser(Uri.parse(url)); }
     @JavascriptInterface public String browserPrewarmed() { return hinted ? "bound+warm+session+hint" : session ? "bound+warm+session" : warmed ? "bound+warm" : bound ? "bound" : "no"; }
@@ -536,48 +554,144 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
-    /**
-     * The frame-1 title screen: one View, three Paints, one onDraw. No TextView/Button/LinearLayout trees,
-     * no measure or layout passes. Draws the app label and a START button in the game's palette.
-     */
-    static final class TitleMask extends View {
-        private final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint btnPaint = new Paint();
-        private final Paint btnEdge = new Paint();
-        private final Paint btnText = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Rect btn = new Rect();
-        private final String title;
-        private final Runnable onStart;
-        private String btnLabel = "START";
-        private final float d;
+    // ------------------------------------------------------------------ native title splash
+    /** decode the art and the bitmap font off the UI thread, show the cached High Rollers at once, then refresh them */
+    private void loadSplash() {
+        new Thread(() -> {
+            try {
+                Bitmap art = BitmapFactory.decodeStream(getAssets().open("title.webp"));
+                Bitmap font = BitmapFactory.decodeStream(getAssets().open("font.png"));
+                JSONObject meta = new JSONObject(readAsset("font.json"));
+                runOnUiThread(() -> overlay.setAssets(art, font, meta));
+            } catch (Exception e) { System.out.println("[marbles] splash assets: " + e); }
+            String cached = prefs.getString("rollers", null);
+            if (cached != null) { final String[][] rows = parseRollers(cached); runOnUiThread(() -> overlay.setRows(rows)); }
+            try {
+                HttpURLConnection c = (HttpURLConnection) new URL(serverOrigin + "/api/leaderboard").openConnection();
+                c.setConnectTimeout(2500); c.setReadTimeout(2500);
+                String body = readAll(c.getInputStream());
+                c.disconnect();
+                final String[][] rows = parseRollers(body);
+                if (rows.length > 0) { prefs.edit().putString("rollers", body).apply(); runOnUiThread(() -> overlay.setRows(rows)); }
+            } catch (Exception e) { System.out.println("[marbles] leaderboard fetch: " + e); }
+        }).start();
+    }
 
-        TitleMask(Context ctx, String title, Runnable onStart) {
-            super(ctx);
-            this.title = title; this.onStart = onStart;
-            d = ctx.getResources().getDisplayMetrics().density;
+    /** { top50: [ {name, intelligence} ] } -> up to 5 rows of [rank, NAME, INTELLIGENCE] */
+    private static String[][] parseRollers(String body) {
+        try {
+            JSONArray top = new JSONObject(body).getJSONArray("top50");
+            int n = Math.min(5, top.length());
+            String[][] rows = new String[n][];
+            for (int i = 0; i < n; i++) {
+                JSONObject e = top.getJSONObject(i);
+                String intel = e.optString("intelligence", "Natural");
+                rows[i] = new String[] { String.valueOf(i + 1), e.optString("name", "?").toUpperCase(), intel.toUpperCase() };
+            }
+            return rows;
+        } catch (Exception e) { return new String[0][]; }
+    }
+
+    private String readAsset(String name) throws java.io.IOException { try (InputStream in = getAssets().open(name)) { return readAll(in); } }
+
+    private static String readAll(InputStream in) throws java.io.IOException {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        byte[] buf = new byte[8192]; int n;
+        while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+        return out.toString("UTF-8");
+    }
+
+    /**
+     * The web title screen, natively: title art split into its logo block and its PRESS START + icons block with the
+     * High Rollers table between them, drawn with the game's own 8x8 bitmap font. Landscape falls back to the plain art.
+     */
+    static final class TitleSplash extends View {
+        /** row cuts in the 1080x608 asset: 0..CUT_A = header + logo, CUT_B..end = PRESS START + icons */
+        static final int CUT_A = 491, CUT_B = 501;
+        static final int BLUE = 0xFF4A7DFF;
+        Bitmap art, font; JSONObject glyphs; int cell = 8, stride = 32; String[][] rows = new String[0][];
+        final Paint bmp = new Paint(); final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Rect src = new Rect(), dst = new Rect();
+
+        TitleSplash(Context c) {
+            super(c);
             setBackgroundColor(BG);
-            titlePaint.setColor(FG); titlePaint.setTextSize(28 * d); titlePaint.setTextAlign(Paint.Align.CENTER);
-            btnPaint.setColor(BTN);
-            btnEdge.setColor(BTN_EDGE); btnEdge.setStyle(Paint.Style.STROKE); btnEdge.setStrokeWidth(Math.max(1f, d));
-            btnText.setColor(ACCENT); btnText.setTextSize(16 * d); btnText.setTextAlign(Paint.Align.CENTER); btnText.setFakeBoldText(true);
+            setClickable(true);                                          // nothing reaches the WebView until the page is ready
+            bmp.setFilterBitmap(true);
+            line.setColor(BLUE); line.setStyle(Paint.Style.STROKE); line.setStrokeWidth(2f);
+            line.setPathEffect(new DashPathEffect(new float[] { 4f, 4f }, 0f));
         }
 
-        void setLoading() { btnLabel = "LOADING..."; invalidate(); }
+        void setAssets(Bitmap a, Bitmap f, JSONObject meta) {
+            art = a; font = f;
+            glyphs = meta.optJSONObject("glyphs"); cell = meta.optInt("cell", 8); stride = meta.optInt("variantStride", 32);
+            invalidate();
+        }
+        void setRows(String[][] r) { rows = r; invalidate(); }
 
         @Override protected void onDraw(Canvas c) {
-            int cx = getWidth() / 2, cy = getHeight() / 2;
-            c.drawText(title, cx, cy - 24 * d, titlePaint);
-            btn.set((int) (cx - 110 * d), (int) (cy + 8 * d), (int) (cx + 110 * d), (int) (cy + 56 * d));
-            c.drawRect(btn, btnPaint);
-            c.drawRect(btn, btnEdge);
-            c.drawText(btnLabel, cx, btn.centerY() + 6 * d, btnText);
+            if (art == null) return;
+            int W = getWidth(), H = getHeight();
+            float k = W / (float) art.getWidth();
+            int fs = Math.max(2, Math.round(W / 360f));              // 8 px glyphs -> 24 px on a 1080-wide screen
+            int rowH = cell * fs * 2;
+            int tableH = rows.length == 0 ? 0 : rowH * (rows.length + 1);
+            int hA = Math.round(CUT_A * k), hB = Math.round((art.getHeight() - CUT_B) * k), gap = rowH / 2;
+            int total = hA + (tableH > 0 ? gap + tableH + gap : gap) + hB;
+            if (total > H) {                                             // landscape / short screen: plain letterboxed art
+                float kk = Math.min(W / (float) art.getWidth(), H / (float) art.getHeight());
+                int dw = Math.round(art.getWidth() * kk), dh = Math.round(art.getHeight() * kk);
+                dst.set((W - dw) / 2, (H - dh) / 2, (W + dw) / 2, (H + dh) / 2);
+                c.drawBitmap(art, null, dst, bmp);
+                return;
+            }
+            int y = (H - total) / 2;
+            src.set(0, 0, art.getWidth(), CUT_A); dst.set(0, y, W, y + hA);
+            c.drawBitmap(art, src, dst, bmp);
+            y += hA + gap;
+            if (tableH > 0) { drawTable(c, W, y, fs, rowH); y += tableH + gap; }
+            src.set(0, CUT_B, art.getWidth(), art.getHeight()); dst.set(0, y, W, y + hB);
+            c.drawBitmap(art, src, dst, bmp);
         }
 
-        @Override public boolean onTouchEvent(MotionEvent e) {
-            if (e.getAction() == MotionEvent.ACTION_UP && btn.contains((int) e.getX(), (int) e.getY())) { performClick(); onStart.run(); }
-            return true;            // swallow everything: nothing may reach the WebView underneath
+        private void drawTable(Canvas c, int W, int top, int fs, int rowH) {
+            int x0 = Math.round(W * 0.05f), x1 = Math.round(W * 0.95f);
+            int cw = cell * fs;
+            int rankW = 4 * cw, intelW = 14 * cw;
+            int xRank = x0 + rankW, xIntel = x1 - intelW;
+            int bottom = top + rowH * (rows.length + 1);
+            c.drawRect(x0, top, x1, bottom, line);
+            c.drawLine(xRank, top, xRank, bottom, line);
+            c.drawLine(xIntel, top, xIntel, bottom, line);
+            for (int i = 1; i <= rows.length; i++) c.drawLine(x0, top + rowH * i, x1, top + rowH * i, line);
+            int ty = top + (rowH - cw) / 2;
+            text(c, "PLAYER", (xRank + xIntel) / 2 - 3 * cw, ty, 2, fs);          // orange (the yellow variant)
+            text(c, "INTELLIGENCE", xIntel + (intelW - 12 * cw) / 2, ty, 2, fs);
+            for (int i = 0; i < rows.length; i++) {
+                int ry = top + rowH * (i + 1) + (rowH - cw) / 2;
+                String[] r = rows[i];
+                text(c, r[0], x0 + (rankW - r[0].length() * cw) / 2, ry, 2, fs);
+                String name = r[1].length() > 14 ? r[1].substring(0, 14) : r[1];
+                text(c, name, xRank + cw, ry, 0, fs);
+                String intel = r[2].length() > 12 ? r[2].substring(0, 12) : r[2];
+                text(c, intel, xIntel + (intelW - intel.length() * cw) / 2, ry, 0, fs);
+            }
         }
 
-        @Override public boolean performClick() { return super.performClick(); }
+        /** bitmap font: glyph atlas cell lookup, colour variant = row block of `stride` px */
+        private void text(Canvas c, String t, int x, int y, int variant, int fs) {
+            if (font == null || glyphs == null) return;
+            for (int i = 0; i < t.length(); i++) {
+                String ch = String.valueOf(t.charAt(i));
+                JSONArray g = glyphs.optJSONArray(ch);
+                if (g == null) g = glyphs.optJSONArray(ch.toUpperCase());
+                if (g != null) {
+                    int gx = g.optInt(0), gy = g.optInt(1) + variant * stride;
+                    src.set(gx, gy, gx + cell, gy + cell); dst.set(x, y, x + cell * fs, y + cell * fs);
+                    c.drawBitmap(font, src, dst, bmp);
+                }
+                x += cell * fs;
+            }
+        }
     }
 }
