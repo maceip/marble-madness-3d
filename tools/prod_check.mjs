@@ -13,7 +13,13 @@ const get = async (path, opts = {}) => {
 
 const index = await get('/');
 check('index served', index.status === 200, String(index.status));
-check('index carries __MM__ with an install nonce', /__MM__=.*"nonce":"/.test(index.text), 'server too old if missing');
+const configMatch = index.text.match(/<meta\s+name="mm-config"\s+content="([^"]+)"/i);
+let pageConfig = null;
+try {
+  pageConfig = JSON.parse((configMatch?.[1] || '').replaceAll('&quot;', '"').replaceAll('&amp;', '&'));
+} catch { /* failed assertion below reports the stale/malformed channel */ }
+const configOk = typeof pageConfig?.nonce === 'string' && pageConfig.nonce.length > 0;
+check('index carries CSP-safe mm-config with an install nonce', configOk, configOk ? '' : 'server too old or config malformed');
 const cookie = index.headers.get('set-cookie') || '';
 check('index sets the lobby cookie', /mm_lobby=/.test(cookie));
 
