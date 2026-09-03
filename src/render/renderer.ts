@@ -6,6 +6,8 @@ import { BitmapFont, FontVariant } from '../engine/font';
 
 export interface Camera { y: number; x: number }
 
+const badFrameWarned = new Set<string>();
+
 export interface Sprite {
   img: HTMLImageElement;
   frame: Frame;
@@ -83,6 +85,12 @@ export class Renderer {
   drawSprites(sprites: Sprite[]): void {
     sprites.sort((a, b) => ((a.u + a.v) * 4 + (a.depthBias ?? 0)) - ((b.u + b.v) * 4 + (b.depthBias ?? 0)));
     for (const s of sprites) {
+      if (!s.frame) {
+        // a bad frame index must never kill the render loop; report it once per sheet
+        const key = s.img?.src ?? '?';
+        if (!badFrameWarned.has(key)) { badFrameWarned.add(key); console.warn('[sprite] missing frame for', key, 'at', s.u.toFixed(1), s.v.toFixed(1), s.z.toFixed(1)); }
+        continue;
+      }
       const g = this.project(s.u, s.v, s.z);
       if (s.shadowZ !== undefined && s.shadowZ > 1) {
         const gs = this.project(s.u, s.v, s.z - s.shadowZ);

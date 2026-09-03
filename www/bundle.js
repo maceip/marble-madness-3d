@@ -890,6 +890,744 @@ var FRAMES = {
       "py": 23
     }
   ],
+  "p1roll": [
+    {
+      "x": 0,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 17,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 34,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 51,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 68,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 85,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 102,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 119,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 136,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 153,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 170,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 187,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 204,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 221,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 238,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 255,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    }
+  ],
+  "p2roll": [
+    {
+      "x": 0,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 17,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 34,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 51,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 68,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 85,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 102,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 119,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 136,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 153,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 170,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 187,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 204,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 221,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 238,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    },
+    {
+      "x": 255,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "px": 8,
+      "py": 8
+    }
+  ],
+  "hammerNes": [
+    {
+      "x": 0,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 31,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 62,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 93,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 124,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 155,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 186,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 217,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 248,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 279,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 310,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 341,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 372,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 403,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 434,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 465,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 496,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    },
+    {
+      "x": 527,
+      "y": 0,
+      "w": 30,
+      "h": 26,
+      "px": 15,
+      "py": 24
+    }
+  ],
+  "vacuumL": [
+    {
+      "x": 0,
+      "y": 0,
+      "w": 24,
+      "h": 28,
+      "px": 12,
+      "py": 26
+    },
+    {
+      "x": 25,
+      "y": 0,
+      "w": 24,
+      "h": 28,
+      "px": 12,
+      "py": 26
+    }
+  ],
+  "vacuumR": [
+    {
+      "x": 0,
+      "y": 0,
+      "w": 24,
+      "h": 28,
+      "px": 12,
+      "py": 26
+    },
+    {
+      "x": 25,
+      "y": 0,
+      "w": 24,
+      "h": 28,
+      "px": 12,
+      "py": 26
+    }
+  ],
+  "birdL": [
+    {
+      "x": 0,
+      "y": 0,
+      "w": 20,
+      "h": 19,
+      "px": 10,
+      "py": 9
+    },
+    {
+      "x": 21,
+      "y": 0,
+      "w": 20,
+      "h": 19,
+      "px": 10,
+      "py": 9
+    }
+  ],
+  "birdR": [
+    {
+      "x": 0,
+      "y": 0,
+      "w": 20,
+      "h": 19,
+      "px": 10,
+      "py": 9
+    },
+    {
+      "x": 21,
+      "y": 0,
+      "w": 20,
+      "h": 19,
+      "px": 10,
+      "py": 9
+    }
+  ],
+  "flagBlue": [
+    {
+      "x": 0,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 16,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 32,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 48,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 64,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 80,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 96,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 112,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 128,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 144,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 160,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 176,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 192,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 208,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 224,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 240,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    }
+  ],
+  "flagRed": [
+    {
+      "x": 0,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 16,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 32,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 48,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 64,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 80,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 96,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 112,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 128,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 144,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 160,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 176,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 192,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 208,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 224,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    },
+    {
+      "x": 240,
+      "y": 0,
+      "w": 15,
+      "h": 24,
+      "px": 7,
+      "py": 22
+    }
+  ],
   "objects": {
     "logo": [
       {
@@ -992,7 +1730,26 @@ var Assets = class {
   font;
   stages = /* @__PURE__ */ new Map();
   async load(onProgress) {
-    const names = ["marble", "marbleRed", "worm", "slime", "bird", "hammer", "vacuum", "riser", "objects"];
+    const names = [
+      "marble",
+      "marbleRed",
+      "worm",
+      "slime",
+      "bird",
+      "hammer",
+      "vacuum",
+      "riser",
+      "objects",
+      "p1roll",
+      "p2roll",
+      "hammerNes",
+      "vacuumL",
+      "vacuumR",
+      "birdL",
+      "birdR",
+      "flagBlue",
+      "flagRed"
+    ];
     const files = {
       marble: "sprites/marble_effects.png",
       marbleRed: "sprites/marble_effects_red.png",
@@ -1002,7 +1759,16 @@ var Assets = class {
       hammer: "sprites/hammer.png",
       vacuum: "sprites/vacuum.png",
       riser: "sprites/riser.png",
-      objects: "sprites/objects.png"
+      objects: "sprites/objects.png",
+      p1roll: "sprites/p1roll.png",
+      p2roll: "sprites/p2roll.png",
+      hammerNes: "sprites/hammer_nes.png",
+      vacuumL: "sprites/vacuum_l.png",
+      vacuumR: "sprites/vacuum_r.png",
+      birdL: "sprites/bird_l.png",
+      birdR: "sprites/bird_r.png",
+      flagBlue: "sprites/flag_blue.png",
+      flagRed: "sprites/flag_red.png"
     };
     let done = 0;
     const total = names.length + 2;
@@ -1079,6 +1845,8 @@ var SEC_LEFT_BONUS = 1e3;
 var TIME_BONUS_PER_SEC = 100;
 var BIRD_ZAP_RESETS_TO_START = true;
 var TWO_PLAYER_TELEPORT_PENALTY = 1e3;
+var ARCADE_TIME_ADD = [60, 65, 45, 40, 30, 25];
+var WON_RACE_BONUS = 5;
 var TWO_PLAYER_TRAIL_MARGIN = 40;
 
 // src/engine/iso.ts
@@ -1105,6 +1873,7 @@ function screenDirToWorld(ax, ay) {
 }
 
 // src/render/renderer.ts
+var badFrameWarned = /* @__PURE__ */ new Set();
 var Renderer = class {
   constructor(canvas, assets) {
     this.canvas = canvas;
@@ -1158,6 +1927,14 @@ var Renderer = class {
   drawSprites(sprites) {
     sprites.sort((a, b) => (a.u + a.v) * 4 + (a.depthBias ?? 0) - ((b.u + b.v) * 4 + (b.depthBias ?? 0)));
     for (const s of sprites) {
+      if (!s.frame) {
+        const key = s.img?.src ?? "?";
+        if (!badFrameWarned.has(key)) {
+          badFrameWarned.add(key);
+          console.warn("[sprite] missing frame for", key, "at", s.u.toFixed(1), s.v.toFixed(1), s.z.toFixed(1));
+        }
+        continue;
+      }
       const g = this.project(s.u, s.v, s.z);
       if (s.shadowZ !== void 0 && s.shadowZ > 1) {
         const gs = this.project(s.u, s.v, s.z - s.shadowZ);
@@ -1188,6 +1965,50 @@ var Renderer = class {
     ctx.fillStyle = "#7d7d7d";
     ctx.fillRect(bx, 5, tw + 6, 18);
     this.font.drawBig(ctx, timeText, bx + 3, 7);
+  }
+  tintCanvas = null;
+  /** draw via `fn` into a scratch canvas, recolour every opaque pixel to `color`, blit at (x, y) */
+  tinted(w, h, x, y, color, fn) {
+    if (!this.tintCanvas) this.tintCanvas = document.createElement("canvas");
+    const c = this.tintCanvas;
+    if (c.width < w || c.height < h) {
+      c.width = Math.max(c.width, w);
+      c.height = Math.max(c.height, h);
+    }
+    const cx = c.getContext("2d");
+    cx.clearRect(0, 0, c.width, c.height);
+    cx.globalCompositeOperation = "source-over";
+    fn(cx);
+    cx.globalCompositeOperation = "source-in";
+    cx.fillStyle = color;
+    cx.fillRect(0, 0, w, h);
+    this.ctx.drawImage(c, 0, 0, w, h, Math.round(x), Math.round(y), w, h);
+  }
+  textTinted(text, x, y, color) {
+    const w = this.font.width(text) + 1;
+    this.tinted(w, 9, x, y, color, (c) => this.font.draw(c, text, 0, 0, "white"));
+  }
+  /** big timer digits in an arbitrary colour (the sheet only has blue) */
+  drawBigTinted(text, x, y, color) {
+    const w = this.font.bigWidth(text) + 2;
+    this.tinted(w, 16, x, y, color, (c) => this.font.drawBig(c, text, 0, 0));
+  }
+  /** arcade 2-player HUD: P1 blue on the left, P2 red on the right, each with SCORE + timer */
+  drawHud2P(p1, p2) {
+    const ctx = this.ctx;
+    const blue = "#5a7cff", red = "#ff5a5a";
+    this.textTinted("SCORE", 8, 4, blue);
+    this.textTinted(p1.score, 8, 14, blue);
+    const w1 = this.font.bigWidth(p1.time);
+    ctx.fillStyle = "#7d7d7d";
+    ctx.fillRect(84, 5, w1 + 6, 18);
+    this.drawBigTinted(p1.time, 87, 7, blue);
+    const w2 = this.font.bigWidth(p2.time);
+    ctx.fillStyle = "#7d7d7d";
+    ctx.fillRect(VIEW_W - 90 - w2, 5, w2 + 6, 18);
+    this.drawBigTinted(p2.time, VIEW_W - 87 - w2, 7, red);
+    this.textTinted("SCORE", VIEW_W - 8 - this.font.width("SCORE"), 4, red);
+    this.textTinted(p2.score, VIEW_W - 8 - this.font.width(p2.score), 14, red);
   }
   /** black banner box with text lines (used for TIME TO FINISH / TIME BONUS) */
   drawBox(x, y, w, h) {
@@ -1687,8 +2508,10 @@ var LevelBuilder = class {
       timeAdd: o.timeAdd,
       carryTime: o.carryTime,
       progressDir: o.progressDir ?? 1,
+      reverseControls: o.reverseControls,
       surfaces: [],
       start: { u: 0, v: 0 },
+      slides: [],
       checkpoints: [],
       zones: [],
       pipes: [],
@@ -1700,7 +2523,7 @@ var LevelBuilder = class {
   /** world coords of a map pixel at height z (snapped to half tiles) */
   uv(x, y, z) {
     const w = toWorld(x, y, z);
-    return { u: Math.round(w.u * 2) / 2, v: Math.round(w.v * 2) / 2 };
+    return { u: Math.round(w.u * 2) / 2, v: Math.round(w.v * 2) / 2, z };
   }
   /** Flat platform. (x,y) = map pixel of top corner, lenU/lenV in tiles, z height. */
   plat(x, y, lenU, lenV, z, name) {
@@ -1814,8 +2637,19 @@ var LevelBuilder = class {
     const z0 = heightOn(from, u0, v0);
     return this.rect(u0, v0, u0 + lenU, v0 + lenV, z0, gu, gv, name);
   }
-  start(u, v, z) {
-    this.def.start = { u, v, z };
+  start(u, v, z, slide) {
+    this.def.start = { u, v, z, slide };
+  }
+  start2(u, v, z, slide) {
+    this.def.start2 = { u, v, z, slide };
+  }
+  /** scripted roll through MAP PIXEL points [x, y, z]; returns the slide index for start()/start2() */
+  slide(pts, delay = 0.5) {
+    this.def.slides.push({ pts: pts.map(([x, y, z]) => {
+      const w = toWorld(x, y, z);
+      return { u: w.u, v: w.v, z };
+    }), delay });
+    return this.def.slides.length - 1;
   }
   checkpoint(u, v) {
     this.def.checkpoints.push({ u, v });
@@ -1919,6 +2753,67 @@ var Marble = class {
   inPipe = false;
   pipeT = 0;
   pipeExit = null;
+  /** scripted roll (see Slide): no control, cannot fall off */
+  slide = null;
+  beginSlide(sl) {
+    if (sl.pts.length < 2) return;
+    const p = sl.pts[0];
+    this.u = p.u;
+    this.v = p.v;
+    this.z = p.z;
+    this.vu = this.vv = this.vz = 0;
+    this.grounded = true;
+    this.slide = { pts: sl.pts, seg: 0, s: 0, speed: 0, delay: sl.delay };
+  }
+  stepSlide(level, dt, events) {
+    const sl = this.slide;
+    if (sl.delay > 0) {
+      sl.delay -= dt;
+      return;
+    }
+    sl.speed = Math.min(22, sl.speed + 14 * dt);
+    let ds = sl.speed * dt;
+    while (ds > 0) {
+      const a = sl.pts[sl.seg], b = sl.pts[sl.seg + 1];
+      const len = Math.hypot(b.u - a.u, b.v - a.v) || 1e-6;
+      const left = len - sl.s;
+      if (ds < left) {
+        sl.s += ds;
+        ds = 0;
+        const k = sl.s / len;
+        this.u = a.u + (b.u - a.u) * k;
+        this.v = a.v + (b.v - a.v) * k;
+        this.z = a.z + (b.z - a.z) * k;
+        this.vu = (b.u - a.u) / len * sl.speed;
+        this.vv = (b.v - a.v) / len * sl.speed;
+        this.rollDist += sl.speed * dt;
+      } else {
+        ds -= left;
+        sl.seg++;
+        sl.s = 0;
+        if (sl.seg >= sl.pts.length - 1) {
+          const e = sl.pts[sl.pts.length - 1];
+          this.u = e.u;
+          this.v = e.v;
+          this.z = e.z;
+          const sup = supportAt(level, e.u, e.v, e.z + 6, 12);
+          if (sup) {
+            this.z = sup.z;
+            this.support = sup;
+          }
+          this.vu = this.vv = this.vz = 0;
+          this.grounded = true;
+          this.maxZ = this.z;
+          this.airT = 0;
+          this.dizzyT = DIZZY_TIME;
+          this.slide = null;
+          events.push({ type: "land", fall: 20 });
+          events.push({ type: "dizzy" });
+          return;
+        }
+      }
+    }
+  }
   get speed() {
     return Math.hypot(this.vu, this.vv);
   }
@@ -1955,6 +2850,10 @@ var Marble = class {
       return;
     }
     if (this.phase !== "alive") return;
+    if (this.slide) {
+      this.stepSlide(level, dt, events);
+      return;
+    }
     if (this.inPipe) {
       this.pipeT -= dt;
       if (this.pipeT <= 0 && this.pipeExit) {
@@ -2271,9 +3170,9 @@ var signC = L2.uv(150, 1094, -395);
 L2.rect(signC.u - 3.5, signC.v - 3.5, signC.u + 3.5, signC.v + 3.5, -395, 0, 0, "goalSign");
 var goal2 = L2.uv(184, 1108, -395);
 L2.zone("goal", goal2.u - 3.5, goal2.v - 3.5, goal2.u + 3.5, goal2.v + 3.5, void 0, "goal", -410, -380);
-L2.hazard({ kind: "steelie", u: L2.uv(90, 400, -10).u, v: L2.uv(90, 400, -10).v });
-L2.hazard({ kind: "worm", u: L2.uv(150, 120, 100).u, v: L2.uv(150, 120, 100).v, range: 6 });
-L2.hazard({ kind: "worm", u: L2.uv(200, 150, 100).u, v: L2.uv(200, 150, 100).v, range: 5 });
+L2.hazard({ kind: "steelie", u: L2.uv(90, 400, -10).u, v: L2.uv(90, 400, -10).v, z: -10 });
+L2.hazard({ kind: "worm", u: L2.uv(150, 120, 100).u, v: L2.uv(150, 120, 100).v, z: 100, range: 6 });
+L2.hazard({ kind: "worm", u: L2.uv(200, 150, 100).u, v: L2.uv(200, 150, 100).v, z: 100, range: 5 });
 var stage2 = L2.build();
 
 // src/levels/stage3.ts
@@ -2331,12 +3230,12 @@ var goal3 = L3.uv(232, 1036, -120);
 L3.zone("goal", goal3.u - 3.5, goal3.v - 3.5, goal3.u + 3.5, goal3.v + 3.5, void 0, "goal", -135, -105);
 for (const [x, y] of [[60, 330], [220, 330], [120, 560]]) {
   const p = L3.uv(x, y, 100);
-  L3.hazard({ kind: "slime", u: p.u, v: p.v, range: 2 });
+  L3.hazard({ kind: "slime", u: p.u, v: p.v, z: p.z, range: 2 });
 }
 L3.hazard({ kind: "wand", u: 0, v: 0, band: [40, 120] });
 {
   const p = L3.uv(200, 520, 100);
-  L3.hazard({ kind: "worm", u: p.u, v: p.v, range: 5 });
+  L3.hazard({ kind: "worm", u: p.u, v: p.v, z: p.z, range: 5 });
 }
 var stage3 = L3.build();
 
@@ -2351,6 +3250,15 @@ var L4 = new LevelBuilder({
   timeAdd: 30,
   carryTime: true
 });
+var TOWER_Z = 285;
+{
+  const tl = L4.uv(35, 55, TOWER_Z);
+  L4.rect(tl.u - 3, tl.v - 3, tl.u + 3, tl.v + 3, TOWER_Z, 0, 0, "towerL");
+  const tr = L4.uv(250, 55, TOWER_Z);
+  L4.rect(tr.u - 3, tr.v - 3, tr.u + 3, tr.v + 3, TOWER_Z, 0, 0, "towerR");
+}
+var rampFromLeft = L4.slide([[35, 55, TOWER_Z], [52, 60, TOWER_Z], [80, 90, 262], [115, 122, 232], [145, 148, 208], [178, 168, 185], [200, 190, 160], [215, 215, 147]]);
+var rampFromRight = L4.slide([[250, 55, TOWER_Z], [234, 60, TOWER_Z], [205, 90, 275], [175, 120, 262], [145, 148, 250], [105, 172, 238], [80, 195, 225], [60, 220, 217]]);
 L4.strip(86, 238, 191, 124, 300, 100, 3, "slidePink");
 L4.strip(198, 254, 130, 186, 300, 100, 3, "slideYellow");
 L4.strip(122, 640, 100, 96, 700, 15, 3, "downLeft");
@@ -2358,9 +3266,11 @@ L4.strip(176, 560, 100, 214, 660, 8, 3, "downRight");
 L4.strip(110, 790, 15, 112, 848, -80, 3, "toBlueL");
 L4.strip(206, 732, 8, 206, 756, -80, 3, "toBlueR");
 L4.strip(86, 950, -80, 86, 998, -112, 3, "toGoal");
-var start4 = L4.uv(60, 215, 215);
-L4.start(start4.u, start4.v);
+var start4 = L4.uv(250, 55, TOWER_Z);
+L4.start(start4.u, start4.v, TOWER_Z, rampFromRight);
 L4.checkpoint(start4.u, start4.v);
+var start22 = L4.uv(35, 55, TOWER_Z);
+L4.start2(start22.u, start22.v, TOWER_Z, rampFromLeft);
 var c13 = L4.uv(100, 300, 100);
 L4.checkpoint(c13.u, c13.v);
 L4.zone("checkpoint", c13.u - 6, c13.v - 6, c13.u + 6, c13.v + 6, 1, "cp1", 90, 110);
@@ -2379,19 +3289,19 @@ L4.zone("bonus", signC3.u - 4, signC3.v - 4, signC3.u + 4, signC3.v + 4, 4e3, "g
 L4.zone("goal", signC3.u - 3.5, signC3.v - 3.5, signC3.u + 3.5, signC3.v + 3.5, void 0, "goal", -130, -95);
 for (const [x, y, f] of [[135, 330, 1], [210, 420, -1], [95, 505, 1]]) {
   const p = L4.uv(x, y, 100);
-  L4.hazard({ kind: "vacuum", u: p.u, v: p.v, range: 3.2, facing: f });
+  L4.hazard({ kind: "vacuum", u: p.u, v: p.v, z: p.z, range: 3.2, facing: f });
 }
 for (const [x, y, du, dv] of [[27, 515, 3, -1], [91, 567, 3, -1], [123, 639, 1, 3], [165, 553, 3, 1]]) {
   const p = L4.uv(x, y, 100);
-  L4.hazard({ kind: "risers", u: p.u, v: p.v, size: [3, 3], period: 3.2, phase: Math.random() * 3, launch: { du, dv } });
+  L4.hazard({ kind: "risers", u: p.u, v: p.v, z: p.z, size: [3, 3], period: 3.2, phase: Math.random() * 3, launch: { du, dv } });
 }
 for (const [x, y, f] of [[150, 930, 1], [205, 905, -1]]) {
   const p = L4.uv(x, y, -80);
-  L4.hazard({ kind: "hammer", u: p.u, v: p.v, period: 2.4, phase: Math.random() * 2, facing: f });
+  L4.hazard({ kind: "hammer", u: p.u, v: p.v, z: p.z, period: 2.4, phase: Math.random() * 2, facing: f });
 }
 {
   const p = L4.uv(200, 700, 8);
-  L4.hazard({ kind: "steelie", u: p.u, v: p.v });
+  L4.hazard({ kind: "steelie", u: p.u, v: p.v, z: p.z });
 }
 var stage4 = L4.build();
 
@@ -2405,7 +3315,8 @@ var L5 = new LevelBuilder({
   height: 1144,
   timeAdd: 20,
   carryTime: true,
-  progressDir: -1
+  progressDir: -1,
+  reverseControls: true
 });
 L5.strip(40, 1005, 100, 146, 880, 177, 3, "xRampL");
 L5.strip(250, 1005, 100, 146, 880, 177, 3, "xRampR");
@@ -2417,9 +3328,9 @@ L5.strip(150, 104, 356, 150, 62, 385, 3.2, "climbD");
 var start5 = L5.uv(146, 1060, 100);
 L5.start(start5.u, start5.v);
 L5.checkpoint(start5.u, start5.v);
-{
-  const a = L5.uv(70, 770, 177), b = L5.uv(230, 870, 177);
-  L5.zone("timezone", Math.min(a.u, b.u), Math.min(a.v, b.v), Math.max(a.u, b.u), Math.max(a.v, b.v), void 0, "plaza", 165, 190);
+for (const [x, y] of [[110, 800], [190, 800], [150, 780], [120, 845], [180, 845]]) {
+  const p = L5.uv(x, y, 177);
+  L5.hazard({ kind: "slime", u: p.u, v: p.v, z: p.z, range: 1.6, gift: true });
 }
 var c14 = L5.uv(150, 820, 177);
 L5.checkpoint(c14.u, c14.v);
@@ -2467,11 +3378,11 @@ L6.zone("bonus", goalC2.u - 4, goalC2.v - 4, goalC2.u + 4, goalC2.v + 4, 6e3, "g
 L6.zone("goal", goalC2.u - 3.5, goalC2.v - 3.5, goalC2.u + 3.5, goalC2.v + 3.5, void 0, "goal", -292, -262);
 {
   const p = L6.uv(150, 600, -188);
-  L6.hazard({ kind: "steelie", u: p.u, v: p.v });
+  L6.hazard({ kind: "steelie", u: p.u, v: p.v, z: p.z });
 }
 {
   const p = L6.uv(60, 340, 16);
-  L6.hazard({ kind: "slime", u: p.u, v: p.v, range: 2 });
+  L6.hazard({ kind: "slime", u: p.u, v: p.v, z: p.z, range: 2 });
 }
 L6.hazard({ kind: "birds", u: 0, v: 0, band: [60, 200], period: 8, count: 4 });
 var stage6 = L6.build();
@@ -2494,6 +3405,15 @@ var Hazard = class {
     void ctx;
   }
 };
+function spawnZ(level, u, v, z) {
+  if (z !== void 0) {
+    const s = supportAt(level, u, v, z + 8, 16);
+    if (s && Math.abs(s.z - z) < 40) return s.z;
+    return z;
+  }
+  const top = topAt(level, u, v);
+  return top ? top.z : 0;
+}
 function dist(a, b) {
   return Math.hypot(a.u - b.u, a.v - b.v);
 }
@@ -2505,8 +3425,7 @@ var Steelie = class extends Hazard {
   active = true;
   respawnT = 0;
   reset(ctx) {
-    const top = topAt(ctx.level, this.spawn.u, this.spawn.v);
-    this.ball.place(this.spawn.u, this.spawn.v, top ? top.z : 0);
+    this.ball.place(this.spawn.u, this.spawn.v, spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z));
     this.active = true;
   }
   update(dt, ctx) {
@@ -2576,8 +3495,7 @@ var Worm = class extends Hazard {
   reset(ctx) {
     this.u = this.spawn.u;
     this.v = this.spawn.v;
-    const top = topAt(ctx.level, this.u, this.v);
-    this.z = top ? top.z : 0;
+    this.z = spawnZ(ctx.level, this.u, this.v, this.spawn.z);
     this.eating = 0;
     this.stunned = 0;
   }
@@ -2665,8 +3583,7 @@ var Slime = class extends Hazard {
   reset(ctx) {
     this.u = this.spawn.u;
     this.v = this.spawn.v;
-    const top = topAt(ctx.level, this.u, this.v);
-    this.z = top ? top.z : 0;
+    this.z = spawnZ(ctx.level, this.u, this.v, this.spawn.z);
     this.phase = ctx.rng() * 100;
   }
   update(dt, ctx) {
@@ -2680,9 +3597,17 @@ var Slime = class extends Hazard {
       this.v = tv;
       this.z = sup.z;
     }
+    if (this.giftT > 0) this.giftT -= dt;
     for (const mb of ctx.marbles) {
       if (mb.phase !== "alive" || mb.inPipe || !mb.grounded) continue;
       if (dist(this, mb) < 0.9 && Math.abs(mb.z - this.z) < 8) {
+        if (this.spawn.gift) {
+          if (this.giftT <= 0) {
+            this.giftT = 1.5;
+            ctx.onEvent({ type: "time-gift", marble: mb });
+          }
+          continue;
+        }
         mb.u = this.u;
         mb.v = this.v;
         mb.die("dissolve");
@@ -2690,6 +3615,7 @@ var Slime = class extends Hazard {
       }
     }
   }
+  giftT = 0;
   sprites(ctx, out) {
     const frames = FRAMES.slime;
     const f = frames[Math.floor(this.t * 6 + this.phase) % frames.length];
@@ -2699,8 +3625,7 @@ var Slime = class extends Hazard {
 var Hammer = class extends Hazard {
   t = 0;
   reset(ctx) {
-    const top = topAt(ctx.level, this.spawn.u, this.spawn.v);
-    this.z = top ? top.z : 0;
+    this.z = spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z);
     this.t = this.spawn.phase ?? 0;
   }
   /** current angle of the handle in screen space (0 = pointing right, grows clockwise) */
@@ -2728,10 +3653,11 @@ var Hammer = class extends Hazard {
     }
   }
   sprites(ctx, out) {
-    const frames = FRAMES.hammer;
+    const frames = FRAMES.hammerNes.length ? FRAMES.hammerNes : FRAMES.hammer;
+    const img = FRAMES.hammerNes.length ? ctx.assets.sheets.hammerNes : ctx.assets.sheets.hammer;
     const a = (this.angle() % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
     const idx = Math.floor(a / (Math.PI * 2) * frames.length) % frames.length;
-    out.push({ img: ctx.assets.sheets.hammer, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 4, depthBias: 3 });
+    out.push({ img, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 6, depthBias: 3 });
   }
 };
 var Vacuum = class extends Hazard {
@@ -2740,8 +3666,7 @@ var Vacuum = class extends Hazard {
   // 0..1 how hard it is currently sucking
   swallow = 0;
   reset(ctx) {
-    const top = topAt(ctx.level, this.spawn.u, this.spawn.v);
-    this.z = top ? top.z : 0;
+    this.z = spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z);
     this.t = this.spawn.phase ?? 0;
     this.pull = 0;
     this.swallow = 0;
@@ -2770,17 +3695,23 @@ var Vacuum = class extends Hazard {
     this.pull += ((sucking || this.swallow > 0 ? 1 : 0) - this.pull) * Math.min(1, dt * 6);
   }
   sprites(ctx, out) {
-    const frames = FRAMES.vacuum;
-    const idx = this.pull > 0.2 ? Math.floor(this.t * 12) % frames.length : Math.floor(this.t * 1.5) % 3;
-    out.push({ img: ctx.assets.sheets.vacuum, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 3, flip: this.spawn.facing === -1, depthBias: 2 });
+    const left = this.spawn.facing === -1;
+    const frames = left ? FRAMES.vacuumL : FRAMES.vacuumR;
+    if (!frames.length) {
+      const f = FRAMES.vacuum;
+      const idx2 = this.pull > 0.2 ? Math.floor(this.t * 12) % f.length : Math.floor(this.t * 1.5) % 3;
+      out.push({ img: ctx.assets.sheets.vacuum, frame: f[idx2], u: this.u, v: this.v, z: this.z, dy: 3, flip: left, depthBias: 2 });
+      return;
+    }
+    const idx = this.pull > 0.2 ? Math.floor(this.t * 8) % frames.length : 0;
+    out.push({ img: left ? ctx.assets.sheets.vacuumL : ctx.assets.sheets.vacuumR, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 4, depthBias: 2 });
   }
 };
 var Risers = class extends Hazard {
   t = 0;
   pistons = [];
   reset(ctx) {
-    const top = topAt(ctx.level, this.spawn.u, this.spawn.v);
-    this.z = top ? top.z : 0;
+    this.z = spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z);
     const [nu, nv] = this.spawn.size ?? [3, 3];
     this.pistons = [];
     for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
@@ -2836,8 +3767,7 @@ var Risers = class extends Hazard {
 var WavePlate = class extends Hazard {
   t = 0;
   reset(ctx) {
-    const top = topAt(ctx.level, this.spawn.u, this.spawn.v);
-    this.z = top ? top.z : 0;
+    this.z = spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z);
     this.t = 0;
   }
   /** hump centre along u for the current time */
@@ -2954,9 +3884,15 @@ var Birds = class extends Hazard {
   sprites(ctx, out) {
     const frames = FRAMES.bird;
     for (const b of this.units) {
-      const f = frames[2 + Math.floor((this.t + b.phase) * 10) % 2];
       const S = b.y / 4, D = b.x / 8;
-      out.push({ img: ctx.assets.sheets.bird, frame: f, u: (S + D) / 2, v: (S - D) / 2, z: 0, flip: b.vx < 0, depthBias: 500 });
+      const dir = b.vx < 0 ? FRAMES.birdL : FRAMES.birdR;
+      if (dir.length) {
+        const f = dir[Math.floor((this.t + b.phase) * 6) % dir.length];
+        out.push({ img: b.vx < 0 ? ctx.assets.sheets.birdL : ctx.assets.sheets.birdR, frame: f, u: (S + D) / 2, v: (S - D) / 2, z: 0, depthBias: 500 });
+      } else {
+        const f = frames[2 + Math.floor((this.t + b.phase) * 10) % 2];
+        out.push({ img: ctx.assets.sheets.bird, frame: f, u: (S + D) / 2, v: (S - D) / 2, z: 0, flip: b.vx < 0, depthBias: 500 });
+      }
     }
     if (this.zapT > 0 && this.zapAt) {
       const f = frames[this.zapT > 0.25 ? 0 : 1];
@@ -3678,7 +4614,18 @@ var WebMCP = class {
       mode: g.mode,
       lobby: g.lobbyId || null,
       agentJoined: g.agentJoined,
-      race: { stage: g.stageIdx + 1, name: g.stage.name, direction: g.stage.progressDir > 0 ? "descend (+y)" : "ascend (-y)", timeLeft: Math.round(g.timeLeft * 10) / 10, score: g.score, deaths: g.deaths },
+      race: {
+        stage: g.stageIdx + 1,
+        name: g.stage.name,
+        direction: g.stage.progressDir > 0 ? "descend (+y)" : "ascend (-y)",
+        timeLeft: Math.round(g.timeLeft * 10) / 10,
+        score: g.score,
+        deaths: g.deaths,
+        controlsReversed: !!g.stage.reverseControls,
+        finished: g.finished,
+        opponentFinished: g.oppFinished,
+        wonLastRace: g.wonLast
+      },
       marble: {
         x: Math.round(mx),
         y: Math.round(my),
@@ -3691,6 +4638,7 @@ var WebMCP = class {
         dizzy: m.dizzyT > 0,
         frozen: m.frozenT > 0,
         inPipe: m.inPipe,
+        ridingStartRamp: !!m.slide,
         supportedBy: m.support ? m.support.s.name ?? "floor" : null
       },
       opponent: opp ? { x: Math.round((opp.u - opp.v) * 8), y: Math.round((opp.u + opp.v) * 4 - opp.z), phase: opp.phase } : null,
@@ -3867,6 +4815,14 @@ var Game = class {
   remote = /* @__PURE__ */ new Map();
   remoteInfo = /* @__PURE__ */ new Map();
   teleportCooldown = 0;
+  /** 2P (arcade rules, 2player_longplay.mov): race outcome bookkeeping */
+  finished = false;
+  oppFinished = false;
+  wonLast = false;
+  wonPool = 0;
+  wonDone = 0;
+  waitingT = 0;
+  goalFlags = [];
   /** inspector overlay (F1 or ?debug=1): shows collision components, marble coordinates, click-to-teleport */
   debug = false;
   debugCanvas = null;
@@ -4022,6 +4978,11 @@ var Game = class {
     }
     this.resetStageState();
   }
+  /** seconds granted at the start of a race: NES table in 1P, arcade table in the 2P modes */
+  timeAddFor(idx) {
+    if (this.mode === "1p") return STAGES[idx].timeAdd;
+    return ARCADE_TIME_ADD[idx] ?? STAGES[idx].timeAdd;
+  }
   resetStageState() {
     const s = this.stage;
     const top = topAt(s, s.start.u, s.start.v);
@@ -4039,8 +5000,32 @@ var Game = class {
     this.goalReached = false;
     this.timezoneT = 0;
     this.timezoneTag = 0;
-    this.introPool = s.timeAdd;
+    this.introPool = this.timeAddFor(this.stageIdx);
+    this.wonPool = this.mode === "ai" && this.wonLast ? WON_RACE_BONUS : 0;
+    this.wonDone = 0;
+    this.waitingT = 0;
+    this.finished = false;
+    this.oppFinished = false;
     this.timeLeft = s.carryTime ? this.carried : 0;
+    if (this.mode === "ai" && this.isAgentPage) {
+      if (s.start2) {
+        const t2 = topAt(s, s.start2.u, s.start2.v);
+        this.marble.place(s.start2.u, s.start2.v, s.start2.z ?? (t2 ? t2.z : this.marble.z));
+      } else {
+        const u = s.start.u + 1.2, v = s.start.v - 1.2;
+        const t2 = supportAt(s, u, v, this.marble.z + 4, 8);
+        this.marble.place(u, v, t2 ? t2.z : this.marble.z);
+      }
+    }
+    this.goalFlags = [];
+    const goal4 = s.zones.find((z) => z.kind === "goal");
+    if (goal4) {
+      const zRef = goal4.zMin !== void 0 ? goal4.zMin + 4 : 0;
+      for (const [u, v] of [[goal4.u0 + 0.3, goal4.v1 - 0.3], [goal4.u1 - 0.3, goal4.v0 + 0.3]]) {
+        const sup = goal4.zMin !== void 0 ? supportAt(s, u, v, zRef + 20, 40) : topAt(s, u, v);
+        if (sup) this.goalFlags.push({ u, v, z: sup.z });
+      }
+    }
     this.centerCameraOnMarble(true);
   }
   /* ---------------------------------------------------------------------- */
@@ -4070,7 +5055,25 @@ var Game = class {
     }
   }
   updateIntro(dt) {
+    this.centerCameraOnMarble(false, dt);
+    if (this.mode !== "1p") this.updateNet(dt);
     if (this.t < 0.6) return;
+    if (this.wonPool > 0) {
+      const take = Math.min(this.wonPool, 5 * dt);
+      this.wonPool -= take;
+      this.timeLeft = Math.min(TIME_CAP, this.timeLeft + take);
+      this.introTick += take;
+      if (this.introTick >= 1) {
+        this.introTick -= 1;
+        this.sound.sfx("tick", 0.35, 1.4);
+      }
+      if (this.wonPool <= 1e-3) {
+        this.wonPool = 0;
+        this.wonDone = this.t;
+      }
+      return;
+    }
+    if (this.wonDone > 0 && this.t - this.wonDone < 0.8) return;
     if (this.introPool > 0) {
       if (this.t > 0.6 && this.stage.music && !this.musicStarted) {
         this.musicStarted = true;
@@ -4092,8 +5095,8 @@ var Game = class {
     } else if (this.t - this.introDone > 0.7) {
       this.go("race");
       this.raceTime = 0;
+      this.beginStartSlide();
     }
-    this.centerCameraOnMarble(false, dt);
   }
   musicStarted = false;
   introTick = 0;
@@ -4125,6 +5128,13 @@ var Game = class {
         this.sound.sfx("shatter");
         if (BIRD_ZAP_RESETS_TO_START && e.marble === this.marble) this.pendingRespawnAtStart = true;
         break;
+      case "time-gift":
+        if (e.marble === this.marble) {
+          this.timeLeft = Math.min(TIME_CAP, this.timeLeft + TIMEZONE_BONUS);
+          this.timezoneTag = 1.2;
+          this.sound.sfx("checkpoint", 0.6, 1.2);
+        }
+        break;
       case "steelie-bump":
         break;
     }
@@ -4133,7 +5143,10 @@ var Game = class {
     if (!this.net.lobby) return;
     this.net.update(dt);
     const m = this.marble;
-    this.net.sendState(dt, { stage: this.stageIdx + 1, u: m.u, v: m.v, z: m.z, vu: m.vu, vv: m.vv, phase: m.phase, score: this.score, time: this.timeLeft, progress: (m.u + m.v) * this.stage.progressDir });
+    this.net.sendState(dt, { stage: this.stageIdx + 1, u: m.u, v: m.v, z: m.z, vu: m.vu, vv: m.vv, phase: m.phase, score: this.score, time: this.timeLeft, progress: (m.u + m.v) * this.stage.progressDir, fin: this.finished ? 1 : 0, deaths: this.deaths });
+    for (const p of this.net.players.values()) {
+      if (p.stage > this.stageIdx + 1 || p.stage === this.stageIdx + 1 && p.fin) this.oppFinished = true;
+    }
     const seen = /* @__PURE__ */ new Set();
     for (const p of this.net.players.values()) {
       if (p.stage !== this.stageIdx + 1) continue;
@@ -4173,6 +5186,11 @@ var Game = class {
     if (this.mode !== "ai") return;
     const opp = this.others[0];
     if (!opp || opp.phase !== "alive") return;
+    if (this.oppFinished || this.finished) {
+      this.camOverride = null;
+      return;
+    }
+    if (this.marble.slide) return;
     this.teleportCooldown = Math.max(0, this.teleportCooldown - dt);
     const m = this.marble;
     const myY = (m.u + m.v) * 4 - m.z, oppY = (opp.u + opp.v) * 4 - opp.z;
@@ -4205,7 +5223,8 @@ var Game = class {
         return;
       }
     }
-    const steer = this.input.sample(dt);
+    let steer = this.input.sample(dt);
+    if (s.reverseControls) steer = { ax: -steer.ax, ay: -steer.ay };
     const ev = [];
     this.marble.step(s, steer, dt, ev);
     for (const e of ev) this.onMarbleEvent(e);
@@ -4311,7 +5330,7 @@ var Game = class {
         this.sound.sfx("checkpoint", 0.6, 1.2);
       }
     } else {
-      this.timezoneTag = 0;
+      this.timezoneTag = Math.max(0, this.timezoneTag - 1 / 60);
       this.timezoneT = 0;
     }
   }
@@ -4322,6 +5341,8 @@ var Game = class {
     this.sound.sfx("item");
   }
   reachGoal() {
+    this.finished = true;
+    this.wonLast = this.mode === "ai" && !this.oppFinished;
     this.sound.stopBgm();
     this.sound.stopRoll();
     this.sound.sfx("goal");
@@ -4331,10 +5352,25 @@ var Game = class {
     this.bonusCount = 0;
     this.go("timebonus");
   }
+  /** 2P: is there an opponent still racing this stage (alive with time on the clock)? */
+  opponentRacing() {
+    if (this.mode !== "ai") return false;
+    for (const p of this.net.players.values()) {
+      if (p.stage === this.stageIdx + 1 && !p.fin && p.time > 0.05 && performance.now() - p.lastSeen < 6e3) return true;
+    }
+    return false;
+  }
   updateTimeBonus(dt) {
+    if (this.mode !== "1p") this.updateNet(dt);
     const ev = [];
     this.marble.step(this.stage, { ax: 0, ay: 0 }, dt, ev);
-    this.centerCameraOnMarble(false, dt);
+    if (this.mode === "ai" && this.others[0] && this.bonusCount >= this.bonusTotal) {
+      const o = this.others[0];
+      const oy = (o.u + o.v) * 4 - o.z;
+      this.camOverride = clamp2(oy - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+      const k = Math.min(1, dt * 4);
+      this.r.cam.y += (this.camOverride - this.r.cam.y) * k;
+    } else this.centerCameraOnMarble(false, dt);
     if (this.t > 1 && this.bonusCount < this.bonusTotal) {
       const step = Math.min(this.bonusTotal - this.bonusCount, Math.ceil(this.bonusTotal * dt / 1.4 / 100) * 100);
       this.bonusCount += step;
@@ -4346,6 +5382,10 @@ var Game = class {
       }
     }
     if (this.bonusCount >= this.bonusTotal && this.t > 2.6) {
+      if (!this.oppFinished && this.opponentRacing()) {
+        this.waitingT += dt;
+        return;
+      }
       this.fade = Math.min(1, this.fade + dt * 2);
       if (this.fade >= 1 && this.t > 3.4) {
         this.carried = Math.floor(this.timeLeft);
@@ -4372,6 +5412,12 @@ var Game = class {
     this.sound.stopRoll();
     this.go("gameover");
   }
+  /** Aerial-style starting ramps: the marble rides a scripted path with no control until it lands */
+  beginStartSlide() {
+    const s = this.stage;
+    const st = this.mode === "ai" && this.isAgentPage && s.start2 ? s.start2 : s.start;
+    if (st.slide !== void 0 && s.slides[st.slide]) this.marble.beginSlide(s.slides[st.slide]);
+  }
   respawn() {
     const s = this.stage;
     let cp = s.checkpoints[Math.min(this.checkpointIdx, s.checkpoints.length - 1)] ?? s.start;
@@ -4382,6 +5428,7 @@ var Game = class {
     }
     const top = topAt(s, cp.u, cp.v);
     this.marble.place(cp.u, cp.v, top ? top.z : 0);
+    if (this.checkpointIdx === 0 || cp === s.start) this.beginStartSlide();
     this.progressMax = Math.max(this.progressMax, -Infinity);
     this.respawnT = 0;
   }
@@ -4430,10 +5477,18 @@ var Game = class {
     const sprites = [];
     const ctx = this.hazardCtx(0);
     for (const h of this.hazards) h.sprites(ctx, sprites);
-    this.marbleSprites(this.marble, this.isAI ? this.assets.sheets.marbleRed : this.assets.sheets.marble, sprites);
+    this.marbleSprites(this.marble, this.isAI, sprites);
     for (const [id, o] of this.remote) {
       const info = this.remoteInfo.get(id);
-      this.marbleSprites(o, info?.role === "ai" ? this.assets.sheets.marbleRed : this.assets.sheets.marble, sprites);
+      this.marbleSprites(o, info?.role === "ai", sprites);
+    }
+    if (FRAMES.flagBlue.length) {
+      this.goalFlags.forEach((f, i) => {
+        const fr = i === 0 ? FRAMES.flagBlue : FRAMES.flagRed;
+        const img = i === 0 ? this.assets.sheets.flagBlue : this.assets.sheets.flagRed;
+        const fi = Math.floor((this.raceTime + this.t) * 30) % fr.length;
+        out_flag(sprites, img, fr[(fi + fr.length) % fr.length], f);
+      });
     }
     r.drawSprites(sprites);
     for (const h of this.hazards) h.drawOverlay?.(r.ctx, (u, v, z) => r.project(u, v, z), this.raceTime);
@@ -4465,7 +5520,13 @@ var Game = class {
     }
     r.drawLabels(labels);
     if (this.debug) this.renderDebug();
-    r.drawHud(fmtScore(this.displayScore), fmtTime(this.timeLeft));
+    if (this.mode === "ai") {
+      const opp = [...this.net.players.values()].find((p) => p.role !== (this.isAgentPage ? "ai" : "human"));
+      const me = { score: fmtScore(this.displayScore), time: fmtTime(this.timeLeft) };
+      const them = { score: fmtScore(opp?.score ?? 0), time: fmtTime(opp?.time ?? 0) };
+      if (this.isAgentPage) r.drawHud2P(them, me);
+      else r.drawHud2P(me, them);
+    } else r.drawHud(fmtScore(this.displayScore), fmtTime(this.timeLeft));
     if (this.toast.t > 0) {
       r.ctx.fillStyle = "rgba(0,0,0,0.75)";
       r.ctx.fillRect(0, VIEW_H - 12, VIEW_W, 12);
@@ -4475,21 +5536,46 @@ var Game = class {
       const title = this.stage.name;
       const bw = 232, bh = 30;
       const bx = (VIEW_W - bw) / 2, by = 36;
+      const showWon = this.wonPool > 0 || this.wonDone > 0 && this.t - this.wonDone < 0.8;
       r.drawBox(bx, by, bw, bh);
-      r.text("TIME TO FINISH", bx + 36, by + 6, "orange");
-      r.text(title + ":", bx + 44, by + 16, "cyan");
-      const n = fmtTime(this.introPool);
-      r.ctx.fillStyle = "#7d7d7d";
-      r.ctx.fillRect(bx + bw - 34, by + 6, 28, 18);
-      r.font.drawBig(r.ctx, n, bx + bw - 32, by + 8);
+      if (showWon) {
+        r.text("WON LAST RACE:", bx + 40, by + 11, "orange");
+        r.text(`+${Math.ceil(this.wonPool)} SEC`, bx + bw - 60, by + 11, "cyan");
+      } else {
+        const extra = this.mode !== "1p" && this.stageIdx >= 2;
+        r.text(extra ? "EXTRA TIME FOR" : "TIME TO FINISH", bx + 36, by + 6, "orange");
+        r.text(title + ":", bx + 44, by + 16, "cyan");
+        const n = fmtTime(this.introPool);
+        r.ctx.fillStyle = "#7d7d7d";
+        r.ctx.fillRect(bx + bw - 34, by + 6, 28, 18);
+        if (extra) r.text("+", bx + bw - 42, by + 11, "cyan");
+        r.font.drawBig(r.ctx, n, bx + bw - 32, by + 8);
+      }
+      if (this.stage.reverseControls) {
+        r.drawBox(bx, by + bh + 4, bw, 14);
+        r.textC("EVERYTHING YOU KNOW IS WRONG", VIEW_W / 2, by + bh + 7, "orange");
+      }
     }
     if (this.screen === "timebonus") {
-      const bw = 96, bh = 46;
-      const bx = 20, by = 40;
-      r.drawBox(bx, by, bw, bh);
-      r.textC("TIME", bx + bw / 2, by + 6, "lavender");
-      r.textC("BONUS", bx + bw / 2, by + 18, "lavender");
-      r.textC(fmtScore(this.bonusCount), bx + bw / 2, by + 32, "lavender");
+      if (this.mode === "ai") {
+        const bw = 236, bh = 16;
+        const bx = (VIEW_W - bw) / 2, by = 40;
+        r.drawBox(bx, by, bw, bh);
+        const col = this.isAgentPage ? "#ff5a5a" : "#5a7cff";
+        r.textTinted("BONUS FOR TIME LEFT:", bx + 6, by + 4, col);
+        r.textTinted(fmtScore(this.bonusCount), bx + bw - 6 - r.font.width(fmtScore(this.bonusCount)), by + 4, col);
+        if (this.waitingT > 0.5 && this.fade === 0) {
+          r.drawBox(bx, by + bh + 4, bw, 14);
+          r.textC(this.isAgentPage ? "WAITING FOR LEFT PLAYER" : "WAITING FOR RIGHT PLAYER", VIEW_W / 2, by + bh + 7, "orange");
+        }
+      } else {
+        const bw = 96, bh = 46;
+        const bx = 20, by = 40;
+        r.drawBox(bx, by, bw, bh);
+        r.textC("TIME", bx + bw / 2, by + 6, "lavender");
+        r.textC("BONUS", bx + bw / 2, by + 18, "lavender");
+        r.textC(fmtScore(this.bonusCount), bx + bw / 2, by + 32, "lavender");
+      }
       if (this.fade > 0) {
         r.ctx.fillStyle = `rgba(0,0,0,${this.fade})`;
         r.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
@@ -4578,16 +5664,22 @@ var Game = class {
     }
   }
   /** choose marble frame(s) from its state */
-  marbleSprites(m, img, out) {
+  marbleSprites(m, red, out) {
     const F = FRAMES.marble;
+    const img = red ? this.assets.sheets.marbleRed : this.assets.sheets.marble;
     if (m.phase === "hidden" || m.inPipe) return;
     const base = { img, u: m.u, v: m.v, z: m.z, dy: -8 };
     const groundZ = m.support ? m.support.z : m.z;
+    const rollF = red ? FRAMES.p2roll : FRAMES.p1roll;
+    const rollImg = red ? this.assets.sheets.p2roll : this.assets.sheets.p1roll;
+    const rollSprite = (k) => rollF.length ? { img: rollImg, frame: rollF[(Math.floor(k) % rollF.length + rollF.length) % rollF.length] } : { img, frame: F.roll[Math.floor(k) % F.roll.length] };
     if (m.phase === "alive") {
-      let f;
-      if (m.dizzyT > 0) f = F.dizzy[Math.floor(m.dizzyT * 12) % F.dizzy.length];
-      else f = F.roll[Math.floor(m.rollDist * 1.6) % F.roll.length];
-      out.push({ ...base, frame: f, shadowZ: m.grounded ? 0 : m.z - groundZ });
+      if (m.dizzyT > 0) {
+        out.push({ ...base, frame: F.dizzy[Math.floor(m.dizzyT * 12) % F.dizzy.length], shadowZ: m.grounded ? 0 : m.z - groundZ });
+        return;
+      }
+      const rs = rollSprite(m.rollDist * 3.2);
+      out.push({ ...base, img: rs.img, frame: rs.frame, shadowZ: m.grounded ? 0 : m.z - groundZ });
       return;
     }
     if (m.phase === "dying") {
@@ -4614,7 +5706,8 @@ var Game = class {
           if (t > 0.3) out.push({ ...base, frame: F.pile[0] });
           break;
         case "void": {
-          out.push({ ...base, z: m.z - t * 260, frame: F.roll[Math.floor(t * 20) % 6], alpha: Math.max(0, 1 - t) });
+          const rs = rollSprite(t * 40);
+          out.push({ ...base, img: rs.img, frame: rs.frame, z: m.z - t * 260, alpha: Math.max(0, 1 - t) });
           break;
         }
       }
@@ -4651,6 +5744,9 @@ async function loadHeightMap(stage) {
 }
 function clamp2(x, a, b) {
   return Math.max(a, Math.min(b, x));
+}
+function out_flag(out, img, frame, at) {
+  out.push({ img, frame, u: at.u, v: at.v, z: at.z, dy: 0, depthBias: 1 });
 }
 function hsl(h, s, l) {
   const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(h / 60 % 2 - 1)), m = l - c / 2;
@@ -4715,7 +5811,7 @@ async function boot() {
   await game.start();
   let last = performance.now();
   const loop = (now) => {
-    const dt = Math.min(0.05, (now - last) / 1e3);
+    const dt = Math.max(0, Math.min(0.05, (now - last) / 1e3));
     last = now;
     game.update(dt);
     game.render();

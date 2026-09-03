@@ -126,6 +126,10 @@ export interface HazardSpawn {
   rect?: { u0: number; v0: number; u1: number; v1: number };
 }
 
+/** scripted roll (Aerial race starting ramps): the marble follows these world points with no control and cannot
+ *  fall off; at the last point it lands with the dizzy spin and control begins */
+export interface Slide { pts: { u: number; v: number; z: number }[]; delay: number }
+
 export interface StageDef {
   id: number;
   name: string;
@@ -144,7 +148,10 @@ export interface StageDef {
   /** Silly race: trackball directions are inverted ("EVERYTHING YOU KNOW IS WRONG") */
   reverseControls?: boolean;
   surfaces: Surface[];
-  start: { u: number; v: number; z?: number };
+  start: { u: number; v: number; z?: number; slide?: number };
+  /** second player's start (arcade 2P: e.g. the other tower on the Aerial race); defaults to beside `start` */
+  start2?: { u: number; v: number; z?: number; slide?: number };
+  slides: Slide[];
   checkpoints: { u: number; v: number }[];
   zones: Zone[];
   pipes: Pipe[];
@@ -271,7 +278,7 @@ export class LevelBuilder {
       id: o.id, name: o.name, music: o.music, image: o.image, width: o.width, height: o.height,
       viewX0: o.viewX0 ?? Math.max(0, Math.floor((o.width - 288) / 2)),
       timeAdd: o.timeAdd, carryTime: o.carryTime, progressDir: o.progressDir ?? 1, reverseControls: o.reverseControls,
-      surfaces: [], start: { u: 0, v: 0 }, checkpoints: [], zones: [], pipes: [], hazards: [], floorMin: 0, manualSurfaces: [],
+      surfaces: [], start: { u: 0, v: 0 }, slides: [], checkpoints: [], zones: [], pipes: [], hazards: [], floorMin: 0, manualSurfaces: [],
     };
   }
 
@@ -397,7 +404,13 @@ export class LevelBuilder {
     return this.rect(u0, v0, u0 + lenU, v0 + lenV, z0, gu, gv, name);
   }
 
-  start(u: number, v: number, z?: number): void { this.def.start = { u, v, z }; }
+  start(u: number, v: number, z?: number, slide?: number): void { this.def.start = { u, v, z, slide }; }
+  start2(u: number, v: number, z?: number, slide?: number): void { this.def.start2 = { u, v, z, slide }; }
+  /** scripted roll through MAP PIXEL points [x, y, z]; returns the slide index for start()/start2() */
+  slide(pts: [number, number, number][], delay = 0.5): number {
+    this.def.slides.push({ pts: pts.map(([x, y, z]) => { const w = toWorld(x, y, z); return { u: w.u, v: w.v, z }; }), delay });
+    return this.def.slides.length - 1;
+  }
   checkpoint(u: number, v: number): void { this.def.checkpoints.push({ u, v }); }
 
   zone(kind: ZoneKind, u0: number, v0: number, u1: number, v1: number, value?: number, id?: string, zMin?: number, zMax?: number): void {

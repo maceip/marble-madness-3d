@@ -289,9 +289,14 @@ export class Game {
     this.timeLeft = s.carryTime ? this.carried : 0;
     // 2P: the agent's (red) marble starts beside the human's
     if (this.mode === 'ai' && this.isAgentPage) {
-      const u = s.start.u + 1.2, v = s.start.v - 1.2;
-      const t2 = supportAt(s, u, v, this.marble.z + 4, 8);
-      this.marble.place(u, v, t2 ? t2.z : this.marble.z);
+      if (s.start2) {
+        const t2 = topAt(s, s.start2.u, s.start2.v);
+        this.marble.place(s.start2.u, s.start2.v, s.start2.z ?? (t2 ? t2.z : this.marble.z));
+      } else {
+        const u = s.start.u + 1.2, v = s.start.v - 1.2;
+        const t2 = supportAt(s, u, v, this.marble.z + 4, 8);
+        this.marble.place(u, v, t2 ? t2.z : this.marble.z);
+      }
     }
     // animated finish flags either side of the goal (animated_assets/FinishFlag.gif)
     this.goalFlags = [];
@@ -354,6 +359,7 @@ export class Game {
     } else if (this.t - this.introDone > 0.7) {
       this.go('race');
       this.raceTime = 0;
+      this.beginStartSlide();
     }
   }
   private musicStarted = false;
@@ -435,6 +441,7 @@ export class Game {
     if (!opp || opp.phase !== 'alive') return;
     // once the leader has finished the race, the other marble is left alone to finish on its own
     if (this.oppFinished || this.finished) { this.camOverride = null; return; }
+    if (this.marble.slide) return;
     this.teleportCooldown = Math.max(0, this.teleportCooldown - dt);
     const m = this.marble;
     const myY = (m.u + m.v) * 4 - m.z, oppY = (opp.u + opp.v) * 4 - opp.z;
@@ -638,12 +645,20 @@ export class Game {
     this.go('gameover');
   }
 
+  /** Aerial-style starting ramps: the marble rides a scripted path with no control until it lands */
+  beginStartSlide(): void {
+    const s = this.stage;
+    const st = this.mode === 'ai' && this.isAgentPage && s.start2 ? s.start2 : s.start;
+    if (st.slide !== undefined && s.slides[st.slide]) this.marble.beginSlide(s.slides[st.slide]);
+  }
+
   respawn(): void {
     const s = this.stage;
     let cp = s.checkpoints[Math.min(this.checkpointIdx, s.checkpoints.length - 1)] ?? s.start;
     if (this.pendingRespawnAtStart) { cp = s.start; this.checkpointIdx = 0; this.pendingRespawnAtStart = false; }
     const top = topAt(s, cp.u, cp.v);
     this.marble.place(cp.u, cp.v, top ? top.z : 0);
+    if (this.checkpointIdx === 0 || cp === s.start) this.beginStartSlide();
     this.progressMax = Math.max(this.progressMax, -Infinity);
     this.respawnT = 0;
   }
@@ -695,7 +710,8 @@ export class Game {
       this.goalFlags.forEach((f, i) => {
         const fr = i === 0 ? FRAMES.flagBlue : FRAMES.flagRed;
         const img = i === 0 ? this.assets.sheets.flagBlue : this.assets.sheets.flagRed;
-        out_flag(sprites, img, fr[Math.floor((this.raceTime + this.t) * 30) % fr.length], f);
+        const fi = Math.floor((this.raceTime + this.t) * 30) % fr.length;
+        out_flag(sprites, img, fr[(fi + fr.length) % fr.length], f);
       });
     }
     r.drawSprites(sprites);

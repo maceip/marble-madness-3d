@@ -1,4 +1,4 @@
-import { StageDef, supportAt, highestBelow, Support, gradientOn, inRect, heightOn } from './level';
+import { StageDef, Slide, supportAt, highestBelow, Support, gradientOn, inRect, heightOn } from './level';
 import { screenDirToWorld } from './iso';
 import {
   ACCEL, FRICTION, MAX_SPEED, SLOPE_K, GRAVITY, STEP_UP, DROP_SNAP, BOUNCE, BOUNCE_SFX_SPEED,
@@ -44,6 +44,49 @@ export class Marble {
   inPipe = false;
   pipeT = 0;
   pipeExit: { u: number; v: number; z?: number; vu: number; vv: number } | null = null;
+  /** scripted roll (see Slide): no control, cannot fall off */
+  slide: { pts: { u: number; v: number; z: number }[]; seg: number; s: number; speed: number; delay: number } | null = null;
+
+  beginSlide(sl: Slide): void {
+    if (sl.pts.length < 2) return;
+    const p = sl.pts[0];
+    this.u = p.u; this.v = p.v; this.z = p.z; this.vu = this.vv = this.vz = 0; this.grounded = true;
+    this.slide = { pts: sl.pts, seg: 0, s: 0, speed: 0, delay: sl.delay };
+  }
+
+  private stepSlide(level: StageDef, dt: number, events: MarbleEvent[]): void {
+    const sl = this.slide!;
+    if (sl.delay > 0) { sl.delay -= dt; return; }
+    sl.speed = Math.min(22, sl.speed + 14 * dt);
+    let ds = sl.speed * dt;
+    while (ds > 0) {
+      const a = sl.pts[sl.seg], b = sl.pts[sl.seg + 1];
+      const len = Math.hypot(b.u - a.u, b.v - a.v) || 1e-6;
+      const left = len - sl.s;
+      if (ds < left) {
+        sl.s += ds; ds = 0;
+        const k = sl.s / len;
+        this.u = a.u + (b.u - a.u) * k; this.v = a.v + (b.v - a.v) * k; this.z = a.z + (b.z - a.z) * k;
+        this.vu = (b.u - a.u) / len * sl.speed; this.vv = (b.v - a.v) / len * sl.speed;
+        this.rollDist += sl.speed * dt;
+      } else {
+        ds -= left; sl.seg++; sl.s = 0;
+        if (sl.seg >= sl.pts.length - 1) {
+          // landed: stand on the platform, spin, and hand control to the player
+          const e = sl.pts[sl.pts.length - 1];
+          this.u = e.u; this.v = e.v; this.z = e.z;
+          const sup = supportAt(level, e.u, e.v, e.z + 6, 12);
+          if (sup) { this.z = sup.z; this.support = sup; }
+          this.vu = this.vv = this.vz = 0; this.grounded = true; this.maxZ = this.z; this.airT = 0;
+          this.dizzyT = DIZZY_TIME;
+          this.slide = null;
+          events.push({ type: 'land', fall: 20 });
+          events.push({ type: 'dizzy' });
+          return;
+        }
+      }
+    }
+  }
 
   get speed(): number { return Math.hypot(this.vu, this.vv); }
 
@@ -73,6 +116,8 @@ export class Marble {
       return;
     }
     if (this.phase !== 'alive') return;
+
+    if (this.slide) { this.stepSlide(level, dt, events); return; }
 
     if (this.inPipe) {
       this.pipeT -= dt;

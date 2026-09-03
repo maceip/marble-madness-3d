@@ -108,7 +108,7 @@ export class WebMCP {
         controlsReversed: !!g.stage.reverseControls, finished: g.finished, opponentFinished: g.oppFinished, wonLastRace: g.wonLast },
       marble: {
         x: Math.round(mx), y: Math.round(my), height: Math.round(m.z), vx: Math.round((m.vu - m.vv) * 8), vy: Math.round((m.vu + m.vv) * 4),
-        speed: +m.speed.toFixed(2), grounded: m.grounded, phase: m.phase, dizzy: m.dizzyT > 0, frozen: m.frozenT > 0, inPipe: m.inPipe,
+        speed: +m.speed.toFixed(2), grounded: m.grounded, phase: m.phase, dizzy: m.dizzyT > 0, frozen: m.frozenT > 0, inPipe: m.inPipe, ridingStartRamp: !!m.slide,
         supportedBy: m.support ? m.support.s.name ?? 'floor' : null,
       },
       opponent: opp ? { x: Math.round((opp.u - opp.v) * 8), y: Math.round((opp.u + opp.v) * 4 - opp.z), phase: opp.phase } : null,
