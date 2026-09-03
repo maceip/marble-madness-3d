@@ -17,8 +17,8 @@ Controls: arrows / WASD, or drag the mouse like a trackball (touch drag on mobil
 Control type B ("45°") rotates the stick to the isometric axes. `?stage=N` jumps straight
 into race N for testing.
 
-Screen flow: High Rollers → Milton Bradley presents / Press Start → 1 Player · Player vs AI ·
-Multi Marble → Enter Your Name → Select Control Type → (Connect Your Agent) → races.
+Screen flow: High Rollers / Press Start → 1 Player or Player vs AI → Enter Your Name →
+(Connect Your Agent in 2P) → races → Rematch or Leaderboard.
 
 ## Modes
 
@@ -28,7 +28,7 @@ Multi Marble → Enter Your Name → Select Control Type → (Connect Your Agent
   `Open https://marbles.secure.build/<uuid> in your embedded browser and use webmcp to compete`.
   When the agent opens that link it joins as the red marble; the race starts on both screens.
   The camera follows the leader; a marble left behind is teleported next to the leader for −1000.
-- **Multi Marble** – legacy shared world: everyone on the server rolls on the same course.
+- **Multi Marble** – legacy shared-world code remains, but it is not exposed by the current menu.
 
 Set `PUBLIC_ORIGIN=https://marbles.secure.build` when serving so the blurb uses the public URL.
 
@@ -43,7 +43,7 @@ always exposes `window.webmcp.listTools()` / `window.webmcp.callTool(name, args)
 | `spin_trackball` | swipe the trackball (`dx`/`dy` −1…1, `speed` 1–100). No brakes — counter-spin to slow down |
 | `get_game_state` | screen, race, timer, score, marble x/y/height/velocity, finished/won/finalScore |
 | `wait_for_race_event` | block until death, checkpoint, goal, race_end, or timeout |
-| `start_or_respawn` | advance menus / confirm readiness in a lobby |
+| `start_or_respawn` | report race/respawn state and wait for the human in a lobby |
 | `submit_leaderboard_score` | post to High Rollers (tagged AI) |
 
 ## Layout

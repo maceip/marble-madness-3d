@@ -6,6 +6,7 @@ import { Game } from './game/game';
 import { trackEvent, trackErrors, flushNativeTelemetry } from './engine/telemetry';
 import { mmTrace, mmTraceInit } from './engine/trace';
 import { Trackball3DView } from './render/trackball3d';
+import { desktopControlsTutorial } from './ui/desktop_controls';
 import { showAndroidInstallPrompt } from './ui/android_install';
 
 import * as levelEngine from './engine/level';
@@ -79,8 +80,17 @@ async function boot(): Promise<void> {
   if (vm) { vm.value = String(sound.musicVolume); vm.oninput = () => sound.setMusicVolume(+vm.value); }
   if (vs) { vs.value = String(sound.sfxVolume); vs.oninput = () => sound.setSfxVolume(+vs.value); }
   if (vh) {
+    const saved = localStorage.getItem('mm_haptics');
+    if (saved !== null) input.trackball.enableHaptics = saved === '1';
     vh.checked = input.trackball.enableHaptics;
-    vh.onchange = () => { input.trackball.enableHaptics = vh.checked; };
+    const caps = input.trackball.hapticCapabilities();
+    vh.title = caps.supported ? 'Haptics available on this device' : 'No browser or controller haptic actuator detected';
+    vh.onchange = () => {
+      input.trackball.enableHaptics = vh.checked;
+      localStorage.setItem('mm_haptics', vh.checked ? '1' : '0');
+      if (vh.checked) input.trackball.vibrate(18);
+      else input.trackball.cancelContactHaptics();
+    };
   }
 
   // keep the phone awake during a race (Safari 16.4+ / iOS; no-ops on unsupported browsers)
@@ -125,6 +135,8 @@ async function boot(): Promise<void> {
   });
 
   await game.start();
+
+  const desktopHelp = desktopControlsTutorial(game, assets.font);
 
   showAndroidInstallPrompt(assets.font, (action) => {
     trackEvent('android_install_prompt', { action });
@@ -255,6 +267,7 @@ async function boot(): Promise<void> {
       else if (game.screen === 'gameover' || game.screen === 'congrats') trackEvent(game.screen, { stage: game.stageIdx + 1, score: game.score });
       void syncWake();
     }
+    desktopHelp.maybeShow();
     if (game.deaths !== lastDeaths) { lastDeaths = game.deaths; trackEvent('death', { stage: game.stageIdx + 1 }); }
   };
 

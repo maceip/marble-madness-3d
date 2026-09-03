@@ -152,7 +152,7 @@ export class WebMCP {
 
   private waitForEvent(timeoutMs: number): Promise<unknown> {
     this.mark();
-    const ms = Math.max(20, Math.min(5000, timeoutMs));
+    const ms = Number.isFinite(timeoutMs) ? Math.max(20, Math.min(5000, timeoutMs)) : 2000;
     return new Promise((resolve) => {
       let done = false;
       const waiter = (e: { event: string; data: unknown }) => finish(e.event, e.data);
@@ -170,11 +170,11 @@ export class WebMCP {
 
   private register(): void {
     const w = window as unknown as { webmcp?: unknown };
-    const surfaces: ModelContext[] = [];
+    const surfaces = new Set<ModelContext>();
     const nav = navigator as unknown as { modelContext?: ModelContext };
     const doc = document as unknown as { modelContext?: ModelContext };
-    if (nav.modelContext?.registerTool || nav.modelContext?.provideContext) surfaces.push(nav.modelContext);
-    if (doc.modelContext?.registerTool || doc.modelContext?.provideContext) surfaces.push(doc.modelContext);
+    if (nav.modelContext?.registerTool || nav.modelContext?.provideContext) surfaces.add(nav.modelContext);
+    if (doc.modelContext?.registerTool || doc.modelContext?.provideContext) surfaces.add(doc.modelContext);
 
     // wrap each tool: trace it AND return the MCP CallToolResult shape ({content, structuredContent}) agents expect
     const traced: ToolDef[] = this.tools.map((t) => ({ ...t, execute: async (args: Record<string, unknown>) => {
@@ -268,6 +268,9 @@ export class WebMCP {
   private spin(dx: number, dy: number, speed: number): unknown {
     this.mark();
     const g = this.game;
+    dx = Number.isFinite(dx) ? Math.max(-1, Math.min(1, dx)) : 0;
+    dy = Number.isFinite(dy) ? Math.max(-1, Math.min(1, dy)) : 0;
+    speed = Number.isFinite(speed) ? Math.max(1, Math.min(100, speed)) : 50;
     g.input.trackball.spin(dx, dy, speed);
     
     // Immediate physical feedback
@@ -291,7 +294,8 @@ export class WebMCP {
 
   private async waitForTick(timeoutMs: number): Promise<unknown> {
     this.mark();
-    await new Promise((resolve) => setTimeout(resolve, Math.max(16, Math.min(1000, timeoutMs))));
+    const ms = Number.isFinite(timeoutMs) ? Math.max(16, Math.min(1000, timeoutMs)) : 100;
+    await new Promise((resolve) => setTimeout(resolve, ms));
     return this.state();
   }
 

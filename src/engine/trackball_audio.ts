@@ -1,7 +1,7 @@
 /**
  * Procedural sound for the simulated arcade trackball (see docs/TRACKBALL_AUDIO.md).
  *
- * Reference implementation, NOT wired in. Drives four layers from the trackball state:
+ * Shared implementation wired into the web app, Android WebView host, and desktop browsers. Drives four layers:
  *   1. bearing whine   — continuous, pitch and level follow angular speed ω, panned with the roll direction
  *   2. chassis rumble  — sub-bass that follows |α| (change of speed), not speed itself
  *   3. skin catch/slap — one-shot when a finger lands on a spinning ball, scaled by the energy killed
@@ -183,6 +183,18 @@ export class TrackballAudio {
 
   /** finger lifted: nothing to play; the whine keeps following ω as the physics decays */
   onRelease(): void { /* intentionally silent */ }
+
+  /** Runtime values used by production diagnostics; no audio nodes or mutation escape this boundary. */
+  diagnostics(): { speed: number; whineHz1: number; whineHz2: number; whineGain: number; rumbleGain: number; pan: number } {
+    return {
+      speed: this.lastSpeed,
+      whineHz1: this.res1.frequency.value,
+      whineHz2: this.res2.frequency.value,
+      whineGain: this.whineGain.gain.value,
+      rumbleGain: this.rumbleGain.gain.value,
+      pan: this.pan.pan.value,
+    };
+  }
 
   // ---- one-shots -------------------------------------------------------------------------------------------
   private transient(centreHz: number, q: number, seconds: number, gain: number): void {

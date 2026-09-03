@@ -577,6 +577,15 @@ wss.on('connection', (ws, req) => {
     lastSeen: Date.now(), tokens: 60,
   };
   const lobby = lobbyOf(lobbyId);
+  // A challenge is strictly one human and one agent. Replace a stale/reconnecting socket for the same role
+  // instead of leaving duplicate marbles that can each start or end the run.
+  if (role !== 'multi') {
+    for (const [id, existing] of lobby) {
+      if (existing.role !== role) continue;
+      lobby.delete(id);
+      try { existing.ws.close(4001, 'replaced by newer connection'); } catch { /* already gone */ }
+    }
+  }
   lobby.set(client.id, client);
   send(ws, { type: 'welcome', id: client.id, lobby: lobbyId, role, players: [...lobby.values()].filter((c) => c !== client).map(publicState) });
   broadcast(lobby, { type: 'joined', id: client.id, role, name: client.name, color: client.color }, client);
@@ -605,6 +614,7 @@ wss.on('connection', (ws, req) => {
         break;
       }
       case 'start':
+        if (client.role !== 'human') break;
         broadcast(lobby, {
           type: 'start', stage: Math.max(1, Math.min(6, Math.floor(+msg.stage || 1))),
           raceId: typeof msg.raceId === 'string' ? msg.raceId.slice(0, 64) : '', by: client.id,

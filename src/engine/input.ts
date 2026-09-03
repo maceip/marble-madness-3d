@@ -221,42 +221,45 @@ export class Input {
   }
 
   private setupTrackballTouch(tb: HTMLCanvasElement): void {
-    // Pointer Events for modern browsers / touch screens
+    // Pointer Events for modern browsers / touch screens. Do not also install touch handlers: browsers that
+    // emit both would apply every finger movement twice, doubling steering and haptic pulses.
     let lastTbTouchTime = performance.now();
+    if ('PointerEvent' in window) {
+      tb.addEventListener('pointerdown', (e) => {
+        tb.setPointerCapture(e.pointerId);
+        this.activeTouchId = e.pointerId;
+        this.lastTouchX = e.clientX;
+        this.lastTouchY = e.clientY;
+        lastTbTouchTime = performance.now();
+        this.anyPress = true;
+        this.pressedQueue.push('Touch');
+        this.trackball.startDrag();
+        e.preventDefault();
+      });
 
-    tb.addEventListener('pointerdown', (e) => {
-      tb.setPointerCapture(e.pointerId);
-      this.activeTouchId = e.pointerId;
-      this.lastTouchX = e.clientX;
-      this.lastTouchY = e.clientY;
-      lastTbTouchTime = performance.now();
-      this.anyPress = true;
-      this.pressedQueue.push('Touch');
-      this.trackball.startDrag();
-      e.preventDefault();
-    });
+      tb.addEventListener('pointermove', (e) => {
+        if (this.activeTouchId !== e.pointerId) return;
+        const dx = e.clientX - this.lastTouchX;
+        const dy = e.clientY - this.lastTouchY;
+        const now = performance.now();
+        const dt = Math.max(0.008, Math.min(0.05, (now - lastTbTouchTime) / 1000));
+        this.lastTouchX = e.clientX;
+        this.lastTouchY = e.clientY;
+        lastTbTouchTime = now;
+        this.trackball.dragDelta(dx * 1.5, dy * 1.5, dt);
+        e.preventDefault();
+      });
 
-    tb.addEventListener('pointermove', (e) => {
-      if (this.activeTouchId !== e.pointerId) return;
-      const dx = e.clientX - this.lastTouchX;
-      const dy = e.clientY - this.lastTouchY;
-      const now = performance.now();
-      const dt = Math.max(0.008, Math.min(0.05, (now - lastTbTouchTime) / 1000));
-      this.lastTouchX = e.clientX;
-      this.lastTouchY = e.clientY;
-      lastTbTouchTime = now;
-      this.trackball.dragDelta(dx * 1.5, dy * 1.5, dt);
-      e.preventDefault();
-    });
-
-    const endPointer = (e: PointerEvent) => {
-      if (this.activeTouchId === e.pointerId) {
-        this.activeTouchId = null;
-        this.trackball.endDrag();
-      }
-    };
-    tb.addEventListener('pointerup', endPointer);
-    tb.addEventListener('pointercancel', endPointer);
+      const endPointer = (e: PointerEvent) => {
+        if (this.activeTouchId === e.pointerId) {
+          this.activeTouchId = null;
+          this.trackball.endDrag();
+        }
+      };
+      tb.addEventListener('pointerup', endPointer);
+      tb.addEventListener('pointercancel', endPointer);
+      return;
+    }
 
     // Fallback touch events for older webkit
     tb.addEventListener('touchstart', (e) => {

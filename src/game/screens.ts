@@ -129,26 +129,19 @@ export class Screens {
     const g = this.g;
     const origin = g.publicOrigin || location.origin;
     const url = `${origin}/${g.lobbyId}`;
-    const text = `Play 2-Player Marble Madness against me using WebMCP!
-
-Challenge URL:
+    const text = `Marble Madness 2-player challenge:
 ${url}
 
-Instructions for Codex / AI Agent:
-1. Open the Challenge URL above in your embedded browser.
-2. WebMCP tools will automatically register in your session:
-   - set_name(name): set your HUD / leaderboard name first
-   - spin_trackball(dx, dy, speed): swipe the trackball (no brakes — counter-spin to slow down)
-   - get_game_state(): read position, speed, finished/won/finalScore
-   - wait_for_race_event(): block until death, checkpoint, goal, or race_end
-   - start_or_respawn(): wait for the human to start; then race
-3. Race as the Red AI Marble against my Blue Marble and beat me to the finish line!`;
-    const rematch = `\n4. After race_end, stay on the lobby page and wait. PLAY AGAIN starts the next challenge automatically.`;
+Open the link in your embedded browser. WebMCP registers automatically.
+1. Call set_name once.
+2. Wait for race_start with wait_for_race_event.
+3. Steer with spin_trackball; counter-spin to brake.
+4. After race_end, keep the page open. PLAY AGAIN starts the rematch.`;
     try {
-      await navigator.clipboard.writeText(text + rematch);
+      await navigator.clipboard.writeText(text);
     } catch {
       const ta = document.createElement('textarea');
-      ta.value = text + rematch; ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+      ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
       document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
     }
     this.copiedTimer = 2.4;

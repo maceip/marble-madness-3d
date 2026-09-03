@@ -392,7 +392,11 @@ export class Game {
   }
 
   update(dt: number): void {
+    if (this.paused && (this.screen === 'intro' || this.screen === 'race' || this.screen === 'timebonus')) return;
     this.t += dt;
+    // Race input samples advance the trackball themselves. On every other screen, keep free-spin inertia
+    // and its bearing/chassis audio alive so a whip during the countdown still sounds physical.
+    if (this.screen !== 'race') this.input.trackball.update(dt);
     if (this.screen === 'connect') this.checkLobbyStart();
     switch (this.screen) {
       case 'intro': this.updateIntro(dt); break;
@@ -586,13 +590,10 @@ export class Game {
     for (const p of this.popups) p.t += dt;
     this.popups = this.popups.filter((p) => p.t < 2.6);
 
-    // roll sound: marble surface rolling + mechanical trackball bearing loop
+    // Course-contact roll sound. The separate procedural trackball audio is driven by Trackball.update().
     mmBeat('marble', 300, { u: +this.marble.u.toFixed(1), v: +this.marble.v.toFixed(1), z: +this.marble.z.toFixed(0), g: this.marble.grounded, ph: this.marble.phase, sup: this.marble.support ? this.marble.support.s.name : null, blk: this.marble.lastBlock || '', st: this.stageIdx + 1 });
     const sp = this.marble.phase === 'alive' && this.marble.grounded && !this.marble.inPipe ? this.marble.speed / 15 : 0;
     this.sound.setRoll(sp);
-    const tbSpeed = Math.hypot(this.input.trackball.wx, this.input.trackball.wy);
-    this.sound.setTrackballRoll(tbSpeed);
-
     this.centerCameraOnMarble(false, dt);
   }
 
@@ -753,6 +754,7 @@ export class Game {
 
   gameOver(): void {
     this.sound.stopBgm(); this.sound.stopRoll();
+    if (this.mode === 'ai') this.wonLast = false;
     this.announceRaceEnd('timeup');
     this.webmcp.emit('race_end', { result: 'timeup', won: false, score: this.score, deaths: this.deaths });
     if (this.mode === 'ai' && !this.isAgentPage) { this.go('rematch'); return; }

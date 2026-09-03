@@ -5,8 +5,8 @@ steel rollers and an idler bearing inside an arcade cabinet. Haptics carry the l
 bearing teeth (already done natively in the Android host); sound carries everything the phone's actuator
 cannot: high-frequency bearing whine, cabinet resonance, and the transient of skin meeting a moving ball.
 
-Reference implementation, type-checked and unwired: `src/engine/trackball_audio.ts` (`TrackballAudio`).
-Wire it from `Trackball` and the SFX bus; nothing else changes.
+Shared implementation: `src/engine/trackball_audio.ts` (`TrackballAudio`). It is wired through the SFX bus
+and runs unchanged in desktop/mobile browsers and the Android WebView host.
 
 ## Two rules
 

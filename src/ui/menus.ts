@@ -349,12 +349,10 @@ export class HtmlMenus {
     const origin = (this.game.publicOrigin || location.origin).replace(/^https?:\/\//, '').replace(/\/$/, '');
     const lobby = this.game.lobbyId;
     const lines: { t: string; c: FontVariant }[][] = [
-      [{ t: 'Open this challenge:', c: 'white' }],
+      [{ t: 'OPEN THIS LINK IN CODEX', c: 'white' }],
       [{ t: origin + '/', c: 'cyan' }],
       [{ t: lobby, c: 'cyan' }],
-      [{ t: 'in your embedded browser and', c: 'white' }],
-      [{ t: 'use ', c: 'white' }, { t: 'WebMCP', c: 'cyan' }, { t: ' to challenge and', c: 'white' }],
-      [{ t: 'beat your human opponent', c: 'white' }],
+      [{ t: 'WEBMCP STARTS AUTOMATICALLY', c: 'cyan' }],
     ];
     const lineSc = Math.max(1, sc - 1);
     for (const parts of lines) {

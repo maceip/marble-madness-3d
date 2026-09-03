@@ -18,7 +18,7 @@ export interface TrackballOptions {
   maxOmega?: number;        // maximum angular velocity in rad/s (default 32)
   inertia?: number;         // heavy ball rotational mass / inertia (default 3.8)
   stictionPx?: number;      // drag px needed to break static friction (default 14)
-  hapticStepRad?: number;   // radians per encoder ratchet tick (default 0.35 rad ~ 20 deg)
+  hapticStepRad?: number;   // radians per encoder ratchet tick (default 6 deg / 60 teeth per revolution)
   enableHaptics?: boolean;  // whether haptics are enabled
 }
 
@@ -53,6 +53,7 @@ export class Trackball {
   // Haptics timing & ratchet
   private hapticAccumRad = 0;
   private lastHapticTime = 0;
+  private lastRollTickTime = 0;
 
   /** Android host: the native engine (tbDown/tbRoll/tbBreakout/tbBrake/tbUp) drives the actuator from these
    *  physical events, on the input path, with angle-based bearing ticks; the JS ratchet below is the web fallback */
@@ -68,7 +69,7 @@ export class Trackball {
     this.maxOmega = opts.maxOmega ?? 32;
     this.inertia = opts.inertia ?? 2.2;
     this.stictionPx = opts.stictionPx ?? 3;
-    this.hapticStepRad = opts.hapticStepRad ?? 0.35;
+    this.hapticStepRad = opts.hapticStepRad ?? Math.PI / 30;
     if (opts.enableHaptics !== undefined) this.enableHaptics = opts.enableHaptics;
   }
 
@@ -78,6 +79,7 @@ export class Trackball {
   startDrag(): void {
     this.dragging = true;
     this.dragAccumPx = 0;
+    this.hapticAccumRad = 0;
     const speed = Math.hypot(this.wx, this.wy);
     // If ball is already spinning fast, breakout is already broken
     this.brokenOut = speed > 1.2;
@@ -99,7 +101,7 @@ export class Trackball {
         this.brokenOut = true;
         this.audio?.onBreakout();
         const eng = this.engine;
-        if (eng) { try { eng.tbBreakout(); } catch { /* bridge gone */ } } else this.vibrate(8); // Crisp breakout click
+        if (eng) { try { eng.tbBreakout(); } catch { /* bridge gone */ } } else this.vibrate(12); // Browser motors often drop sub-10 ms pulses
       } else {
         // Still resisting: slight elastic nudge
         return;
@@ -128,7 +130,10 @@ export class Trackball {
       const blend = Math.min(0.85, (effectiveDt * 18.0) / (1.0 + this.inertia * 0.15));
       this.wx += (targetWx - this.wx) * blend;
       this.wy += (targetWy - this.wy) * blend;
-      if (eng) { try { eng.tbRoll(dist / this.radius, Math.hypot(this.wx, this.wy)); } catch { /* bridge gone */ } }
+      const dAngle = dist / this.radius;
+      const omega = Math.hypot(this.wx, this.wy);
+      if (eng) { try { eng.tbRoll(dAngle, omega); } catch { /* bridge gone */ } }
+      else this.webRollTick(dAngle, omega);
     }
 
     this.clampVelocity();
@@ -140,8 +145,9 @@ export class Trackball {
   endDrag(): void {
     this.dragging = false;
     this.brokenOut = false;
+    this.hapticAccumRad = 0;
     this.audio?.onRelease();
-    try { this.engine?.tbUp(); } catch { /* bridge gone */ }   // silence at once: the ball is now free of the hand
+    this.cancelContactHaptics(); // silence at once: the ball is now free of the hand
   }
 
   /**
@@ -187,19 +193,6 @@ export class Trackball {
       const az = 0;
 
       this.rotateAroundAxis(ax, ay, az, angle);
-
-      // Distance-threshold haptic ticks (Low Speed Only: under 3.5 rad/s):
-      // Enforces at most once every 75ms past a fixed arc to prevent Android motor washout
-      const now = performance.now();
-      if (this.dragging && speed > 0.4 && speed < 3.5 && !this.engine) {   // web fallback ratchet only
-        this.hapticAccumRad += angle;
-        if (this.hapticAccumRad > 0.45 && now - this.lastHapticTime > 75) {
-          this.vibrate(2); // Shortest possible tick
-          this.hapticAccumRad = 0;
-        }
-      } else {
-        this.hapticAccumRad = 0;
-      }
 
       // Dynamic bearing friction decay
       const decay = Math.exp(-this.friction * dt);
@@ -295,6 +288,30 @@ export class Trackball {
     }
   }
 
+  /** Web fallback for the native 60-tooth encoder. Runs on the pointer event path, never the render clock. */
+  private webRollTick(dAngle: number, omega: number): void {
+    if (!this.enableHaptics || !this.dragging || navigator.maxTouchPoints === 0) return;
+    this.hapticAccumRad += Math.abs(dAngle);
+    if (this.hapticAccumRad < this.hapticStepRad) return;
+    const teeth = Math.floor(this.hapticAccumRad / this.hapticStepRad);
+    this.hapticAccumRad -= teeth * this.hapticStepRad;
+    const now = performance.now();
+    if (now - this.lastRollTickTime < 1000 / 35) return; // drop teeth above the actuator recovery rate
+    this.lastRollTickTime = now;
+    const speedScale = Math.min(1, Math.max(0, omega) / this.maxOmega);
+    const pulseMs = Math.min(5, 2 + Math.round(speedScale * 2) + (teeth > 1 ? 1 : 0));
+    this.vibrate(pulseMs);
+  }
+
+  /** Stop only contact haptics. Free-spin audio deliberately continues to follow angular momentum. */
+  cancelContactHaptics(): void {
+    const nb = (window as unknown as { NativeBridge?: { tbUp?(): void } }).NativeBridge;
+    try { nb?.tbUp?.(); } catch { /* bridge gone */ }
+    if (navigator.maxTouchPoints > 0 && typeof navigator.vibrate === 'function') {
+      try { navigator.vibrate(0); } catch { /* unsupported or denied */ }
+    }
+  }
+
   /**
    * Safe, throttled web vibration.
    */
@@ -318,11 +335,38 @@ export class Trackball {
       } catch { /* bridge gone */ }
       return;
     }
-    if (!('vibrate' in navigator)) return;
-    try {
-      navigator.vibrate(pattern);
-    } catch {
-      // Ignore user-activation or platform restrictions
+    // Browser vibration is a phone feature. Chromium's headless/desktop surface can expose a callable
+    // navigator.vibrate without any actuator, so do not report or use it as desktop haptics.
+    if (navigator.maxTouchPoints > 0 && 'vibrate' in navigator) {
+      try { if (navigator.vibrate(pattern)) return; } catch { /* try a connected controller below */ }
+    }
+    this.rumbleGamepad(pattern);
+  }
+
+  hapticCapabilities(): { nativeBridge: boolean; webVibration: boolean; gamepadRumble: boolean; supported: boolean } {
+    const nativeBridge = !!this.engine;
+    const webVibration = navigator.maxTouchPoints > 0 && typeof navigator.vibrate === 'function';
+    const gamepadRumble = this.gamepadActuators().length > 0;
+    return { nativeBridge, webVibration, gamepadRumble, supported: nativeBridge || webVibration || gamepadRumble };
+  }
+
+  private gamepadActuators(): Array<{ playEffect(type: string, params: Record<string, number>): Promise<unknown> }> {
+    if (typeof navigator.getGamepads !== 'function') return [];
+    const out: Array<{ playEffect(type: string, params: Record<string, number>): Promise<unknown> }> = [];
+    for (const pad of navigator.getGamepads()) {
+      const actuator = (pad as unknown as { vibrationActuator?: { playEffect?: unknown } } | null)?.vibrationActuator;
+      if (actuator && typeof actuator.playEffect === 'function') out.push(actuator as never);
+    }
+    return out;
+  }
+
+  private rumbleGamepad(pattern: number | number[]): void {
+    const total = Array.isArray(pattern) ? pattern.reduce((sum, n) => sum + Math.max(0, n), 0) : pattern;
+    const duration = Math.max(20, Math.min(250, total));
+    const strongMagnitude = Array.isArray(pattern) || total >= 20 ? 0.8 : total >= 10 ? 0.55 : 0.28;
+    const weakMagnitude = Math.min(1, strongMagnitude + 0.15);
+    for (const actuator of this.gamepadActuators()) {
+      void actuator.playEffect('dual-rumble', { duration, startDelay: 0, strongMagnitude, weakMagnitude }).catch(() => {});
     }
   }
 }

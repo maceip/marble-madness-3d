@@ -139,7 +139,7 @@ export class Sound {
       this.sfxBus.gain.setTargetAtTime(m ? 0 : this.sfxVolume, this.ctx.currentTime, 0.02);
     }
     this.trackballAudio?.setEnabled(!m && this.sfxVolume > 0);
-    if (m) { this.stopRoll(); this.stopTrackballRoll(); }
+    if (m) this.stopRoll();
   }
 
   playBgm(key: string, loop = true): void {
@@ -208,83 +208,6 @@ export class Sound {
     if (this.rollGain) { this.rollGain.disconnect(); this.rollGain = null; }
   }
 
-  // --- mechanical rotary bearing friction loop (Web Audio bandpass synth) ---
-  private bearingSrc: AudioBufferSourceNode | null = null;
-  private bearingFilter: BiquadFilterNode | null = null;
-  private bearingGain: GainNode | null = null;
-
-  private initBearingLoop(): void {
-    const ctx = this.ctx;
-    if (!ctx || this.bearingSrc) return;
-    try {
-      const len = Math.floor(ctx.sampleRate * 1.5);
-      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      let lastVal = 0;
-      for (let i = 0; i < len; i++) {
-        // Pinkish noise for bearing rumble
-        const white = Math.random() * 2 - 1;
-        lastVal = (lastVal + 0.04 * white) / 1.04;
-        d[i] = lastVal * 2.8;
-      }
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 220;
-      filter.Q.value = 2.4;
-
-      const g = ctx.createGain();
-      g.gain.value = 0;
-
-      src.connect(filter).connect(g).connect(ctx.destination);
-      src.start();
-
-      this.bearingSrc = src;
-      this.bearingFilter = filter;
-      this.bearingGain = g;
-    } catch {
-      // AudioContext unavailable
-    }
-  }
-
-  /**
-   * Continuous mechanical bearing rumble linked to trackball angular speed (omega in rad/s).
-   * Modulates bandpass filter and gain dynamically per physics/momentum.
-   */
-  setTrackballRoll(omegaRadS: number): void {
-    const ctx = this.ctx;
-    if (!ctx || ctx.state !== 'running') return;
-    if (!this.bearingSrc) this.initBearingLoop();
-    if (!this.bearingGain || !this.bearingFilter) return;
-
-    const speed = Math.max(0, omegaRadS);
-    const maxSpeed = 30.0;
-    const t = ctx.currentTime;
-
-    if (this.muted || speed < 0.25) {
-      this.bearingGain.gain.setTargetAtTime(0, t, 0.03);
-      return;
-    }
-
-    const vol = Math.min(speed / maxSpeed, 1.0) * 0.38 * this.sfxVolume;
-    const freq = 190 + speed * 16;
-
-    this.bearingGain.gain.setTargetAtTime(vol, t, 0.012);
-    this.bearingFilter.frequency.setTargetAtTime(freq, t, 0.012);
-  }
-
-  stopTrackballRoll(): void {
-    if (this.bearingSrc) {
-      try { this.bearingSrc.stop(); } catch { /* */ }
-      this.bearingSrc.disconnect();
-      this.bearingSrc = null;
-    }
-    if (this.bearingFilter) { this.bearingFilter.disconnect(); this.bearingFilter = null; }
-    if (this.bearingGain) { this.bearingGain.disconnect(); this.bearingGain = null; }
-  }
 }
 
 function clamp01(x: number): number { return Math.max(0, Math.min(1, x)); }

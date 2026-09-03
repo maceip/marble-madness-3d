@@ -179,19 +179,9 @@ const browser = await chromium.launch({ channel: 'chrome', headless: true });
   await ctx.close();
 }
 
-{
-  const ctx = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    isMobile: true,
-    hasTouch: true,
-    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
-  });
-  const page = await ctx.newPage();
-  await bootRace(page);
-  out.iosSafariCaps = await probeCaps(page);
-  await page.close();
-  await ctx.close();
-}
+// Do not spoof an iPhone UA in Chromium and call that an iOS haptics test. It still runs Chromium's APIs.
+// Real iOS Safari/device capability must be reported from a real WebKit/iPhone session.
+out.iosSafariCaps = { tested: false, reason: 'requires a connected physical iPhone running Safari' };
 
 await browser.close();
 console.log(JSON.stringify(out, null, 2));

@@ -66,9 +66,10 @@ export class Net {
       if (this.ws !== socket) return;
       try { this.handle(JSON.parse(String(ev.data))); } catch (e) { console.warn('[net] bad message', e); }
     };
-    socket.onclose = () => {
+    socket.onclose = (event) => {
       if (this.ws !== socket) return;
-      this.ws = null; this.connected = false; this.stopHeartbeat(); this.players.clear(); this.scheduleReconnect();
+      this.ws = null; this.connected = false; this.stopHeartbeat(); this.players.clear();
+      if (event.code !== 4001) this.scheduleReconnect();
     };
     socket.onerror = () => { /* onclose follows */ };
   }

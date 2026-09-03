@@ -118,6 +118,25 @@
       background: linear-gradient(transparent 42%, rgba(0, 0, 0, .78));
     }
     #android-app-prompt[hidden] { display: none !important; }
+    #desktop-controls-help {
+      position: fixed; inset: 0; z-index: 180;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; box-sizing: border-box; background: rgba(0, 0, 0, .88);
+    }
+    #desktop-controls-help[hidden] { display: none !important; }
+    .desktop-controls-card {
+      width: min(92vw, 610px); box-sizing: border-box;
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      padding: 30px 26px 24px; background: #000;
+      border: 6px double #4ec4ff; border-radius: 12px;
+      box-shadow: 0 0 0 4px #000, 0 20px 60px rgba(0, 0, 0, .95);
+    }
+    .desktop-controls-steps { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+    #desktop-controls-alt { margin-top: 4px; }
+    #desktop-controls-dismiss {
+      min-width: 290px; min-height: 54px; padding: 12px 18px;
+      background: #ffd23f; border: 3px solid #ffe89a; border-radius: 8px;
+    }
     .android-app-card {
       pointer-events: auto; width: min(94vw, 620px); box-sizing: border-box;
       display: flex; flex-direction: column; align-items: center; gap: 10px;
@@ -429,6 +448,19 @@
         <a class="ui-tap" id="android-app-open" href="https://play.google.com/store/apps/details?id=build.secure.marbles" target="_blank" rel="noopener" aria-label="Open Marble Madness in Google Play"></a>
         <button class="ui-tap" id="android-app-dismiss" type="button" aria-label="Dismiss Android app prompt"></button>
       </div>
+    </div>
+  </aside>
+  <aside id="desktop-controls-help" role="dialog" aria-modal="true" aria-label="Desktop trackball controls" hidden>
+    <div class="desktop-controls-card">
+      <div id="desktop-controls-title"></div>
+      <div id="desktop-controls-lead"></div>
+      <div class="desktop-controls-steps">
+        <div id="desktop-controls-step1"></div>
+        <div id="desktop-controls-step2"></div>
+        <div id="desktop-controls-step3"></div>
+      </div>
+      <div id="desktop-controls-alt"></div>
+      <button class="ui-tap" id="desktop-controls-dismiss" type="button"></button>
     </div>
   </aside>
   <div id="trackball-container">
