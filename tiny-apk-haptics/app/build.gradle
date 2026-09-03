@@ -1,0 +1,84 @@
+plugins {
+    id 'com.android.application'
+    id 'com.github.triplet.play'
+}
+
+// Publishing project for Google Play. Shares every source with ../build.sh (the hand build used for size work).
+def serverOrigin = System.getenv('MM_SERVER_ORIGIN') ?: 'https://marbles.secure.build'
+def oauthScheme = System.getenv('MM_OAUTH_SCHEME') ?: 'marbles'
+
+android {
+    namespace 'com.example.minweb'          // Java package of MainActivity
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'build.secure.marbles'
+        minSdk 30          // VibrationEffect.Composition primitives
+        targetSdk 36       // Play requires API 36 for new apps / updates from 31 Aug 2026
+        versionCode 1
+        versionName '0.1'
+        manifestPlaceholders = [appLabel: 'Marble Madness', serverOrigin: serverOrigin, oauthScheme: oauthScheme]
+    }
+
+    sourceSets.main {
+        manifest.srcFile '../AndroidManifest.xml'
+        java.srcDirs = ['../src']
+        res.srcDirs = ['../res']
+    }
+
+    signingConfigs {
+        upload {
+            // Play App Signing: this is only the upload key. Set the four env vars in CI.
+            storeFile file(System.getenv('MM_UPLOAD_KEYSTORE') ?: '../.keys/upload.jks')
+            storePassword System.getenv('MM_UPLOAD_STORE_PASS') ?: 'marbles'
+            keyAlias System.getenv('MM_UPLOAD_KEY_ALIAS') ?: 'upload'
+            keyPassword System.getenv('MM_UPLOAD_KEY_PASS') ?: 'marbles'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), '../proguard-rules.pro'
+            signingConfig signingConfigs.upload
+        }
+    }
+
+    bundle {
+        language { enableSplit = false }
+        density { enableSplit = false }
+        abi { enableSplit = false }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // AGP 9 has built-in Kotlin support and would pack kotlin-stdlib's .kotlin_builtins into this pure Java app
+    packaging {
+        resources {
+            excludes += ['kotlin/**', 'META-INF/*.kotlin_module', 'META-INF/*.version', 'META-INF/versions/**',
+                         'kotlin-tooling-metadata.json', 'DebugProbesKt.bin']
+        }
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+}
+
+dependencies {
+    // Deliberately empty. No AndroidX, no Material.
+}
+
+// gradle-play-publisher: the first bundle must be uploaded by hand in Play Console (the API cannot create the
+// app); afterwards `./gradlew publishReleaseBundle` uploads each build to the chosen track as a draft.
+play {
+    serviceAccountCredentials.set(file(System.getenv('MM_PLAY_SERVICE_ACCOUNT') ?: 'play-service-account.json'))
+    track.set(System.getenv('MM_PLAY_TRACK') ?: 'internal')
+    defaultToAppBundles.set(true)
+    releaseStatus.set(com.github.triplet.gradle.androidpublisher.ReleaseStatus.DRAFT)
+}

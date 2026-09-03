@@ -1,0 +1,10 @@
+// Gradle project for publishing only (the size experiments use ./build.sh).
+// Same sources, manifest, resources and assets as the hand build — see app/build.gradle sourceSets.
+pluginManagement {
+    repositories { gradlePluginPortal(); google(); mavenCentral() }
+}
+dependencyResolutionManagement {
+    repositories { google(); mavenCentral() }
+}
+rootProject.name = 'marbles-host'
+include ':app'

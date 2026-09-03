@@ -86,10 +86,53 @@ async function boot(): Promise<void> {
   const authDock = document.getElementById('auth-dock');
   const twitterHandle = document.getElementById('twitter-handle');
   const twitterBtn = document.getElementById('twitter-btn');
+  const applyUser = (handle: string, provider = 'twitter') => {
+    (window as any).__MM__ = { ...((window as any).__MM__ || {}), user: handle };
+    game.playerName = handle;
+    const el = document.getElementById(provider === 'github' ? 'github-handle' : 'twitter-handle');
+    if (el) el.textContent = handle;
+    document.getElementById(provider === 'github' ? 'github-btn' : 'twitter-btn')?.classList.add('active');
+  };
   const user = (window as any).__MM__?.user;
   if (user) {
     if (twitterHandle) twitterHandle.textContent = user;
     twitterBtn?.classList.add('active');
+  }
+
+  // ---- Android host (tiny-apk-haptics): window.NativeBridge is injected by the WebView -------------------
+  const nb = (window as any).NativeBridge as {
+    onWebReady?(): void; launchAuth?(url: string): string; takeAuthResult?(): string | null;
+  } | undefined;
+  if (nb) {
+    // the login must run in the system browser (providers block embedded logins; the user's existing
+    // session makes it one tap). The host opens a pre-warmed Chrome Custom Tab and gets the result back
+    // through marbles://oauth-callback; we tag the request with a nonce so we only accept our own result.
+    for (const [id, provider] of [['twitter-btn', 'twitter'], ['github-btn', 'github']] as const) {
+      document.getElementById(id)?.addEventListener('click', (e) => {
+        if (!nb.launchAuth) return;
+        e.preventDefault();
+        const nonce = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, '0')).join('');
+        localStorage.setItem('mm_auth_nonce', nonce);
+        const err = nb.launchAuth(`${location.origin}/auth/${provider}?app=${nonce}`);
+        if (err) console.warn('[auth] could not open browser:', err);
+      });
+    }
+    (window as any).onAuthComplete = () => {
+      const raw = nb.takeAuthResult?.();
+      if (!raw) return;
+      try {
+        const r = JSON.parse(raw) as { user?: string; provider?: string; state?: string; error?: string };
+        if (r.state !== localStorage.getItem('mm_auth_nonce')) { console.warn('[auth] result rejected: nonce mismatch'); return; }
+        localStorage.removeItem('mm_auth_nonce');
+        if (r.error || !r.user) { console.warn('[auth] login failed:', r.error); return; }
+        // same display cookie the web flow sets, so the server injects __MM__.user next time too
+        document.cookie = `mm_user=${encodeURIComponent(r.user)}; Path=/; Max-Age=2592000; SameSite=Lax`;
+        applyUser(r.user, r.provider || 'twitter');
+        input.trackball.vibrate(8);
+      } catch (err) { console.warn('[auth] bad result', err); }
+    };
+    (window as any).onAuthComplete();        // cold start straight from the redirect
+    nb.onWebReady?.();                       // the host may lift its native title overlay now
   }
 
   let last = performance.now();

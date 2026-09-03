@@ -52,6 +52,31 @@ const TWITTER_CALLBACK = process.env.TWITTER_CALLBACK || 'https://marbles.secure
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || 'Ov23li0rwXID5O8ZxfGZ';
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || 'bb5f0f61d78d0f11e475b62c4f064e3e61ce06cc';
 const GITHUB_CALLBACK = process.env.GITHUB_CALLBACK || 'https://marbles.secure.build/callback/github';
+/** custom scheme the Android host registers (see tiny-apk-haptics/): <scheme>://oauth-callback */
+const APP_SCHEME = process.env.APP_SCHEME || 'marbles';
+
+/** The Android app starts a login as /auth/<provider>?app=<nonce>; the nonce rides along in the state cookie. */
+function appNonce(url) { const a = url.searchParams.get('app') || ''; return /^[A-Za-z0-9_-]{8,64}$/.test(a) ? a : ''; }
+/** Finish an OAuth flow. Web callers go back to the game page; app callers (nonce set) get a page that jumps to
+ *  <scheme>://oauth-callback?user=..&provider=..&state=<nonce>  (or &error=..) and offers a link if the jump is blocked. */
+function authExit(res, { app = '', handle = '', provider = '', error = '', clear = '' }) {
+  const headers = {};
+  const cookies = [];
+  if (handle) cookies.push(`mm_user=${encodeURIComponent(handle)}; Path=/; Max-Age=2592000; SameSite=Lax`);
+  if (clear) cookies.push(`${clear}=; Path=/; Max-Age=0; HttpOnly`);
+  if (cookies.length) headers['Set-Cookie'] = cookies;
+  if (!app) {
+    headers['Location'] = error ? `/?auth_error=${encodeURIComponent(error)}` : `/?user=${encodeURIComponent(handle)}`;
+    res.writeHead(302, headers); res.end(); return;
+  }
+  const q = new URLSearchParams({ state: app, provider });
+  if (error) q.set('error', error); else q.set('user', handle);
+  const target = `${APP_SCHEME}://oauth-callback?${q}`;
+  const safe = target.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  headers['Content-Type'] = 'text/html; charset=utf-8'; headers['Cache-Control'] = 'no-store'; headers['Referrer-Policy'] = 'no-referrer';
+  res.writeHead(200, headers);
+  res.end(`<!doctype html><meta name="viewport" content="width=device-width"><meta http-equiv="refresh" content="0;url=${safe}"><body style="background:#000;color:#cfd2ff;font-family:'Courier New',monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><a href="${safe}" style="color:#79a8ff;font-size:18px">Return to Marble Madness</a><script>location.replace(${JSON.stringify(target)})</script></body>`);
+}
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.mjs': 'application/javascript', '.map': 'application/json',
@@ -205,9 +230,10 @@ const server = http.createServer(async (req, res) => {
       authUrl.searchParams.set('code_challenge', codeChallenge);
       authUrl.searchParams.set('code_challenge_method', 'S256');
 
+      const app = appNonce(url);
       res.writeHead(302, {
         'Location': authUrl.toString(),
-        'Set-Cookie': `mm_oauth_tw=${encodeURIComponent(`${state}:${codeVerifier}`)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`,
+        'Set-Cookie': `mm_oauth_tw=${encodeURIComponent(`${state}:${codeVerifier}${app ? '|' + app : ''}`)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`,
       });
       res.end();
       return;
@@ -234,22 +260,18 @@ const server = http.createServer(async (req, res) => {
       const code = url.searchParams.get('code');
       const state = url.searchParams.get('state');
       const error = url.searchParams.get('error');
-      if (error || !code) {
-        console.warn('[serve] Twitter OAuth callback error or missing code:', error);
-        res.writeHead(302, { 'Location': `/?auth_error=${encodeURIComponent(error || 'missing_code')}` });
-        res.end();
-        return;
-      }
-
       const cookies = parseCookies(req);
       const oauthCookie = cookies.mm_oauth_tw ? decodeURIComponent(cookies.mm_oauth_tw) : '';
-      const [savedState, codeVerifier] = oauthCookie.split(':');
+      const [oauthMain, app = ''] = oauthCookie.split('|');       // "<state>:<verifier>[|<app nonce>]"
+      const [savedState, codeVerifier] = oauthMain.split(':');
+      if (error || !code) {
+        console.warn('[serve] Twitter OAuth callback error or missing code:', error);
+        return authExit(res, { app, provider: 'twitter', error: error || 'missing_code', clear: 'mm_oauth_tw' });
+      }
 
       if (!savedState || savedState !== state) {
         console.warn('[serve] Twitter OAuth state mismatch');
-        res.writeHead(302, { 'Location': '/?auth_error=state_mismatch' });
-        res.end();
-        return;
+        return authExit(res, { app, provider: 'twitter', error: 'state_mismatch', clear: 'mm_oauth_tw' });
       }
 
       try {
@@ -272,9 +294,7 @@ const server = http.createServer(async (req, res) => {
         const tokenData = await tokenRes.json();
         if (!tokenRes.ok || !tokenData.access_token) {
           console.warn('[serve] Twitter token exchange failed:', tokenData);
-          res.writeHead(302, { 'Location': '/?auth_error=token_failed' });
-          res.end();
-          return;
+          return authExit(res, { app, provider: 'twitter', error: 'token_failed', clear: 'mm_oauth_tw' });
         }
 
         const userRes = await fetch('https://api.twitter.com/2/users/me', {
@@ -284,20 +304,10 @@ const server = http.createServer(async (req, res) => {
         const username = userData.data?.username || 'PLAYER';
         const handle = `@${username}`;
 
-        res.writeHead(302, {
-          'Location': `/?user=${encodeURIComponent(handle)}`,
-          'Set-Cookie': [
-            `mm_user=${encodeURIComponent(handle)}; Path=/; Max-Age=2592000; SameSite=Lax`,
-            `mm_oauth_tw=; Path=/; Max-Age=0; HttpOnly`,
-          ],
-        });
-        res.end();
-        return;
+        return authExit(res, { app, provider: 'twitter', handle, clear: 'mm_oauth_tw' });
       } catch (err) {
         console.error('[serve] Twitter callback error:', err);
-        res.writeHead(302, { 'Location': '/?auth_error=server_error' });
-        res.end();
-        return;
+        return authExit(res, { app, provider: 'twitter', error: 'server_error', clear: 'mm_oauth_tw' });
       }
     }
 
@@ -309,9 +319,10 @@ const server = http.createServer(async (req, res) => {
       authUrl.searchParams.set('scope', 'read:user');
       authUrl.searchParams.set('state', state);
 
+      const app = appNonce(url);
       res.writeHead(302, {
         'Location': authUrl.toString(),
-        'Set-Cookie': `mm_oauth_gh=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`,
+        'Set-Cookie': `mm_oauth_gh=${state}${app ? '|' + app : ''}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`,
       });
       res.end();
       return;
@@ -321,19 +332,16 @@ const server = http.createServer(async (req, res) => {
       const code = url.searchParams.get('code');
       const state = url.searchParams.get('state');
       const error = url.searchParams.get('error');
+      const cookies = parseCookies(req);
+      const [savedState = '', app = ''] = (cookies.mm_oauth_gh || '').split('|');   // "<state>[|<app nonce>]"
       if (error || !code) {
         console.warn('[serve] GitHub OAuth callback error or missing code:', error);
-        res.writeHead(302, { 'Location': `/?auth_error=${encodeURIComponent(error || 'missing_code')}` });
-        res.end();
-        return;
+        return authExit(res, { app, provider: 'github', error: error || 'missing_code', clear: 'mm_oauth_gh' });
       }
 
-      const cookies = parseCookies(req);
-      if (!cookies.mm_oauth_gh || cookies.mm_oauth_gh !== state) {
+      if (!savedState || savedState !== state) {
         console.warn('[serve] GitHub OAuth state mismatch');
-        res.writeHead(302, { 'Location': '/?auth_error=state_mismatch' });
-        res.end();
-        return;
+        return authExit(res, { app, provider: 'github', error: 'state_mismatch', clear: 'mm_oauth_gh' });
       }
 
       try {
@@ -353,9 +361,7 @@ const server = http.createServer(async (req, res) => {
         const tokenData = await tokenRes.json();
         if (!tokenRes.ok || !tokenData.access_token) {
           console.warn('[serve] GitHub token exchange failed:', tokenData);
-          res.writeHead(302, { 'Location': '/?auth_error=token_failed' });
-          res.end();
-          return;
+          return authExit(res, { app, provider: 'github', error: 'token_failed', clear: 'mm_oauth_gh' });
         }
 
         const userRes = await fetch('https://api.github.com/user', {
@@ -368,20 +374,10 @@ const server = http.createServer(async (req, res) => {
         const username = userData.login || 'PLAYER';
         const handle = `@${username}`;
 
-        res.writeHead(302, {
-          'Location': `/?user=${encodeURIComponent(handle)}`,
-          'Set-Cookie': [
-            `mm_user=${encodeURIComponent(handle)}; Path=/; Max-Age=2592000; SameSite=Lax`,
-            `mm_oauth_gh=; Path=/; Max-Age=0; HttpOnly`,
-          ],
-        });
-        res.end();
-        return;
+        return authExit(res, { app, provider: 'github', handle, clear: 'mm_oauth_gh' });
       } catch (err) {
         console.error('[serve] GitHub callback error:', err);
-        res.writeHead(302, { 'Location': '/?auth_error=server_error' });
-        res.end();
-        return;
+        return authExit(res, { app, provider: 'github', error: 'server_error', clear: 'mm_oauth_gh' });
       }
     }
 

@@ -268,11 +268,25 @@ export class Trackball {
    * Safe, throttled web vibration.
    */
   vibrate(pattern: number | number[]): void {
-    if (!this.enableHaptics || typeof navigator === 'undefined' || !('vibrate' in navigator)) return;
+    if (!this.enableHaptics || typeof navigator === 'undefined') return;
     const now = performance.now();
     // Throttle vibration calls to at most once every 32ms
     if (now - this.lastHapticTime < 32) return;
     this.lastHapticTime = now;
+    // Inside the Android host (tiny-apk-haptics) window.NativeBridge drives the actuator with composition
+    // primitives, which feel far crisper than navigator.vibrate's on/off buzz. Map the durations we use:
+    //   2  detent tick   8  breakout click   12  wall bounce   25  landing / dizzy   [15,30,40]  shatter
+    const nb = (window as unknown as { NativeBridge?: { tick?(s: number): void; impact?(s: number): void; thud?(): void } }).NativeBridge;
+    if (nb && nb.tick && nb.impact && nb.thud) {
+      try {
+        const total = Array.isArray(pattern) ? pattern.reduce((a, b) => a + b, 0) : pattern;
+        if (Array.isArray(pattern) || total >= 20) nb.thud();
+        else if (total >= 10) nb.impact(Math.min(1, total / 16));
+        else nb.tick(Math.min(1, total / 8));
+      } catch { /* bridge gone */ }
+      return;
+    }
+    if (!('vibrate' in navigator)) return;
     try {
       navigator.vibrate(pattern);
     } catch {

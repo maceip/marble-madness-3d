@@ -1,0 +1,10 @@
+build/
+.keys/
+.tools/
+.gradle/
+app/build/
+*.idsig
+*.apk
+*.aab
+local.properties
+play-service-account.json

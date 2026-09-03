@@ -1,0 +1,5 @@
+plugins {
+    id 'com.android.application' version '9.0.0' apply false
+    // Publishes the release bundle straight to Google Play from CI (Triple-T/gradle-play-publisher)
+    id 'com.github.triplet.play' version '4.1.1' apply false
+}

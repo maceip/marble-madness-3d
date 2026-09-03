@@ -2382,10 +2382,22 @@ var Trackball = class {
    * Safe, throttled web vibration.
    */
   vibrate(pattern) {
-    if (!this.enableHaptics || typeof navigator === "undefined" || !("vibrate" in navigator)) return;
+    if (!this.enableHaptics || typeof navigator === "undefined") return;
     const now = performance.now();
     if (now - this.lastHapticTime < 32) return;
     this.lastHapticTime = now;
+    const nb = window.NativeBridge;
+    if (nb && nb.tick && nb.impact && nb.thud) {
+      try {
+        const total = Array.isArray(pattern) ? pattern.reduce((a, b) => a + b, 0) : pattern;
+        if (Array.isArray(pattern) || total >= 20) nb.thud();
+        else if (total >= 10) nb.impact(Math.min(1, total / 16));
+        else nb.tick(Math.min(1, total / 8));
+      } catch {
+      }
+      return;
+    }
+    if (!("vibrate" in navigator)) return;
     try {
       navigator.vibrate(pattern);
     } catch {
@@ -7360,10 +7372,53 @@ async function boot() {
   const authDock = document.getElementById("auth-dock");
   const twitterHandle = document.getElementById("twitter-handle");
   const twitterBtn = document.getElementById("twitter-btn");
+  const applyUser = (handle, provider = "twitter") => {
+    window.__MM__ = { ...window.__MM__ || {}, user: handle };
+    game.playerName = handle;
+    const el = document.getElementById(provider === "github" ? "github-handle" : "twitter-handle");
+    if (el) el.textContent = handle;
+    document.getElementById(provider === "github" ? "github-btn" : "twitter-btn")?.classList.add("active");
+  };
   const user = window.__MM__?.user;
   if (user) {
     if (twitterHandle) twitterHandle.textContent = user;
     twitterBtn?.classList.add("active");
+  }
+  const nb = window.NativeBridge;
+  if (nb) {
+    for (const [id, provider] of [["twitter-btn", "twitter"], ["github-btn", "github"]]) {
+      document.getElementById(id)?.addEventListener("click", (e) => {
+        if (!nb.launchAuth) return;
+        e.preventDefault();
+        const nonce = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
+        localStorage.setItem("mm_auth_nonce", nonce);
+        const err = nb.launchAuth(`${location.origin}/auth/${provider}?app=${nonce}`);
+        if (err) console.warn("[auth] could not open browser:", err);
+      });
+    }
+    window.onAuthComplete = () => {
+      const raw = nb.takeAuthResult?.();
+      if (!raw) return;
+      try {
+        const r = JSON.parse(raw);
+        if (r.state !== localStorage.getItem("mm_auth_nonce")) {
+          console.warn("[auth] result rejected: nonce mismatch");
+          return;
+        }
+        localStorage.removeItem("mm_auth_nonce");
+        if (r.error || !r.user) {
+          console.warn("[auth] login failed:", r.error);
+          return;
+        }
+        document.cookie = `mm_user=${encodeURIComponent(r.user)}; Path=/; Max-Age=2592000; SameSite=Lax`;
+        applyUser(r.user, r.provider || "twitter");
+        input.trackball.vibrate(8);
+      } catch (err) {
+        console.warn("[auth] bad result", err);
+      }
+    };
+    window.onAuthComplete();
+    nb.onWebReady?.();
   }
   let last = performance.now();
   const loop = (now) => {
