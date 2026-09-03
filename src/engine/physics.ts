@@ -43,6 +43,7 @@ export class Marble {
   /** true while inside a pipe (invisible, uncontrollable) */
   inPipe = false;
   pipeT = 0;
+  cornerTrip = false;
   pipeExit: { u: number; v: number; z?: number; vu: number; vv: number } | null = null;
   /** scripted roll (see Slide): no control, cannot fall off */
   slide: { pts: { u: number; v: number; z: number }[]; seg: number; s: number; speed: number; delay: number } | null = null;
@@ -180,8 +181,10 @@ export class Marble {
     this.vu += au * h;
     this.vv += av * h;
     if (this.grounded) {
-      const isIce = !!this.support?.s.name?.toLowerCase().includes('ice');
-      const frict = isIce ? 0.25 : FRICTION;
+      const isIce = this.support?.s.kind === 'ice' || !!this.support?.s.name?.toLowerCase().includes('ice');
+      const isGrate = this.support?.s.kind === 'grate' || !!this.support?.s.name?.toLowerCase().includes('grate');
+      let frict = isIce ? 0.25 : FRICTION;
+      if (isGrate) frict = FRICTION * 1.35; // corrugated ridges drag
       const f = Math.exp(-frict * h);
       this.vu *= f; this.vv *= f;
     }
@@ -206,6 +209,13 @@ export class Marble {
         // left an edge: become airborne
         this.grounded = false;
         this.airT = 0;
+        // corner crossing dizzy check (cornerequalsdizzy.png)
+        if (this.support) {
+          const s = this.support.s;
+          const uNear = Math.abs(this.u - s.u0) <= 1.5 || Math.abs(this.u - s.u1) <= 1.5;
+          const vNear = Math.abs(this.v - s.v0) <= 1.5 || Math.abs(this.v - s.v1) <= 1.5;
+          if (uNear && vNear) this.cornerTrip = true;
+        }
         // vertical launch from ramps: dz/dt = gu*vu + gv*vv
         const gr = this.support ? gradientOn(this.support.s, this.u, this.v) : { gu: 0, gv: 0 };
         const g = gr.gu * this.vu + gr.gv * this.vv;
@@ -232,9 +242,10 @@ export class Marble {
           events.push({ type: 'land', fall });
           return;
         }
-        if (fall > DIZZY_FALL) {
+        if (fall > DIZZY_FALL || this.cornerTrip) {
           this.dizzyT = DIZZY_TIME;
           events.push({ type: 'dizzy', fall });
+          this.cornerTrip = false;
         }
         events.push({ type: 'land', fall, speed: this.speed });
       } else if (!floor && (this.airT > VOID_FALL_TIME || this.z < level.floorMin - 60)) {

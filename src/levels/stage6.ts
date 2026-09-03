@@ -20,9 +20,10 @@ L.rect(goalC.u - 3.5, goalC.v - 3.5, goalC.u + 3.5, goalC.v + 3.5, -277, 0, 0, '
 L.zone('bonus', goalC.u - 4, goalC.v - 4, goalC.u + 4, goalC.v + 4, 6000, 'goalflags', -292, -262);
 L.zone('goal', goalC.u - 3.5, goalC.v - 3.5, goalC.u + 3.5, goalC.v + 3.5, undefined, 'goal', -292, -262);
 
-// hazards: steelie on the blue floor, slimes on the orange floor, birds over the middle
+// hazards: steelie on the blue floor, slimes on the orange floor, birds over the middle, shifting tiles at the goal
 { const p = L.uv(150, 600, -188); L.hazard({ kind: 'steelie', u: p.u, v: p.v, z: p.z }); }
 { const p = L.uv(60, 340, 16); L.hazard({ kind: 'slime', u: p.u, v: p.v, z: p.z, range: 2 }); }
 L.hazard({ kind: 'birds', u: 0, v: 0, band: [60, 200], period: 8, count: 4 });
+L.hazard({ kind: 'shifting', u: goalC.u, v: goalC.v, z: goalC.z });
 
 export const stage6 = L.build();

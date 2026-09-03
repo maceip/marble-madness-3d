@@ -638,6 +638,120 @@ export class Catapult extends Hazard {
   }
 }
 
+/**
+ * Ultimate Race (Stage 6) Shifting Tiles Hazard
+ *
+ * Recreates the arcade shifting sequence validated from video_review/gameplay.mov and shiftingseq:
+ * - 3.8s total cycle period
+ * - 2.0s active shifting wave consisting of 5 distinct steps (0.4s interval)
+ * - 1.8s static hold interval
+ * - 4 distinct block zones around the central monolith
+ */
+export class ShiftingTiles extends Hazard {
+  readonly kind = 'shifting' as const;
+  private t = 0;
+  private currentStep = 0;
+
+  readonly blocks = [
+    { name: 'rightLedge', u0: 16, v0: 62, u1: 22, v1: 68, baseZ: -285, amp: 16, phase: 0 },
+    { name: 'bottomGrate', u0: 10, v0: 56, u1: 16, v1: 62, baseZ: -295, amp: 14, phase: 1 },
+    { name: 'leftSteps', u0: 6, v0: 64, u1: 12, v1: 72, baseZ: -290, amp: 12, phase: 2 },
+    { name: 'finishThreshold', u0: 13, v0: 70, u1: 18, v1: 75, baseZ: -280, amp: 16, phase: 3 },
+  ];
+
+  constructor(spawn: HazardSpawn) {
+    super(spawn);
+    this.z = spawn.z ?? -280;
+  }
+
+  sprites(ctx: HazardContext, out: Sprite[]): void {
+    void ctx; void out;
+  }
+
+  update(dt: number, ctx: HazardContext): void {
+    this.t += dt;
+    const cycle = this.t % 3.8;
+    if (cycle < 2.0) {
+      const step = Math.min(4, Math.floor(cycle / 0.4));
+      if (step !== this.currentStep) {
+        this.currentStep = step;
+        ctx.onEvent({ type: 'sfx', name: 'bounce', vol: 0.25 });
+      }
+    }
+
+    for (const m of ctx.marbles) {
+      if (m.phase === 'alive' && m.grounded) {
+        for (const b of this.blocks) {
+          if (m.u >= b.u0 && m.u <= b.u1 && m.v >= b.v0 && m.v <= b.v1) {
+            const shift = this.getShift(b.phase, cycle);
+            const blockZ = b.baseZ + shift;
+            if (Math.abs(m.z - blockZ) < 6) {
+              m.z = blockZ;
+              if (m.support) m.support.z = blockZ;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private getShift(phase: number, cycle: number): number {
+    if (cycle >= 2.0) return (phase % 2 === 0) ? 14 : 0;
+    const step = Math.min(4, Math.floor(cycle / 0.4));
+    const active = (step + phase) % 2 === 0;
+    return active ? 14 : 0;
+  }
+
+  drawOverlay(
+    ctx2d: CanvasRenderingContext2D,
+    proj: (u: number, v: number, z: number) => { x: number; y: number },
+    time: number,
+  ): void {
+    const cycle = time % 3.8;
+    for (const b of this.blocks) {
+      const shift = this.getShift(b.phase, cycle);
+      const curZ = b.baseZ + shift;
+      const p0 = proj(b.u0, b.v0, curZ);
+      const p1 = proj(b.u1, b.v0, curZ);
+      const p2 = proj(b.u1, b.v1, curZ);
+      const p3 = proj(b.u0, b.v1, curZ);
+
+      ctx2d.fillStyle = (b.name === 'bottomGrate') ? '#484b54' : '#6b7280';
+      ctx2d.beginPath();
+      ctx2d.moveTo(p0.x, p0.y);
+      ctx2d.lineTo(p1.x, p1.y);
+      ctx2d.lineTo(p2.x, p2.y);
+      ctx2d.lineTo(p3.x, p3.y);
+      ctx2d.closePath();
+      ctx2d.fill();
+
+      if (shift > 0) {
+        const b0 = proj(b.u0, b.v0, b.baseZ);
+        const b1 = proj(b.u1, b.v0, b.baseZ);
+        const b2 = proj(b.u1, b.v1, b.baseZ);
+
+        ctx2d.fillStyle = '#9e4620';
+        ctx2d.beginPath();
+        ctx2d.moveTo(p1.x, p1.y);
+        ctx2d.lineTo(p2.x, p2.y);
+        ctx2d.lineTo(b2.x, b2.y);
+        ctx2d.lineTo(b1.x, b1.y);
+        ctx2d.closePath();
+        ctx2d.fill();
+
+        ctx2d.fillStyle = '#c85a28';
+        ctx2d.beginPath();
+        ctx2d.moveTo(p0.x, p0.y);
+        ctx2d.lineTo(p1.x, p1.y);
+        ctx2d.lineTo(b1.x, b1.y);
+        ctx2d.lineTo(b0.x, b0.y);
+        ctx2d.closePath();
+        ctx2d.fill();
+      }
+    }
+  }
+}
+
 export function makeHazard(h: HazardSpawn): Hazard {
   switch (h.kind) {
     case 'steelie': return new Steelie(h);
@@ -650,5 +764,6 @@ export function makeHazard(h: HazardSpawn): Hazard {
     case 'risers': return new Risers(h);
     case 'wave': return new WavePlate(h);
     case 'catapult': return new Catapult(h);
+    case 'shifting': return new ShiftingTiles(h);
   }
 }

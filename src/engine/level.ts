@@ -1,7 +1,7 @@
 import { toWorld, HALF_H, HALF_W } from './iso';
 import { STEP_UP, WALL_MAX } from './constants';
 
-export type SurfaceKind = 'floor' | 'ice' | 'wall';
+export type SurfaceKind = 'floor' | 'ice' | 'wall' | 'grate';
 
 export interface HmPiece { yMax: number; a: number; b: number; c: number }
 export interface HmComponent { id: number; kind: 'flat' | 'slope'; a: number; b: number; c: number; area: number; bbox: number[]; pieces?: HmPiece[] }
@@ -102,7 +102,7 @@ export interface Pipe {
   bonus?: number;
 }
 
-export type HazardKind = 'steelie' | 'worm' | 'slime' | 'hammer' | 'vacuum' | 'birds' | 'wand' | 'risers' | 'wave' | 'catapult';
+export type HazardKind = 'steelie' | 'worm' | 'slime' | 'hammer' | 'vacuum' | 'birds' | 'wand' | 'risers' | 'wave' | 'catapult' | 'shifting';
 
 export interface HazardSpawn {
   kind: HazardKind;

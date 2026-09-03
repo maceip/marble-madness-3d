@@ -10,6 +10,9 @@ const L = new LevelBuilder({
 L.strip(214, 190, 100, 44, 372, -10, 2.8, 'rampA');
 L.strip(120, 200, 100, 146, 234, 52, 2.8, 'rampB1');
 L.strip(146, 234, 52, 218, 372, -10, 2.8, 'rampB');
+// corner drop shortcut bonus (cornerdrop.png: dropping from upper ramp to ramp B)
+const dropLanding = L.uv(150, 240, 52);
+L.zone('bonus', dropLanding.u - 3, dropLanding.v - 3, dropLanding.u + 3, dropLanding.v + 3, 2000, 'cornerDropBonus', 35, 65);
 // cone tents on the lower floor are solid
 L.wallAt(123, 402, -10, 1.4, 1.4, 'coneM');
 L.wallAt(35, 420, -10, 1.4, 1.4, 'coneL');
