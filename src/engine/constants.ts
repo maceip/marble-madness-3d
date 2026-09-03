@@ -10,13 +10,15 @@ export const FRICTION = 2.0;           // 1/s exponential damping when grounded
 export const MAX_SPEED = 16;           // tiles/s
 export const SLOPE_K = 1.7;            // tiles/s^2 per (px of drop per tile)
 export const GRAVITY = 420;            // px/s^2 while airborne
-export const STEP_UP = 4;              // px the marble can climb without it being a wall
-export const DROP_SNAP = 4;            // px drop that is just followed (no airtime)
-export const WALL_MAX = 8;             // px: surfaces higher than this above the marble are overpasses (marble diameter ~16)
+export const STEP_UP = 10;             // px the marble can climb ramps/steps without it being a wall
+export const DROP_SNAP = 14;           // px drop that is just followed (ramps, stairs)
+export const WALL_MAX = 20;            // px wall detection window
 export const BOUNCE = 0.68;            // wall restitution (high bounce factor all walls)
 export const BOUNCE_SFX_SPEED = 2.5;
-export const DIZZY_FALL = 18;          // px fall height that stuns
-export const SHATTER_FALL = 46;        // px fall height that shatters
+// The art's terraces are 30 px apart and the Practice chute ends with a ~40 px hop: one storey is a bounce,
+// not a stun (arcade: you go flat after a real fall, shatter off a cliff)
+export const DIZZY_FALL = 44;          // px fall height that stuns
+export const SHATTER_FALL = 80;        // px fall height that shatters
 export const DIZZY_TIME = 1.25;
 export const VOID_FALL_TIME = 1.1;     // s of falling with no floor below before death
 export const DEATH_ANIM = { shatter: 2.6, squeeze: 1.2, dissolve: 1.5, crush: 0.6, zap: 2.2, void: 1.0 } as const;

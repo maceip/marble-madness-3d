@@ -108,7 +108,7 @@ function authExit(res, { app = '', handle = '', provider = '', error = '', clear
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.mjs': 'application/javascript', '.map': 'application/json',
-  '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.mp4': 'video/mp4',
+  '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.mp4': 'video/mp4',
   '.css': 'text/css', '.ico': 'image/x-icon', '.svg': 'image/svg+xml', '.bin': 'application/octet-stream', '.txt': 'text/plain',
 };
 
@@ -157,10 +157,49 @@ function parseCookies(req) {
   }
   return out;
 }
-function serveFile(res, filePath) {
+function cacheFor(ext) {
+  if (ext === '.html' || ext === '.js' || ext === '.mjs' || ext === '.map') return 'no-cache';
+  // no immutable / no CDN: stage art is still moving, and hashed filenames are not wired up
+  if (ext === '.png' || ext === '.jpg' || ext === '.mp3' || ext === '.wav' || ext === '.json') return 'public, max-age=3600';
+  return 'public, max-age=300';
+}
+
+/** Safari / iOS HTMLAudio sends Range: bytes=0-1 first; a 200-only server can leave BGM silent. */
+function serveFile(req, res, filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const st = statSync(filePath);
-  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Content-Length': st.size, 'Cache-Control': (ext === '.html' || ext === '.js') ? 'no-cache' : 'public, max-age=300' });
+  const ctype = path.basename(filePath) === 'apple-app-site-association'
+    ? 'application/json'
+    : MIME[ext] || 'application/octet-stream';
+  const cache = cacheFor(ext);
+  const range = req.headers.range;
+  if (typeof range === 'string') {
+    const m = range.match(/^bytes=(\d*)-(\d*)$/);
+    if (m) {
+      let start = m[1] ? +m[1] : 0;
+      let end = m[2] ? +m[2] : st.size - 1;
+      if (start >= st.size || end >= st.size || start > end) {
+        res.writeHead(416, { 'Content-Range': `bytes */${st.size}` });
+        res.end();
+        return;
+      }
+      res.writeHead(206, {
+        'Content-Type': ctype,
+        'Content-Length': end - start + 1,
+        'Content-Range': `bytes ${start}-${end}/${st.size}`,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': cache,
+      });
+      createReadStream(filePath, { start, end }).pipe(res);
+      return;
+    }
+  }
+  res.writeHead(200, {
+    'Content-Type': ctype,
+    'Content-Length': st.size,
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': cache,
+  });
   createReadStream(filePath).pipe(res);
 }
 function serveIndex(req, res, lobbyFromPath) {
@@ -173,7 +212,9 @@ function serveIndex(req, res, lobbyFromPath) {
     lobby = crypto.randomUUID();
   }
   const setCookies = [];
-  if (!lobbyFromPath) setCookies.push(`mm_lobby=${lobby}; Path=/; Max-Age=86400; SameSite=Lax`);
+  // every served page gets a session cookie (including agent /<uuid> pages) so telemetry beacons are accepted;
+  // without it the agent's page 403s on /api/telemetry/event and logs a console error in its embedded browser.
+  setCookies.push(`mm_lobby=${lobby}; Path=/; Max-Age=86400; SameSite=Lax`);
   if (url.searchParams.get('user')) setCookies.push(`mm_user=${encodeURIComponent(user)}; Path=/; Max-Age=2592000; SameSite=Lax`);
   if (setCookies.length) headers['Set-Cookie'] = setCookies;
   let html = readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -181,7 +222,10 @@ function serveIndex(req, res, lobbyFromPath) {
   const mm = JSON.stringify({ lobby, fromPath: !!lobbyFromPath, publicOrigin: origin, user, nonce: mintInstallNonce() });
   // inline script for the fast path, plus a <meta> copy: a Content-Security-Policy at the edge can block the inline
   // script (production did), and then the client must still learn its lobby / agent role
-  html = html.replace('</head>', `<meta name="mm-config" content="${mm.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"><script>window.__MM__=${mm};</script></head>`);
+  // The module reads this before boot. Keep configuration in one CSP-safe
+  // channel; the former inline window.__MM__ assignment was blocked by the
+  // production script-src policy and duplicated the same data.
+  html = html.replace('</head>', `<meta name="mm-config" content="${mm.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"></head>`);
   res.writeHead(200, headers);
   res.end(html);
 }
@@ -494,11 +538,11 @@ const server = http.createServer(async (req, res) => {
     }
     // static
     const rel = decodeURIComponent(p).replace(/^\/+/, '');
-    const candidates = [path.join(www, rel), path.join(root, rel)];
-    for (const f of candidates) {
-      if (!f.startsWith(root)) continue;
-      if (existsSync(f) && statSync(f).isFile()) return serveFile(res, f);
-    }
+    const f = path.join(www, rel);
+    // Public files live under www/. Never fall back to the repository root:
+    // that exposed archived pages, TypeScript, tooling, and other build inputs
+    // at guessable URLs even though none were referenced by the app.
+    if (f.startsWith(www + path.sep) && existsSync(f) && statSync(f).isFile()) return serveFile(req, res, f);
     res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('not found');
   } catch (e) {
     console.error('[serve]', e);
@@ -561,7 +605,22 @@ wss.on('connection', (ws, req) => {
         break;
       }
       case 'start':
-        broadcast(lobby, { type: 'start', stage: +msg.stage || 1, by: client.id }, client);
+        broadcast(lobby, {
+          type: 'start', stage: Math.max(1, Math.min(6, Math.floor(+msg.stage || 1))),
+          raceId: typeof msg.raceId === 'string' ? msg.raceId.slice(0, 64) : '', by: client.id,
+        }, client);
+        break;
+      case 'race_end':
+        if (msg.result !== 'finish' && msg.result !== 'timeup') break;
+        broadcast(lobby, {
+          type: 'race_end',
+          raceId: typeof msg.raceId === 'string' ? msg.raceId.slice(0, 64) : '',
+          result: msg.result,
+          stage: Math.max(1, Math.min(6, Math.floor(+msg.stage || 1))),
+          score: Math.max(0, Math.min(999999999, Math.floor(+msg.score || 0))),
+          deaths: Math.max(0, Math.min(999, Math.floor(+msg.deaths || 0))),
+          by: client.id,
+        }, client);
         break;
       case 'ping': send(ws, { type: 'pong', t: msg.t }); break;
     }

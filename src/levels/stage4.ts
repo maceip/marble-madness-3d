@@ -20,27 +20,23 @@ const TOWER_Z = 285;
 const rampFromLeft = L.slide([[35, 55, TOWER_Z], [52, 60, TOWER_Z], [80, 90, 262], [115, 122, 232], [145, 148, 208], [178, 168, 185], [200, 190, 160], [215, 215, 147]]);
 const rampFromRight = L.slide([[250, 55, TOWER_Z], [234, 60, TOWER_Z], [205, 90, 275], [175, 120, 262], [145, 148, 250], [105, 172, 238], [80, 195, 225], [60, 220, 217]]);
 
-// pink floor (z 215) -> landing (191) -> long slide down to the green path (100); same on the yellow side
-L.strip(86, 238, 191, 124, 300, 100, 3, 'slidePink');
-L.strip(198, 254, 130, 186, 300, 100, 3, 'slideYellow');
-// green path (100) down to the lower floors: left (15) and right (8)
-L.strip(122, 640, 100, 96, 700, 15, 3, 'downLeft');
-L.strip(176, 560, 100, 214, 660, 8, 3, 'downRight');
-// lower floors down to the blue floor (-80) and the goal sign (-112)
-L.strip(110, 790, 15, 112, 848, -80, 3, 'toBlueL');
-L.strip(206, 732, 8, 206, 756, -80, 3, 'toBlueR');
-L.strip(86, 950, -80, 86, 998, -112, 3, 'toGoal');
+// pink floor (z 180) -> long slide down to the green path (100); same on the yellow side
+L.strip(86, 238, 180, 124, 300, 100, 3, 'slidePink');
+L.strip(198, 254, 180, 186, 300, 100, 3, 'slideYellow');
+// green path (100) down to the lower floors: left (70) and right (60)
+L.strip(122, 640, 100, 96, 700, 70, 3, 'downLeft');
+L.strip(176, 560, 100, 214, 660, 60, 3, 'downRight');
 
 const start = L.uv(250, 55, TOWER_Z);
 L.start(start.u, start.v, TOWER_Z, rampFromRight); L.checkpoint(start.u, start.v);
 const start2 = L.uv(35, 55, TOWER_Z); L.start2(start2.u, start2.v, TOWER_Z, rampFromLeft);
 const c1 = L.uv(100, 300, 100); L.checkpoint(c1.u, c1.v); L.zone('checkpoint', c1.u - 6, c1.v - 6, c1.u + 6, c1.v + 6, 1, 'cp1', 90, 110);
 const c2 = L.uv(160, 540, 100); L.checkpoint(c2.u, c2.v); L.zone('checkpoint', c2.u - 6, c2.v - 6, c2.u + 6, c2.v + 6, 2, 'cp2', 90, 110);
-const c3 = L.uv(150, 700, 15); L.checkpoint(c3.u, c3.v); L.zone('checkpoint', c3.u - 6, c3.v - 6, c3.u + 6, c3.v + 6, 3, 'cp3', 0, 30);
-const c4 = L.uv(180, 890, -80); L.checkpoint(c4.u, c4.v); L.zone('checkpoint', c4.u - 6, c4.v - 6, c4.u + 6, c4.v + 6, 4, 'cp4', -95, -65);
-const signC = L.uv(88, 972, -112); L.rect(signC.u - 3.5, signC.v - 3.5, signC.u + 3.5, signC.v + 3.5, -112, 0, 0, 'goalSign');
-L.zone('bonus', signC.u - 4, signC.v - 4, signC.u + 4, signC.v + 4, 4000, 'goalflags', -130, -95);
-L.zone('goal', signC.u - 3.5, signC.v - 3.5, signC.u + 3.5, signC.v + 3.5, undefined, 'goal', -130, -95);
+const c3 = L.uv(150, 700, 70); L.checkpoint(c3.u, c3.v); L.zone('checkpoint', c3.u - 6, c3.v - 6, c3.u + 6, c3.v + 6, 3, 'cp3', 55, 85);
+const c4 = L.uv(180, 890, 40); L.checkpoint(c4.u, c4.v); L.zone('checkpoint', c4.u - 6, c4.v - 6, c4.u + 6, c4.v + 6, 4, 'cp4', 25, 55);
+const signC = L.uv(88, 972, 40); L.rect(signC.u - 3.5, signC.v - 3.5, signC.u + 3.5, signC.v + 3.5, 40, 0, 0, 'goalSign');
+L.zone('bonus', signC.u - 4, signC.v - 4, signC.u + 4, signC.v + 4, 4000, 'goalflags', 25, 55);
+L.zone('goal', signC.u - 3.5, signC.v - 3.5, signC.u + 3.5, signC.v + 3.5, undefined, 'goal', 25, 55);
 
 // hazards (from the review clips): vacuum boxes on the upper zigzag path, riser pads on the disc
 // fields (pistons pop in a wave; one rising under you catapults you along the launch direction),

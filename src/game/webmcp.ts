@@ -28,19 +28,26 @@ export interface ResourceDef {
 interface ModelContext {
   registerTool?(tool: ToolDef): void;
   registerResource?(resource: ResourceDef): void;
+  // newer WebMCP surface: register everything in one call (Codex builds may expose this instead of registerTool)
+  provideContext?(ctx: { tools?: ToolDef[]; resources?: ResourceDef[] }): void;
+  registerPrompt?(prompt: unknown): void;
 }
 
-const DIRS: Record<string, [number, number]> = {
-  N: [0, -1], NE: [0.707, -0.707], E: [1, 0], SE: [0.707, 0.707],
-  S: [0, 1], SW: [-0.707, 0.707], W: [-1, 0], NW: [-0.707, -0.707],
-  UP: [0, -1], DOWN: [0, 1], LEFT: [-1, 0], RIGHT: [1, 0],
-};
+/** MCP CallToolResult shape: agents expect { content:[{type:'text',text}] }, with structuredContent for machines. */
+function toToolResult(out: unknown): { content: { type: 'text'; text: string }[]; structuredContent: Record<string, unknown>; isError?: boolean } {
+  const text = typeof out === 'string' ? out : JSON.stringify(out);
+  const structured = (out && typeof out === 'object') ? (out as Record<string, unknown>) : { value: out };
+  const isError = !!(out && typeof out === 'object' && (out as Record<string, unknown>).ok === false);
+  return isError ? { content: [{ type: 'text', text }], structuredContent: structured, isError } : { content: [{ type: 'text', text }], structuredContent: structured };
+}
 
 export class WebMCP {
   tools: ToolDef[];
   resources: ResourceDef[];
   used = false;
   private subscribers = new Set<(event: string, data: unknown) => void>();
+  private eventWaiters: Array<(e: { event: string; data: unknown }) => void> = [];
+  lastEvent: { event: string; data: unknown } | null = null;
 
   constructor(private game: Game) {
     this.resources = [
@@ -74,28 +81,6 @@ export class WebMCP {
         execute: (a) => this.spin(Number(a.dx ?? 0), Number(a.dy ?? 1), Number(a.speed ?? 50)),
       },
       {
-        name: 'steer_trackball',
-        description: 'Legacy directional trackball push. direction: N/NE/E/SE/S/SW/W/NW or degrees 0-360. Translates to physical trackball spin.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            direction: { type: 'string', description: 'N, NE, E, SE, S, SW, W, NW or degree angle' },
-            impulse: { type: 'number', minimum: 0.1, maximum: 1, default: 0.7 },
-          },
-          required: ['direction'],
-        },
-        execute: (a) => this.steer(String(a.direction ?? 'S'), Number(a.impulse ?? 0.7)),
-      },
-      {
-        name: 'apply_brake',
-        description: 'Attempts to brake. In Marble Madness arcade, there are NO physical brakes on the cabinet! You must counter-spin the trackball.',
-        inputSchema: { type: 'object', properties: {} },
-        execute: () => ({
-          ok: false,
-          warning: 'The arcade cabinet has NO brakes! To stop or slow down, you must counter-spin the trackball in reverse (spin_trackball with opposing vector) or let surface friction decelerate you.',
-        }),
-      },
-      {
         name: 'get_game_state',
         description: 'Read the full game state: race stage, timer, score, marble position, velocity, trackball angular speed, terrain, and opponent position.',
         inputSchema: { type: 'object', properties: {} },
@@ -103,7 +88,7 @@ export class WebMCP {
       },
       {
         name: 'wait_for_tick',
-        description: 'Wait for next physics tick or race event (landing, bump, checkpoint, or void drop). Prevents blind polling loops.',
+        description: 'Wait briefly, then return a fresh game-state snapshot. Use wait_for_race_event for discrete race events.',
         inputSchema: {
           type: 'object',
           properties: { timeout_ms: { type: 'number', minimum: 20, maximum: 1000, default: 100 } },
@@ -117,12 +102,31 @@ export class WebMCP {
         execute: () => this.startOrRespawn(),
       },
       {
+        name: 'set_name',
+        description: 'Set the display name the human sees for you (the AI marble) during the race and on the leaderboard. Call this once when you join, before the race starts.',
+        inputSchema: { type: 'object', properties: { name: { type: 'string', maxLength: 10, description: 'Your display name, e.g. "GPT-5" or "CODEX"' } }, required: ['name'] },
+        execute: (a) => {
+          const g = this.game;
+          this.mark();
+          const nm = String(a.name ?? 'AGENT').toUpperCase().replace(/[^A-Z0-9 \[\]]/g, '').trim().slice(0, 10) || 'AGENT';
+          g.playerName = nm; g.isAI = true;
+          const announced = g.net.setName(nm); // otherwise queued and sent by Net.onopen
+          return { ok: true, name: nm, delivery: announced ? 'announced' : 'queued_until_connected' };
+        },
+      },
+      {
+        name: 'wait_for_race_event',
+        description: 'Block until the next race event (race_start, death, checkpoint, goal, race_end) or the timeout, then return that event plus the full game state. Use this instead of polling get_game_state in a loop.',
+        inputSchema: { type: 'object', properties: { timeout_ms: { type: 'number', minimum: 20, maximum: 5000, default: 2000 } } },
+        execute: (a) => this.waitForEvent(Number(a.timeout_ms ?? 2000)),
+      },
+      {
         name: 'submit_leaderboard_score',
-        description: 'Submit the final score to High Rollers tagged as AI.',
-        inputSchema: { type: 'object', properties: { initials: { type: 'string', maxLength: 6 } }, required: ['initials'] },
+        description: 'Submit the final score to High Rollers tagged as AI. Optional initials also set your name; prefer set_name at the start.',
+        inputSchema: { type: 'object', properties: { initials: { type: 'string', maxLength: 10 } } },
         execute: async (a) => {
           const g = this.game;
-          g.playerName = String(a.initials ?? 'AI').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'AI';
+          if (a.initials) g.playerName = String(a.initials).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) || g.playerName || 'AI';
           g.isAI = true; g.scoreSubmitted = false;
           await g.submitScore();
           return { ok: true, name: g.playerName, score: g.score };
@@ -136,10 +140,32 @@ export class WebMCP {
     if (!this.used) { this.used = true; this.game.isAI = true; this.game.onAgentDetected?.(); }
   }
 
-  notifySubscribers(event: string, data: unknown): void {
-    for (const sub of this.subscribers) {
-      try { sub(event, data); } catch (e) { console.warn('[webmcp] subscriber error', e); }
-    }
+  /** fire a race event: wakes any wait_for_race_event callers and window.webmcp.subscribe listeners */
+  emit(event: string, data: unknown = {}): void {
+    this.lastEvent = { event, data };
+    const waiters = this.eventWaiters; this.eventWaiters = [];
+    for (const w of waiters) { try { w({ event, data }); } catch (e) { console.warn('[webmcp] waiter error', e); } }
+    for (const sub of this.subscribers) { try { sub(event, data); } catch (e) { console.warn('[webmcp] subscriber error', e); } }
+  }
+  /** @deprecated kept for the window.webmcp mirror; use emit() */
+  notifySubscribers(event: string, data: unknown): void { this.emit(event, data); }
+
+  private waitForEvent(timeoutMs: number): Promise<unknown> {
+    this.mark();
+    const ms = Math.max(20, Math.min(5000, timeoutMs));
+    return new Promise((resolve) => {
+      let done = false;
+      const waiter = (e: { event: string; data: unknown }) => finish(e.event, e.data);
+      const finish = (evt: string, data: unknown) => {
+        if (done) return;
+        done = true; clearTimeout(to);
+        const i = this.eventWaiters.indexOf(waiter);
+        if (i >= 0) this.eventWaiters.splice(i, 1);
+        resolve({ event: evt, data, state: this.state() });
+      };
+      const to = setTimeout(() => finish('timeout', null), ms);
+      this.eventWaiters.push(waiter);
+    });
   }
 
   private register(): void {
@@ -147,23 +173,25 @@ export class WebMCP {
     const surfaces: ModelContext[] = [];
     const nav = navigator as unknown as { modelContext?: ModelContext };
     const doc = document as unknown as { modelContext?: ModelContext };
-    if (nav.modelContext?.registerTool) surfaces.push(nav.modelContext);
-    if (doc.modelContext?.registerTool) surfaces.push(doc.modelContext);
+    if (nav.modelContext?.registerTool || nav.modelContext?.provideContext) surfaces.push(nav.modelContext);
+    if (doc.modelContext?.registerTool || doc.modelContext?.provideContext) surfaces.push(doc.modelContext);
 
-    // wrap each tool's execute so the modelContext path (what Codex's embedded browser calls) is traced too
-    const traced = this.tools.map((t) => ({ ...t, execute: async (args: Record<string, unknown>) => {
+    // wrap each tool: trace it AND return the MCP CallToolResult shape ({content, structuredContent}) agents expect
+    const traced: ToolDef[] = this.tools.map((t) => ({ ...t, execute: async (args: Record<string, unknown>) => {
       mmTrace('webmcp.call', { tool: t.name, args, screen: this.game.screen });
       const out = await t.execute(args ?? {});
       mmTrace('webmcp.done', { tool: t.name, screen: this.game.screen, out: (out && typeof out === 'object') ? out : { v: out } });
-      return out;
+      return toToolResult(out);
     } }));
     for (const s of surfaces) {
-      for (const t of traced) {
-        try { s.registerTool?.(t); } catch (e) { console.warn('[webmcp] tool register failed', t.name, e); }
-      }
-      for (const r of this.resources) {
-        try { s.registerResource?.(r); } catch (e) { console.warn('[webmcp] resource register failed', r.uri, e); }
-      }
+      try {
+        if (typeof s.provideContext === 'function') {
+          s.provideContext({ tools: traced, resources: this.resources });   // newer one-shot WebMCP surface
+        } else {
+          for (const t of traced) s.registerTool?.(t);
+          for (const r of this.resources) s.registerResource?.(r);
+        }
+      } catch (e) { console.warn('[webmcp] register failed', e); }
     }
 
     w.webmcp = {
@@ -205,7 +233,10 @@ export class WebMCP {
         timeLeft: Math.round(g.timeLeft * 10) / 10, score: g.score, deaths: g.deaths,
         controlsReversed: !!g.stage.reverseControls, finished: g.finished,
         opponentFinished: g.oppFinished, wonLastRace: g.wonLast,
+        raceOver: g.finished || ['timebonus', 'gameover', 'congrats', 'rematch'].includes(g.screen),
+        finalScore: g.score,
       },
+      lastEvent: this.lastEvent ? this.lastEvent.event : null,
       trackball: {
         angularSpeedRpm: Math.round(tbSpeed * 9.55),
         headingDeg: Math.round(((Math.atan2(tb.wx, tb.wy) * 180 / Math.PI) + 360) % 360),
@@ -254,23 +285,8 @@ export class WebMCP {
         phase: m.phase,
         warning: !m.grounded ? 'Airborne! In danger of shattering on impact!' : null,
       },
+      hint: 'No brakes on the cabinet. Counter-spin (reverse dx/dy) to slow down, or coast on friction.',
     };
-  }
-
-  private steer(direction: string, impulse: number): unknown {
-    this.mark();
-    let dx = 0, dy = 1;
-    const d = DIRS[direction.toUpperCase()];
-    if (d) {
-      dx = d[0]; dy = d[1];
-    } else {
-      const deg = Number(direction);
-      if (Number.isFinite(deg)) {
-        dx = Math.cos(deg * Math.PI / 180);
-        dy = Math.sin(deg * Math.PI / 180);
-      }
-    }
-    return this.spin(dx, dy, impulse * 80);
   }
 
   private async waitForTick(timeoutMs: number): Promise<unknown> {
@@ -290,14 +306,14 @@ export class WebMCP {
       return { ok: true, waitingForHuman: true, screen: g.screen, note: 'connected to the lobby; the human starts the race, nothing to do until then' };
     }
     switch (g.screen) {
-      case 'highrollers': case 'title': g.go('menu'); g.sound.init(); return { ok: true, screen: g.screen };
+      case 'title': g.go('menu'); g.sound.init(); return { ok: true, screen: g.screen };
       case 'menu': g.mode = g.mode === 'ai' ? 'ai' : '1p'; g.playerName = g.playerName || 'AGENT'; g.go('control'); return { ok: true, screen: g.screen };
       case 'name': g.playerName = g.playerName || 'AGENT'; g.go('control'); return { ok: true, screen: g.screen };
       case 'control':
         if (g.mode === 'ai' && g.net.lobby) { g.agentReady = true; return { ok: true, waitingForHuman: true }; }
         g.newGame(0); return { ok: true, screen: 'intro' };
       case 'connect': return { ok: true, waitingForHuman: true };
-      case 'gameover': case 'congrats': g.go('highrollers'); return { ok: true, screen: g.screen };
+      case 'gameover': case 'congrats': g.go('title'); return { ok: true, screen: g.screen };
       case 'race':
         if (g.marble.phase === 'dead' || g.marble.phase === 'dying') return { ok: true, respawning: true };
         return { ok: true, screen: 'race', note: 'already racing' };

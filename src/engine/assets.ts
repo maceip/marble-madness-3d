@@ -62,7 +62,9 @@ export class Assets {
     tick(); tick();
     this.font = new BitmapFont(fontImg, fontMeta);
 
-    const screenNames = ['title_base', 'title2', 'select_base', 'select', 'player2webmcp_base', 'player2webmcp', 'cursor', 'pickname_base', 'pickname'];
+    // Screens are drawn natively now; only the logo mark and the browser/mcp icon cluster are loaded as art
+    // (extracted from the old title screenshot). Full-screen screenshots are no longer used as backgrounds.
+    const screenNames = ['parts/logo', 'parts/icons_browsers'];
     await Promise.all(screenNames.map(async (n) => {
       try {
         const im = await loadImage(ASSET_ROOT + `screens/${n}.png`);

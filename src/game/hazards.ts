@@ -19,7 +19,7 @@ export type HazardEvent =
   | { type: 'wand'; marble: Marble }
   | { type: 'bird-zap'; marble: Marble }
   | { type: 'time-gift'; marble: Marble }
-  | { type: 'sfx'; name: 'muncher' | 'bounce' | 'shatter' | 'springboard' | 'item' | 'fall' | 'checkpoint'; vol?: number }
+  | { type: 'sfx'; name: 'muncher' | 'bounce' | 'shatter' | 'springboard' | 'item' | 'fall' | 'checkpoint' | 'vacuum'; vol?: number }
   | { type: 'steelie-bump'; marble: Marble };
 
 export type Project = (u: number, v: number, z: number) => { x: number; y: number };
@@ -288,9 +288,10 @@ export class Vacuum extends Hazard {
   t = 0;
   pull = 0;          // 0..1 how hard it is currently sucking
   swallow = 0;
+  private suctionT = 0;
   reset(ctx: HazardContext): void {
     this.z = spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z);
-    this.t = this.spawn.phase ?? 0; this.pull = 0; this.swallow = 0;
+    this.t = this.spawn.phase ?? 0; this.pull = 0; this.swallow = 0; this.suctionT = 0;
   }
   update(dt: number, ctx: HazardContext): void {
     this.t += dt;
@@ -308,9 +309,17 @@ export class Vacuum extends Hazard {
           mb.squeezeDir = (mb.u - mb.v) < (this.u - this.v) ? 1 : -1;
           mb.die('squeeze');
           this.swallow = 1.2;
-          ctx.onEvent({ type: 'sfx', name: 'springboard' });
         }
       }
+    }
+    if (sucking || this.swallow > 0) {
+      if (this.suctionT <= 0) {
+        ctx.onEvent({ type: 'sfx', name: 'vacuum', vol: 0.9 });
+        this.suctionT = 6.8;
+      }
+      this.suctionT -= dt;
+    } else {
+      this.suctionT = 0;
     }
     this.pull += ((sucking || this.swallow > 0 ? 1 : 0) - this.pull) * Math.min(1, dt * 6);
   }

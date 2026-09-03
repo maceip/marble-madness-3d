@@ -21,7 +21,7 @@ import { TWO_PLAYER_TELEPORT_PENALTY, TWO_PLAYER_TRAIL_MARGIN, ARCADE_TIME_ADD, 
 import { AITrackerOverlay } from '../render/ai_tracker';
 
 export type Mode = '1p' | 'ai' | 'multi';
-export type Screen = 'boot' | 'highrollers' | 'title' | 'menu' | 'name' | 'control' | 'connect' | 'intro' | 'race' | 'timebonus' | 'gameover' | 'congrats';
+export type Screen = 'boot' | 'title' | 'menu' | 'name' | 'control' | 'connect' | 'intro' | 'race' | 'timebonus' | 'gameover' | 'congrats' | 'rematch';
 
 interface Popup { text: string; u: number; v: number; z: number; t: number; big?: boolean }
 
@@ -72,6 +72,12 @@ export class Game {
   fade = 0;
   goalReached = false;
   finalTally = { total: 0, drained: 0 };
+  /** 2P: times the local marble destroyed / dizzied an AI marble this run */
+  aiDestroyed = 0;
+  aiDizzied = 0;
+  private bumpClock = 0;
+  private bumpedIds = new Set<string>();
+  private remotePhase = new Map<string, string>();
   rng = mulberry32(1234);
   screens: Screens;
   /** remote / AI marbles (2P modes) */
@@ -83,6 +89,9 @@ export class Game {
   publicOrigin = location.origin;
   agentJoined = false;
   agentReady = false;
+  /** Identifies one complete human-vs-agent run so late end messages cannot kill a rematch. */
+  raceId = '';
+  private raceEndSent = false;
   /** true on the agent's page (opened via /<uuid>) */
   isAgentPage = false;
   scoreSubmitted = false;
@@ -111,11 +120,26 @@ export class Game {
     this.net.onJoined = (p) => {
       if (this.mode === 'ai' && !this.isAgentPage && p.role === 'ai' && !this.agentJoined) {
         this.agentJoined = true;
-        this.screens.setConnectStatus('Agent connected! Starting the race...');
-        window.setTimeout(() => { if (this.screen === 'connect') { this.net.sendStart(1); this.newGame(0); } }, 1200);
+        window.setTimeout(() => { if (this.screen === 'connect') this.startSharedRace(1); }, 1200);
       }
     };
-    this.net.onStart = (stage) => { if (this.isAgentPage) { this.sound.init(); this.newGame(Math.max(0, stage - 1)); } };
+    this.net.onStart = (stage, _by, raceId) => {
+      if (this.isAgentPage) {
+        this.raceId = raceId || crypto.randomUUID();
+        this.raceEndSent = false;
+        this.sound.init();
+        this.newGame(Math.max(0, stage - 1));
+      }
+    };
+    this.net.onRaceEnd = (event) => {
+      if (this.mode !== 'ai' || !this.raceId || event.raceId !== this.raceId) return;
+      if (!(this.screen === 'intro' || this.screen === 'race' || this.screen === 'timebonus')) return;
+      this.sound.stopBgm(); this.sound.stopRoll();
+      const won = event.result === 'timeup';
+      this.webmcp.emit('race_end', { result: event.result, opponent: true, won, score: event.score, deaths: event.deaths });
+      if (this.isAgentPage) this.go('connect');
+      else { this.wonLast = won; this.go('rematch'); }
+    };
     this.net.onBump = (iu, iv) => { this.marble.impU += iu; this.marble.impV += iv; this.sound.sfx('bounce', 0.6); };
     this.net.onLeaderboard = (top) => { if (top.length) this.rollers = top.slice(0, 10).map((e, i) => ({ name: e.name, score: e.score, intelligence: (e as any).intelligence || 'Natural', rank: (e as any).rank ?? (i + 1) })); };
     this.sound.onInit = (s) => { this.input.trackball.audio = s.trackballAudio; };
@@ -140,13 +164,9 @@ export class Game {
       if (s.hm) {
         const hm = s.hm.map;
         const x = Math.round(mx), y = Math.round(my);
-        if (x < 0 || y < 0 || x >= hm.width || y >= hm.height) continue;
-        if (hm.labels[y * hm.width + x] !== s.hm.comp.id) continue;
-        // solve (u,v): z = a + b x + c y directly in map space
-        const c = s.hm.comp;
-        const z = c.pieces ? c.pieces[0].a + c.pieces[0].b * x + c.pieces[0].c * y : c.a + c.b * x + c.c * y;
-        const w = toWorld(mx, my, z);
-        out.push({ u: w.u, v: w.v, z, name: s.name ?? `hm${c.id}` });
+        const p = hm.pickPixel(x, y);
+        if (!p) continue;
+        out.push({ u: p.u, v: p.v, z: p.z, name: `terrain#${hm.labels[y * hm.width + x]}` });
       } else {
         // planar manual surface: iterate z (a few Newton steps) then test the footprint
         let z = s.z0;
@@ -209,7 +229,7 @@ export class Game {
       this.agentJoined = false;
       this.net.connect(this.lobbyId, 'human', this.playerName || 'PLAYER');
     }
-    if (screen === 'menu' || screen === 'title' || screen === 'highrollers') {
+    if (screen === 'menu' || screen === 'title') {
       if (!this.isAgentPage) this.net.leave();
       this.remote.clear(); this.remoteInfo.clear(); this.others = [];
     }
@@ -286,6 +306,8 @@ export class Game {
 
   newGame(stageIdx = 0): void {
     this.score = 0; this.displayScore = 0; this.deaths = 0; this.carried = 0; this.scoreSubmitted = false;
+    this.raceEndSent = false;
+    this.aiDestroyed = 0; this.aiDizzied = 0; this.bumpClock = 0; this.bumpedIds.clear(); this.remotePhase.clear();
     void this.loadStage(stageIdx).then(() => this.go('intro'));
   }
 
@@ -413,6 +435,7 @@ export class Game {
       if (this.introPool <= 0.001) { this.introPool = 0; this.introDone = this.t; }
     } else if (this.t - this.introDone > 0.7) {
       this.go('race');
+      this.webmcp.emit('race_start', { stage: this.stageIdx + 1, name: this.stage.name });
       this.raceTime = 0;
       this.beginStartSlide();
     }
@@ -477,12 +500,23 @@ export class Game {
     for (const id of [...this.remote.keys()]) if (!seen.has(id)) { this.remote.delete(id); this.remoteInfo.delete(id); this.aiTrackers.delete(id); }
     this.others = [...this.remote.values()];
     // marble-marble bumps
+    this.bumpClock = Math.max(0, this.bumpClock - dt);
     if (m.phase === 'alive' && !m.inPipe) {
       for (const [id, rm] of this.remote) {
+        const prev = this.remotePhase.get(id);
+        this.remotePhase.set(id, rm.phase);
+        if (prev === 'alive' && (rm.phase === 'dying' || rm.phase === 'dead') && this.bumpedIds.has(id) && this.bumpClock > 0) {
+          this.aiDestroyed++;
+          this.bumpedIds.delete(id);
+        }
         if (rm.phase !== 'alive') continue;
         const before = { vu: m.vu, vv: m.vv };
         if (m.collideBall(rm.u, rm.v, rm.z, rm.vu, rm.vv, 1, 1.1)) {
           this.sound.sfx('bounce', 0.7);
+          const impulse = Math.hypot(m.vu - before.vu, m.vv - before.vv);
+          if (impulse > 2.2) this.aiDizzied++;
+          this.bumpedIds.add(id);
+          this.bumpClock = 1.6;
           this.net.sendBump(id, -(m.vu - before.vu) * 0.8, -(m.vv - before.vv) * 0.8);
         }
       }
@@ -581,6 +615,7 @@ export class Game {
       case 'die':
         mmTrace('die', { kind: e.kind, u: +this.marble.u.toFixed(1), v: +this.marble.v.toFixed(1), z: +this.marble.z.toFixed(0), stage: this.stageIdx + 1 });
         this.deaths++;
+        this.webmcp.emit('death', { kind: e.kind, deaths: this.deaths });
         if (e.kind === 'shatter' || e.kind === 'void' || e.kind === 'zap') this.sound.sfx('shatter');
         else if (e.kind === 'squeeze') this.sound.sfx('muncher');
         this.input.trackball.vibrate([15, 30, 40]); // Ledge fall / shatter
@@ -619,7 +654,7 @@ export class Game {
         }
         case 'checkpoint': {
           const idx = z.value ?? 0;
-          if (idx > this.checkpointIdx) { this.checkpointIdx = idx; }
+          if (idx > this.checkpointIdx) { this.checkpointIdx = idx; this.webmcp.emit('checkpoint', { idx }); }
           break;
         }
         case 'goal':
@@ -650,6 +685,7 @@ export class Game {
   private reachGoal(): void {
     this.finished = true;
     this.wonLast = this.mode === 'ai' && !this.oppFinished;
+    this.webmcp.emit('goal', { won: this.wonLast, score: this.score });
     this.sound.stopBgm();
     this.sound.stopRoll();
     this.sound.sfx('goal');
@@ -707,13 +743,42 @@ export class Game {
     const secLeft = Math.floor(this.timeLeft);
     const total = FINISH_BONUS + secLeft * SEC_LEFT_BONUS - this.deaths * DEATH_PENALTY;
     this.finalTally = { total, drained: 0 };
+    this.announceRaceEnd('finish');
+    this.webmcp.emit('race_end', { result: 'finish', won: this.wonLast, score: this.score, deaths: this.deaths });
     this.sound.playBgm('ending', false);
+    // 2-player (human side): offer a rematch vs the agent instead of the single-player congrats
+    if (this.mode === 'ai' && !this.isAgentPage) { this.go('rematch'); return; }
     this.go('congrats');
   }
 
   gameOver(): void {
     this.sound.stopBgm(); this.sound.stopRoll();
+    this.announceRaceEnd('timeup');
+    this.webmcp.emit('race_end', { result: 'timeup', won: false, score: this.score, deaths: this.deaths });
+    if (this.mode === 'ai' && !this.isAgentPage) { this.go('rematch'); return; }
     this.go('gameover');
+  }
+
+  /** human presses PLAY AGAIN on the rematch screen: restart the race and tell the agent (still in the lobby) to go */
+  rematch(): void {
+    if (!this.net.connected || !this.net.opponent('ai')) {
+      this.go('connect');
+      return;
+    }
+    this.startSharedRace(1);
+  }
+
+  private startSharedRace(stage: number): void {
+    this.raceId = crypto.randomUUID();
+    this.raceEndSent = false;
+    if (this.net.connected) this.net.sendStart(stage, this.raceId);
+    this.newGame(Math.max(0, stage - 1));
+  }
+
+  private announceRaceEnd(result: 'finish' | 'timeup'): void {
+    if (this.mode !== 'ai' || !this.raceId || this.raceEndSent) return;
+    this.raceEndSent = true;
+    this.net.sendRaceEnd({ raceId: this.raceId, result, stage: this.stageIdx + 1, score: this.score, deaths: this.deaths });
   }
 
   /** Aerial-style starting ramps: the marble rides a scripted path with no control until it lands */
@@ -763,7 +828,7 @@ export class Game {
         this.renderAITracker();
         break;
       case 'title': case 'menu': case 'name': case 'connect':
-      case 'highrollers': case 'control': case 'gameover': case 'congrats':
+      case 'control': case 'gameover': case 'congrats': case 'rematch':
         // full-canvas (portrait) or drawFullScreenImage screens: they present themselves, no offscreen blit
         this.screens.render();
         break;

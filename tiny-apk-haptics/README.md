@@ -26,8 +26,9 @@ SERVER_ORIGIN=http://10.0.2.2:3000 ./build.sh   # test build against a local `no
 
 Env: `APP_ID` (build.secure.marbles), `APP_LABEL`, `SERVER_ORIGIN`, `OAUTH_SCHEME` (marbles), `VERSION_CODE`,
 `VERSION_NAME`. The Gradle project reads `MM_SERVER_ORIGIN`, `MM_OAUTH_SCHEME`, the `MM_UPLOAD_*` key
-variables and `MM_PLAY_SERVICE_ACCOUNT`. `.keys/upload.jks` is a generated throwaway (password `marbles`);
-replace it with the real upload key before Play. Needs build-tools 36+, platform android-36+, JDK 17+,
+variables and `MM_PLAY_SERVICE_ACCOUNT`. The shell build defaults to the RSA Play upload key at
+`.keys/play-upload.jks` (password `marbles`, alias `play-upload`) and fails instead of silently generating a
+throwaway key when it is missing. Needs build-tools 36+, platform android-36+, JDK 17+,
 and `.tools/bundletool-all-*.jar` for the AAB.
 
 ## What the host adds to the game

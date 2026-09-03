@@ -1,0 +1,29 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "build.secure.marbles",
+      "sha256_cert_fingerprints": [
+        "A0:64:DF:63:D9:93:AD:B5:2A:E1:A1:FF:C2:FB:19:96:0F:71:11:9E:77:B5:7A:97:8B:97:F0:7E:C4:CD:A0:D0",
+        "DB:39:EA:4E:57:D4:27:AD:C3:58:6E:EC:64:DD:80:14:50:F5:83:FF:96:F4:A6:5D:70:D9:04:B0:E8:EB:DC:ED"
+      ]
+    },
+    "relation_extensions": {
+      "delegate_permission/common.handle_all_urls": {
+        "dynamic_app_link_components": [
+          { "/": "/.well-known/*", "exclude": true },
+          { "/": "/api/*", "exclude": true },
+          { "/": "/auth/*", "exclude": true },
+          { "/": "/login/*", "exclude": true },
+          { "/": "/callback/*", "exclude": true },
+          { "/": "/assets/*", "exclude": true },
+          { "/": "/audio/*", "exclude": true },
+          { "/": "/*" }
+        ]
+      }
+    }
+  }
+]

@@ -1,4 +1,5 @@
 import { VIEW_W, VIEW_H } from '../engine/constants';
+import { isFold } from '../engine/layout';
 import { toMap } from '../engine/iso';
 import { StageDef } from '../engine/level';
 import { Assets, drawFrame, FRAMES, Frame } from '../engine/assets';
@@ -51,12 +52,16 @@ export class Renderer {
     this.font = assets.font;
     this.resize();
     window.addEventListener('resize', () => this.resize());
+    window.visualViewport?.addEventListener('resize', () => this.resize());
+    window.visualViewport?.addEventListener('scroll', () => this.resize());
   }
 
   resize(): void {
     const parent = this.canvas.parentElement;
-    const w = (parent && parent !== document.body && parent.clientWidth > 0) ? parent.clientWidth : window.innerWidth;
-    const h = (parent && parent !== document.body && parent.clientHeight > 0) ? parent.clientHeight : window.innerHeight;
+    const inset = parent && parent !== document.body && parent.clientWidth > 0;
+    const vv = window.visualViewport;
+    const w = inset ? parent.clientWidth : Math.round(vv?.width ?? window.innerWidth);
+    const h = inset ? parent.clientHeight : Math.round(vv?.height ?? window.innerHeight);
     // The arcade view is always 288x240 and scrolls with the marble (see video_review/*). It is scaled uniformly
     // to fit the screen in present(); the rest stays black. Growing the view to the phone's aspect ratio showed
     // whole stages at once and killed the scroll.
@@ -69,7 +74,7 @@ export class Renderer {
     this.canvas.height = h;
     if (parent === document.body || !parent) {
       this.canvas.style.width = '100vw';
-      this.canvas.style.height = '100vh';
+      this.canvas.style.height = '100dvh';
     } else {
       this.canvas.style.width = '100%';
       this.canvas.style.height = '100%';
@@ -216,10 +221,17 @@ export class Renderer {
 
   present(): void {
     const cw = this.canvas.width, ch = this.canvas.height;
+    // contain-fit the 288×240 arcade view (never grow the view — that kills stage scroll)
     this.scale = Math.min(cw / this.viewW, ch / this.viewH);
     const dw = Math.round(this.viewW * this.scale), dh = Math.round(this.viewH * this.scale);
     this.offX = Math.round((cw - dw) / 2);
     this.offY = Math.round((ch - dh) / 2);
+    // unfolded fold: leftover band is usually vertical. Pin the view high so the trackball
+    // sits in the empty strip instead of covering the course.
+    if (isFold(cw, ch)) {
+      const extraY = ch - dh;
+      if (extraY > 24) this.offY = Math.round(Math.min(extraY * 0.18, 40));
+    }
     this.screenCtx.imageSmoothingEnabled = false;
     if (dw < cw || dh < ch) { this.screenCtx.fillStyle = '#000'; this.screenCtx.fillRect(0, 0, cw, ch); }
     this.screenCtx.drawImage(this.off, 0, 0, this.viewW, this.viewH, this.offX, this.offY, dw, dh);

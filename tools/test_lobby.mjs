@@ -16,7 +16,7 @@ await human.keyboard.press('Enter'); await human.waitForTimeout(450);   // title
 await human.keyboard.press('ArrowDown'); await human.waitForTimeout(150); // select 2 PLAYERS
 await human.keyboard.press('Enter'); await human.waitForTimeout(450);   // menu -> name screen
 await human.keyboard.press('Enter'); await human.waitForTimeout(500);   // confirm name -> connect screen
-console.log('human screen', await human.evaluate(() => window.game.screen), 'panel text:', await human.evaluate(() => document.getElementById('connect-text')?.value));
+console.log('human screen', await human.evaluate(() => window.game.screen), 'connect text:', await human.evaluate(() => document.getElementById('ui-connect-body')?.textContent));
 await human.screenshot({ path: 'artifacts/browser/lobby_connect.png' });
 await agent.goto(`http://127.0.0.1:3000/${lobby}`);
 await agent.waitForFunction(() => window.game && typeof window.game.go === 'function', null, { timeout: 20000 });
@@ -29,7 +29,7 @@ await human.waitForFunction(() => window.game.screen === 'race', null, { timeout
 await agent.waitForFunction(() => window.game.screen === 'race', null, { timeout: 20000 });
 // agent steers via webmcp
 for (let i = 0; i < 6; i++) {
-  const r = await agent.evaluate(() => window.webmcp.callTool('steer_trackball', { direction: 'S', impulse: 0.8, duration_ms: 400 }));
+  const r = await agent.evaluate(() => window.webmcp.callTool('spin_trackball', { dx: 0, dy: 1, speed: 64 }));
   await agent.waitForTimeout(450);
 }
 const st = await agent.evaluate(() => window.webmcp.callTool('get_game_state', {}));

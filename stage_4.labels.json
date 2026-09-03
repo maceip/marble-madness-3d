@@ -1,0 +1,81 @@
+{
+  "source": "Stage 4.png",
+  "width": 288,
+  "height": 1024,
+  "note": "labels8.png: pixel value = layer index+1 (0=unpainted).",
+  "layers": [
+    {
+      "index": 1,
+      "name": "VOID",
+      "z": -999,
+      "kind": "void",
+      "color": "#e23b3b",
+      "desc": "pit / off-map"
+    },
+    {
+      "index": 2,
+      "name": "WALL",
+      "z": 900,
+      "kind": "wall",
+      "color": "#ff8c1a",
+      "desc": "rail / post / cliff drop"
+    },
+    {
+      "index": 3,
+      "name": "Floor 285",
+      "z": 285,
+      "kind": "floor",
+      "color": "#2e9e46",
+      "desc": ""
+    },
+    {
+      "index": 4,
+      "name": "Floor 215",
+      "z": 215,
+      "kind": "floor",
+      "color": "#00b3a4",
+      "desc": ""
+    },
+    {
+      "index": 5,
+      "name": "Floor 180",
+      "z": 180,
+      "kind": "floor",
+      "color": "#2f7bff",
+      "desc": ""
+    },
+    {
+      "index": 6,
+      "name": "Floor 140",
+      "z": 140,
+      "kind": "floor",
+      "color": "#9b4dff",
+      "desc": ""
+    },
+    {
+      "index": 7,
+      "name": "Floor 100",
+      "z": 100,
+      "kind": "floor",
+      "color": "#ff4db8",
+      "desc": ""
+    },
+    {
+      "index": 8,
+      "name": "Floor 70",
+      "z": 70,
+      "kind": "floor",
+      "color": "#ffe14d",
+      "desc": ""
+    },
+    {
+      "index": 9,
+      "name": "Floor 40",
+      "z": 40,
+      "kind": "floor",
+      "color": "#4dffb8",
+      "desc": ""
+    }
+  ],
+  "paintedPixels": 294093
+}

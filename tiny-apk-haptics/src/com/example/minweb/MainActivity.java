@@ -221,7 +221,9 @@ public class MainActivity extends Activity {
         if (handleRedirect(getIntent())) startRequested = true;         // back from the login: no title screen
         debugTriggers(getIntent());
         // the platform tag lets the site tell browser / PWA / app traffic apart; installs are proven separately
-        if (state != null) web.restoreState(state);
+        String appLink = appLinkUrl(getIntent());
+        if (appLink != null) web.loadUrl(appLink);
+        else if (state != null) web.restoreState(state);
         else web.loadUrl(serverOrigin + "/?platform=android_apk" + (prefs.getBoolean("installed", false) ? "" : "&install=1"));
     }
 
@@ -462,10 +464,24 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         debugTriggers(intent);
+        String appLink = appLinkUrl(intent);
+        if (appLink != null) {
+            dismissOverlay();
+            web.loadUrl(appLink);
+            return;
+        }
         if (handleRedirect(intent)) {
             dismissOverlay();
             web.evaluateJavascript("window.onAuthComplete && window.onAuthComplete()", null);
         }
+    }
+
+    /** Accept only verified HTTPS links for this app's configured production host. */
+    private String appLinkUrl(Intent intent) {
+        if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) return null;
+        Uri u = intent.getData();
+        if (u == null || !"https".equalsIgnoreCase(u.getScheme()) || !serverHost.equalsIgnoreCase(u.getHost())) return null;
+        return u.toString();
     }
 
     private boolean handleRedirect(Intent intent) {
@@ -496,6 +512,7 @@ public class MainActivity extends Activity {
     @JavascriptInterface public void onWebReady() { runOnUiThread(() -> { webReady = true; dismissOverlay(); }); }
     @JavascriptInterface public String takeAuthResult() { String r = pendingResult; pendingResult = null; return r; }
     @JavascriptInterface public String launchAuth(String url) { return openInBrowser(Uri.parse(url)); }
+    @JavascriptInterface public String openExternal(String url) { return openInBrowser(Uri.parse(url)); }
     @JavascriptInterface public String browserPrewarmed() { return hinted ? "bound+warm+session+hint" : session ? "bound+warm+session" : warmed ? "bound+warm" : bound ? "bound" : "no"; }
     @JavascriptInterface public String serverOrigin() { return serverOrigin; }
 
@@ -547,7 +564,14 @@ public class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ lifecycle
     @Override protected void onSaveInstanceState(Bundle out) { super.onSaveInstanceState(out); web.saveState(out); }
-    @Override public void onBackPressed() { if (web.canGoBack()) web.goBack(); else super.onBackPressed(); }
+    // Route the hardware/gesture back to the web app (window.mmOnBack decides: previous screen, or exit-confirm
+    // modal at the root). This keeps an edge-swipe from ever silently exiting the app. Only exitApp() closes it.
+    @Override public void onBackPressed() {
+        if (webReady) { web.evaluateJavascript("window.mmOnBack && window.mmOnBack()", null); }
+        else if (web.canGoBack()) web.goBack();
+        else super.onBackPressed();
+    }
+    @JavascriptInterface public void exitApp() { runOnUiThread(() -> moveTaskToBack(true)); }
     @Override protected void onDestroy() {
         if (bound) { try { unbindService(tabsConnection); } catch (Exception ignored) {} }
         web.destroy();
@@ -611,7 +635,7 @@ public class MainActivity extends Activity {
         static final int A_Y1 = 261, A_X0 = 273, A_X1 = 780, B_Y0 = 511, B_Y1 = 602, B_X0 = 424, B_X1 = 646;
         static final int BLUE = 0xFF4A7DFF;
         Bitmap art, font; JSONObject glyphs; int cell = 8, stride = 32; String[][] rows = new String[0][];
-        final Paint bmp = new Paint(); final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final Paint bmp = new Paint(); final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG); final Paint dotted = new Paint(Paint.ANTI_ALIAS_FLAG);
         final Rect src = new Rect(), dst = new Rect();
 
         TitleSplash(Context c) {
@@ -620,7 +644,8 @@ public class MainActivity extends Activity {
             setClickable(true);                                          // nothing reaches the WebView until the page is ready
             bmp.setFilterBitmap(true);
             line.setColor(BLUE); line.setStyle(Paint.Style.STROKE); line.setStrokeWidth(2f);
-            line.setPathEffect(new DashPathEffect(new float[] { 4f, 4f }, 0f));
+            dotted.setColor(BLUE); dotted.setStyle(Paint.Style.STROKE); dotted.setStrokeWidth(2f);
+            dotted.setPathEffect(new DashPathEffect(new float[] { 4f, 4f }, 0f));
         }
 
         void setAssets(Bitmap a, Bitmap f, JSONObject meta) {
@@ -677,7 +702,8 @@ public class MainActivity extends Activity {
             c.drawRect(x0, top, x1, bottom, line);
             c.drawLine(xRank, top, xRank, bottom, line);
             c.drawLine(xIntel, top, xIntel, bottom, line);
-            for (int i = 1; i <= rows.length; i++) c.drawLine(x0, top + rowH * i, x1, top + rowH * i, line);
+            c.drawLine(x0, top + rowH, x1, top + rowH, line);
+            for (int i = 2; i <= rows.length; i++) c.drawLine(x0, top + rowH * i, x1, top + rowH * i, dotted);
             int ty = top + (rowH - cw) / 2;
             text(c, "PLAYER", (xRank + xIntel) / 2 - 3 * cw, ty, 2, fs);          // orange (the yellow variant)
             text(c, "INTELLIGENCE", xIntel + (intelW - 12 * cw) / 2, ty, 2, fs);

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <mask id="marble-cutout">
+    <rect width="512" height="512" fill="white"/>
+    <path d="M126 302c74-91 152-39 260-133M126 343c82-92 179-48 260-133"
+          fill="none" stroke="black" stroke-width="38" stroke-linecap="round"/>
+  </mask>
+  <circle cx="256" cy="256" r="190" fill="black" mask="url(#marble-cutout)"/>
+</svg>

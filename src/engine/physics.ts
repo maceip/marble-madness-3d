@@ -1,4 +1,4 @@
-import { StageDef, Slide, supportAt, highestBelow, Support, gradientOn, inRect, heightOn } from './level';
+import { StageDef, Slide, supportAt, highestBelow, Support, gradientOn, inRect, heightOn, leftPathAtCorner } from './level';
 import { screenDirToWorld } from './iso';
 import {
   ACCEL, FRICTION, MAX_SPEED, SLOPE_K, GRAVITY, STEP_UP, DROP_SNAP, BOUNCE, BOUNCE_SFX_SPEED,
@@ -20,6 +20,20 @@ export interface MarbleEvent {
   kind?: DeathKind;
 }
 
+/** One line of the physics trace: what happened, where, and why (see Marble.trace / mmDebug.trace()). */
+export interface TraceEntry {
+  t: number;                 // marble clock, s
+  ev: 'block' | 'airborne' | 'land' | 'dizzy' | 'die' | 'stall' | 'step' | 'sample';
+  u: number; v: number; z: number;
+  sx: number; sy: number;    // map pixel the marble is drawn at
+  vu: number; vv: number;
+  g: boolean;                // grounded
+  sup: string | null;        // surface stood on
+  in: string;                // steering input "ax,ay"
+  why?: string;              // block: what blocked; land: fall px; die: kind; step: dz; stall: last block
+}
+const TRACE_MAX = 4000;
+
 export class Marble {
   u = 0; v = 0; z = 0;
   vu = 0; vv = 0; vz = 0;
@@ -38,6 +52,27 @@ export class Marble {
   impU = 0; impV = 0;
   /** debug: last surface that blocked movement */
   lastBlock = '';
+  /** physics trace (ring buffer): every block / edge / landing / death / stall with its reason, plus samples */
+  trace: TraceEntry[] = [];
+  private tClock = 0;
+  private lastInput: MarbleInput = { ax: 0, ay: 0 };
+  private stallT = 0;
+  private stallReported = false;
+  private lastBlockT = -1;
+  private sampleT = 0;
+
+  private log(ev: TraceEntry['ev'], why?: string): void {
+    const e: TraceEntry = {
+      t: +this.tClock.toFixed(3), ev, u: +this.u.toFixed(2), v: +this.v.toFixed(2), z: +this.z.toFixed(1),
+      sx: Math.round((this.u - this.v) * 8), sy: Math.round((this.u + this.v) * 4 - this.z),
+      vu: +this.vu.toFixed(2), vv: +this.vv.toFixed(2), g: this.grounded, sup: this.support ? (this.support.s.name ?? String(this.support.s.id)) : null,
+      in: `${this.lastInput.ax.toFixed(2)},${this.lastInput.ay.toFixed(2)}`, why,
+    };
+    this.trace.push(e);
+    if (this.trace.length > TRACE_MAX) this.trace.splice(0, this.trace.length - TRACE_MAX);
+  }
+  /** drain the trace */
+  takeTrace(): TraceEntry[] { const t = this.trace; this.trace = []; return t; }
   /** squeeze direction for the suck/eat animation */
   squeezeDir: 1 | -1 = 1;
   /** true while inside a pipe (invisible, uncontrollable) */
@@ -103,6 +138,7 @@ export class Marble {
     this.phase = 'dying';
     this.deathKind = kind;
     this.deathT = 0;
+    this.log('die', `${kind} airT=${this.airT.toFixed(2)} maxZ=${this.maxZ.toFixed(0)} ${this.lastBlock}`);
     this.vu = this.vv = this.vz = 0;
     events?.push({ type: 'die', kind });
   }
@@ -140,12 +176,22 @@ export class Marble {
       return;
     }
 
+    this.lastInput = input;
     let remaining = dt;
     while (remaining > 1e-6) {
       const h = Math.min(remaining, 1 / 120);
       remaining -= h;
+      this.tClock += h;
       this.substep(level, input, h, events);
     }
+    // stall: the player is pushing but the marble is not moving (parked against something)
+    const pushing = Math.hypot(input.ax, input.ay) > 0.3;
+    if (pushing && this.grounded && this.speed < 0.25) {
+      this.stallT += dt;
+      if (this.stallT > 0.5 && !this.stallReported) { this.stallReported = true; this.log('stall', this.lastBlock || 'no block recorded'); }
+    } else { this.stallT = 0; this.stallReported = false; }
+    this.sampleT += dt;
+    if (this.sampleT >= 0.25) { this.sampleT = 0; this.log('sample'); }
   }
 
   private substep(level: StageDef, input: MarbleInput, h: number, events: MarbleEvent[]): void {
@@ -166,7 +212,7 @@ export class Marble {
       au += dir.du * ACCEL * accelK;
       av += dir.dv * ACCEL * accelK;
       if (this.support) {
-        const g = gradientOn(this.support.s, this.u, this.v);
+        const g = gradientOn(this.support.s, this.u, this.v, this.z);
         au -= g.gu * SLOPE_K;   // gravity pulls toward lower z
         av -= g.gv * SLOPE_K;
       }
@@ -202,22 +248,20 @@ export class Marble {
     if (this.grounded) {
       if (sup && this.z - sup.z <= DROP_SNAP) {
         // follow the floor (ramps, small steps)
-        if (sup.z > this.z) this.z = sup.z; else this.z = sup.z;
+        const dz = sup.z - this.z;
+        if (Math.abs(dz) >= 4) this.log('step', `dz=${dz.toFixed(1)} onto ${sup.s.name ?? sup.s.id}`);
+        this.z = sup.z;
         this.support = sup;
         this.maxZ = this.z;
       } else {
         // left an edge: become airborne
         this.grounded = false;
         this.airT = 0;
-        // corner crossing dizzy check (cornerequalsdizzy.png)
-        if (this.support) {
-          const s = this.support.s;
-          const uNear = Math.abs(this.u - s.u0) <= 1.5 || Math.abs(this.u - s.u1) <= 1.5;
-          const vNear = Math.abs(this.v - s.v0) <= 1.5 || Math.abs(this.v - s.v1) <= 1.5;
-          if (uNear && vNear) this.cornerTrip = true;
-        }
+        this.log('airborne', sup ? `floor below at z${sup.z.toFixed(0)} (drop ${(this.z - sup.z).toFixed(0)})` : 'nothing below within reach');
+        // cut a 90° / switchback short → dizzy on landing (painted-path silhouette, not AABB)
+        if (leftPathAtCorner(level, this.u, this.v, this.z)) this.cornerTrip = true;
         // vertical launch from ramps: dz/dt = gu*vu + gv*vv
-        const gr = this.support ? gradientOn(this.support.s, this.u, this.v) : { gu: 0, gv: 0 };
+        const gr = this.support ? gradientOn(this.support.s, this.u, this.v, this.z) : { gu: 0, gv: 0 };
         const g = gr.gu * this.vu + gr.gv * this.vv;
         this.vz = Math.max(-40, Math.min(160, g));
         this.maxZ = this.z;
@@ -237,6 +281,7 @@ export class Marble {
         const fall = this.maxZ - this.z;
         this.vz = 0;
         this.vu *= 0.85; this.vv *= 0.85;
+        this.log('land', `fall=${fall.toFixed(0)} on ${floor.s.name ?? floor.s.id}${this.cornerTrip ? ' cornerTrip' : ''}`);
         if (fall > SHATTER_FALL) {
           this.die('shatter', events);
           events.push({ type: 'land', fall });
@@ -244,6 +289,7 @@ export class Marble {
         }
         if (fall > DIZZY_FALL || this.cornerTrip) {
           this.dizzyT = DIZZY_TIME;
+          this.log('dizzy', this.cornerTrip ? 'corner cut' : `fall=${fall.toFixed(0)}`);
           events.push({ type: 'dizzy', fall });
           this.cornerTrip = false;
         }
@@ -262,31 +308,59 @@ export class Marble {
     // surfaces already claiming the marble's current spot above it are overlap artifacts / overpasses, not walls;
     // the surface we stand on can never block us (steep ramps probe higher up-slope)
     const here = new Set<number>();
-    if (this.support) here.add(this.support.s.id);
+    if (this.support && !this.support.s.hm) here.add(this.support.s.id);
     for (const s of level.surfaces) {
-      if (s.kind === 'wall') continue;
+      if (s.kind === 'wall' || s.hm) continue;   // the heightfield decides for itself (cliffs, overpasses, rails)
       if (inRect(s, this.u, this.v) && heightOn(s, this.u, this.v) > zRef + STEP_UP) here.add(s.id);
     }
     const blocked = (u: number, v: number): boolean => {
-      // probe centre and leading edge
+      // probe centre, half radius and leading edge (thin walls must not fit between two samples)
       const dx = u - this.u, dy = v - this.v;
       const m = Math.hypot(dx, dy) || 1;
       const pu = u + (dx / m) * MARBLE_R, pv = v + (dy / m) * MARBLE_R;
-      for (const [qu, qv] of [[u, v], [pu, pv]] as const) {
+      for (const [qu, qv] of [[u, v], [(u + pu) / 2, (v + pv) / 2], [pu, pv]] as const) {
         const hb = highestBelow(level, qu, qv, zRef, undefined, here);
-        if (hb && hb.z > zRef + STEP_UP) { this.lastBlock = `${hb.s.name ?? hb.s.id}@${hb.z.toFixed(1)} at ${qu.toFixed(2)},${qv.toFixed(2)} z${zRef.toFixed(1)}`; return true; }
+        if (!hb) continue;
+        const isWall = (hb.s.kind === 'wall');
+        const climbLimit = isWall ? zRef : (zRef + 12);
+        if (hb.z > climbLimit) {
+          this.lastBlock = `${hb.s.name ?? hb.s.id}@${hb.z.toFixed(1)} at ${qu.toFixed(2)},${qv.toFixed(2)} z${zRef.toFixed(1)}${hb.why ? ' ' + hb.why : ''}`;
+          if (this.tClock - this.lastBlockT > 0.1) { this.lastBlockT = this.tClock; this.log('block', this.lastBlock); }
+          return true;
+        }
       }
       return false;
     };
     if (!blocked(nu, nv)) { this.u = nu; this.v = nv; return true; }
     const sp = this.speed;
-    if (!blocked(nu, this.v)) {
-      this.u = nu; this.vv = -this.vv * BOUNCE; this.bounceEvt(sp, events); return true;
+    const du = nu - this.u, dv = nv - this.v, dl = Math.hypot(du, dv) || 1e-9;
+
+    // Wall normal: walls in this world run along u, v, or diagonally (a screen-horizontal rail is a staircase
+    // of cells), so probe around the marble for what blocks and average. Then remove the velocity component
+    // into the wall (a bounce when fast, a plain stop when slow so a push against a wall accumulates along
+    // it) and move along the tangent. This is what lets the marble roll around posts and slide along rails.
+    let nx = 0, ny = 0, hits = 0;
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2, cu = Math.cos(a), cv = Math.sin(a);
+      if (blocked(this.u + cu * MARBLE_R * 0.7, this.v + cv * MARBLE_R * 0.7)) { nx -= cu; ny -= cv; hits++; }
     }
-    if (!blocked(this.u, nv)) {
-      this.v = nv; this.vu = -this.vu * BOUNCE; this.bounceEvt(sp, events); return true;
+    let nl = Math.hypot(nx, ny);
+    if (!hits || nl < 1e-6 || nx * du + ny * dv >= 0) { nx = -du / dl; ny = -dv / dl; nl = 1; }   // head-on fallback
+    nx /= nl; ny /= nl;
+    const vn = this.vu * nx + this.vv * ny;
+    if (vn < 0) {
+      const k = sp > BOUNCE_SFX_SPEED ? 1 + BOUNCE : 1;
+      this.vu -= k * vn * nx; this.vv -= k * vn * ny;
     }
-    this.vu = -this.vu * BOUNCE; this.vv = -this.vv * BOUNCE; this.bounceEvt(sp, events);
+    const dn = du * nx + dv * ny;
+    const tu = du - Math.min(0, dn) * nx, tv = dv - Math.min(0, dn) * ny;   // displacement along the wall only
+    if ((tu !== 0 || tv !== 0) && !blocked(this.u + tu, this.v + tv)) { this.u += tu; this.v += tv; this.bounceEvt(sp, events); return true; }
+    // axis fallback (rails exactly along u or v)
+    if (!blocked(nu, this.v)) { this.u = nu; this.vv = -this.vv * (sp > BOUNCE_SFX_SPEED ? BOUNCE : 0); this.bounceEvt(sp, events); return true; }
+    if (!blocked(this.u, nv)) { this.v = nv; this.vu = -this.vu * (sp > BOUNCE_SFX_SPEED ? BOUNCE : 0); this.bounceEvt(sp, events); return true; }
+    // concave corner: ease out along the normal
+    if (!blocked(this.u + nx * 0.02, this.v + ny * 0.02)) { this.u += nx * 0.02; this.v += ny * 0.02; }
+    this.bounceEvt(sp, events);
     return false;
   }
 

@@ -19,6 +19,15 @@ export interface RemotePlayer extends RemoteState {
   lastSeen: number;
 }
 
+export interface RaceEndMessage {
+  raceId: string;
+  result: 'finish' | 'timeup';
+  stage: number;
+  score: number;
+  deaths: number;
+  by: string;
+}
+
 export class Net {
   ws: WebSocket | null = null;
   id = '';
@@ -28,11 +37,13 @@ export class Net {
   connected = false;
   private sendAcc = 0;
   private reconnectT: number | null = null;
+  private heartbeatT: number | null = null;
   private wantName = '';
 
   onJoined?: (p: { id: string; role: NetRole; name: string }) => void;
   onLeft?: (p: { id: string; role: NetRole; name: string }) => void;
-  onStart?: (stage: number, by: string) => void;
+  onStart?: (stage: number, by: string, raceId: string) => void;
+  onRaceEnd?: (event: RaceEndMessage) => void;
   onBump?: (iu: number, iv: number, from: string) => void;
   onLeaderboard?: (top: { name: string; score: number }[]) => void;
   /** every lobby tick (20 Hz) — used as a simulation clock when the page is not painting */
@@ -43,14 +54,32 @@ export class Net {
     this.close();
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const url = `${proto}://${location.host}/ws?lobby=${encodeURIComponent(lobby)}&role=${role}`;
-    try { this.ws = new WebSocket(url); } catch { this.scheduleReconnect(); return; }
-    this.ws.onopen = () => {
+    let socket: WebSocket;
+    try { socket = new WebSocket(url); this.ws = socket; } catch { this.scheduleReconnect(); return; }
+    socket.onopen = () => {
+      if (this.ws !== socket) return;
       this.connected = true;
-      this.send({ type: 'join', lobby, role, name });
+      this.send({ type: 'join', lobby: this.lobby, role: this.role, name: this.wantName });
+      this.startHeartbeat();
     };
-    this.ws.onmessage = (ev) => this.handle(JSON.parse(String(ev.data)));
-    this.ws.onclose = () => { this.connected = false; this.players.clear(); this.scheduleReconnect(); };
-    this.ws.onerror = () => { /* onclose follows */ };
+    socket.onmessage = (ev) => {
+      if (this.ws !== socket) return;
+      try { this.handle(JSON.parse(String(ev.data))); } catch (e) { console.warn('[net] bad message', e); }
+    };
+    socket.onclose = () => {
+      if (this.ws !== socket) return;
+      this.ws = null; this.connected = false; this.stopHeartbeat(); this.players.clear(); this.scheduleReconnect();
+    };
+    socket.onerror = () => { /* onclose follows */ };
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatT = window.setInterval(() => this.send({ type: 'ping', t: Date.now() }), 5000);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatT !== null) { clearInterval(this.heartbeatT); this.heartbeatT = null; }
   }
 
   private scheduleReconnect(): void {
@@ -60,7 +89,8 @@ export class Net {
 
   close(): void {
     if (this.reconnectT !== null) { clearTimeout(this.reconnectT); this.reconnectT = null; }
-    if (this.ws) { const w = this.ws; this.ws = null; w.onclose = null; try { w.close(); } catch { /* */ } }
+    this.stopHeartbeat();
+    if (this.ws) { const w = this.ws; this.ws = null; w.onopen = null; w.onmessage = null; w.onclose = null; try { w.close(); } catch { /* */ } }
     this.connected = false;
     this.players.clear();
   }
@@ -96,7 +126,14 @@ export class Net {
         for (const id of [...this.players.keys()]) if (!seen.has(id)) this.players.delete(id);
         break;
       }
-      case 'start': this.onStart?.(Number(m.stage) || 1, String(m.by)); break;
+      case 'start': this.onStart?.(Number(m.stage) || 1, String(m.by), String(m.raceId || '')); break;
+      case 'race_end':
+        this.onRaceEnd?.({
+          raceId: String(m.raceId || ''), result: m.result === 'finish' ? 'finish' : 'timeup',
+          stage: Number(m.stage) || 1, score: Number(m.score) || 0,
+          deaths: Number(m.deaths) || 0, by: String(m.by || ''),
+        });
+        break;
       case 'bump': this.onBump?.(Number(m.iu) || 0, Number(m.iv) || 0, String(m.from)); break;
       case 'leaderboard': this.onLeaderboard?.((m.top50 as { name: string; score: number }[]) ?? []); break;
     }
@@ -132,7 +169,17 @@ export class Net {
     this.send({ type: 'state', ...s, u: +s.u.toFixed(3), v: +s.v.toFixed(3), z: +s.z.toFixed(1), vu: +s.vu.toFixed(2), vv: +s.vv.toFixed(2) });
   }
 
-  sendStart(stage: number): void { this.send({ type: 'start', stage }); }
+  sendStart(stage: number, raceId: string): void { this.send({ type: 'start', stage, raceId }); }
+  sendRaceEnd(event: Omit<RaceEndMessage, 'by'>): void { this.send({ type: 'race_end', ...event }); }
+
+  /** re-announce this client's display name mid-session; the server updates it and future ticks carry it,
+   *  so the opponent's HUD label updates live (used by the WebMCP set_name tool). */
+  setName(name: string): boolean {
+    this.wantName = name;
+    if (!this.connected) return false; // onopen will announce wantName
+    this.send({ type: 'join', lobby: this.lobby, role: this.role, name });
+    return true;
+  }
   sendBump(targetId: string, iu: number, iv: number): void { this.send({ type: 'bump', targetId, iu, iv }); }
 
   /** the first remote player with the given role (2P lobbies have exactly one opponent) */

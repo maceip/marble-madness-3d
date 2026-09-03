@@ -7,7 +7,8 @@
 #   APP_LABEL       Marble Madness              launcher name + title overlay
 #   SERVER_ORIGIN   https://marbles.secure.build   where the game lives (http://10.0.2.2:3000 = local server from the emulator)
 #   OAUTH_SCHEME    marbles                     <scheme>://oauth-callback, must match APP_SCHEME on the server
-#   VERSION_CODE / VERSION_NAME   1 / 0.1
+#   VERSION_CODE / VERSION_NAME   2 / 0.1
+#   MM_UPLOAD_KEYSTORE / MM_UPLOAD_KEY_ALIAS / MM_UPLOAD_STORE_PASS / MM_UPLOAD_KEY_PASS
 # Needs Android build-tools 36+ (aapt2, zipalign, apksigner) with R8 in lib/d8.jar, platform android-36+, JDK 17+.
 # The AAB step needs .tools/bundletool-all-*.jar (https://github.com/google/bundletool/releases).
 set -euo pipefail
@@ -17,8 +18,12 @@ SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/opt/homebrew/share/android-commandline
 [ -d "$SDK" ] || { echo "Error: set ANDROID_HOME (no SDK at $SDK)" >&2; exit 1; }
 APP_ID="${APP_ID:-build.secure.marbles}"; APP_LABEL="${APP_LABEL:-Marble Madness}"
 SERVER_ORIGIN="${SERVER_ORIGIN:-https://marbles.secure.build}"; OAUTH_SCHEME="${OAUTH_SCHEME:-marbles}"
-VERSION_CODE="${VERSION_CODE:-1}"; VERSION_NAME="${VERSION_NAME:-0.1}"; MIN_SDK=30; TARGET_SDK=36
+VERSION_CODE="${VERSION_CODE:-2}"; VERSION_NAME="${VERSION_NAME:-0.1}"; MIN_SDK=30; TARGET_SDK=36
 DEBUG_WEBVIEW="${DEBUG_WEBVIEW:-false}"   # DEBUG_WEBVIEW=true enables chrome://inspect profiling of the WebView
+UPLOAD_KEYSTORE="${MM_UPLOAD_KEYSTORE:-.keys/play-upload.jks}"
+UPLOAD_KEY_ALIAS="${MM_UPLOAD_KEY_ALIAS:-play-upload}"
+UPLOAD_STORE_PASS="${MM_UPLOAD_STORE_PASS:-marbles}"
+UPLOAD_KEY_PASS="${MM_UPLOAD_KEY_PASS:-marbles}"
 
 BUILD_TOOLS_DIR=$(ls -d "$SDK/build-tools/"* 2>/dev/null | sort -V | tail -n 1)
 PLATFORM_DIR=$(ls -d "$SDK/platforms/android-"* 2>/dev/null | sort -V | tail -n 1)
@@ -28,6 +33,7 @@ ANDROID_JAR="$PLATFORM_DIR/android.jar"
 R8_JAR="$BUILD_TOOLS_DIR/lib/d8.jar"; [ -f "$R8_JAR" ] || R8_JAR="$SDK/cmdline-tools/latest/lib/r8.jar"
 [ -f "$R8_JAR" ] || { echo "Error: R8 not found (build-tools/lib/d8.jar or cmdline-tools/lib/r8.jar)" >&2; exit 1; }
 BUNDLETOOL=$(ls .tools/bundletool-all-*.jar 2>/dev/null | head -1 || true)
+[ -f "$UPLOAD_KEYSTORE" ] || { echo "Error: Play upload keystore not found: $UPLOAD_KEYSTORE" >&2; exit 1; }
 echo "build-tools $(basename "$BUILD_TOOLS_DIR") | platform $(basename "$PLATFORM_DIR") | app $APP_ID | server $SERVER_ORIGIN | scheme $OAUTH_SCHEME://oauth-callback"
 
 rm -rf build; mkdir -p build/classes build/dex build/aab .keys
@@ -52,19 +58,16 @@ jar -cf build/app.jar -C build/classes .
 java -cp "$R8_JAR" com.android.tools.r8.R8 --release --min-api "$MIN_SDK" --lib "$ANDROID_JAR" \
     --pg-conf proguard-rules.pro --pg-map-output build/mapping.txt --output build/dex build/app.jar
 
-# 3. signing key (EC = small signature). Lives in .keys/ so builds stay installable over each other.
-#    This is a throwaway; use your Play upload key for release.
-if [ ! -f .keys/upload.jks ]; then
-    keytool -genkeypair -keystore .keys/upload.jks -alias upload -keyalg EC -groupname secp256r1 -sigalg SHA256withECDSA \
-        -validity 10000 -storepass marbles -keypass marbles -dname "CN=Marble Madness upload" >/dev/null 2>&1
-fi
+# 3. Signing. Google Play requires an RSA upload key of at least 2048 bits.
+#    Never silently generate a throwaway key here: a valid bundle signed by the
+#    wrong certificate is unrecoverable for an existing Play application.
 
 # 4. APK
 cp build/base.apk build/unsigned.apk
 (cd build/dex && zip -9 -q -u ../unsigned.apk classes.dex)
 # 4-byte alignment for uncompressed entries; 16 KB page alignment (-P 16) only matters for native .so files, and there are none
 "$ZIPALIGN" -f -p 4 build/unsigned.apk build/aligned.apk
-"$APKSIGNER" sign --ks .keys/upload.jks --ks-key-alias upload --ks-pass pass:marbles --key-pass pass:marbles \
+"$APKSIGNER" sign --ks "$UPLOAD_KEYSTORE" --ks-key-alias "$UPLOAD_KEY_ALIAS" --ks-pass "pass:$UPLOAD_STORE_PASS" --key-pass "pass:$UPLOAD_KEY_PASS" \
     --min-sdk-version "$MIN_SDK" --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled true \
     --out marbles.apk build/aligned.apk
 "$APKSIGNER" verify marbles.apk
@@ -84,10 +87,10 @@ mod.close()
 EOF
     echo '{ "optimizations": { "splitsConfig": { "splitDimension": [ { "value": "LANGUAGE", "negate": true }, { "value": "SCREEN_DENSITY", "negate": true } ] } } }' > build/BundleConfig.json
     java -jar "$BUNDLETOOL" build-bundle --modules=build/aab/base.zip --config=build/BundleConfig.json --output=build/unsigned.aab --overwrite
-    jarsigner -keystore .keys/upload.jks -storepass marbles -keypass marbles -sigalg SHA256withECDSA -digestalg SHA-256 \
-        -signedjar marbles.aab build/unsigned.aab upload >/dev/null
+    jarsigner -keystore "$UPLOAD_KEYSTORE" -storepass "$UPLOAD_STORE_PASS" -keypass "$UPLOAD_KEY_PASS" -sigalg SHA256withRSA -digestalg SHA-256 \
+        -signedjar marbles.aab build/unsigned.aab "$UPLOAD_KEY_ALIAS" >/dev/null
     java -jar "$BUNDLETOOL" build-apks --bundle=marbles.aab --output=build/marbles.apks --mode=universal --overwrite \
-        --ks=.keys/upload.jks --ks-key-alias=upload --ks-pass=pass:marbles --key-pass=pass:marbles >/dev/null
+        --ks="$UPLOAD_KEYSTORE" --ks-key-alias="$UPLOAD_KEY_ALIAS" --ks-pass="pass:$UPLOAD_STORE_PASS" --key-pass="pass:$UPLOAD_KEY_PASS" >/dev/null
     DL=$(java -jar "$BUNDLETOOL" get-size total --apks=build/marbles.apks | tail -1 | cut -d, -f2)
 fi
 

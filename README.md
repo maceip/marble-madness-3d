@@ -39,9 +39,10 @@ always exposes `window.webmcp.listTools()` / `window.webmcp.callTool(name, args)
 
 | tool | purpose |
 |---|---|
-| `get_game_state` | screen, race, timer, score, marble x/y/height/velocity in map pixels, opponent |
-| `steer_trackball` | push in a screen direction (N…NW or degrees) with impulse 0.1–1 for 50–600 ms |
-| `apply_brake` | stop pushing for a while |
+| `set_name` | set the AI marble's HUD / leaderboard name |
+| `spin_trackball` | swipe the trackball (`dx`/`dy` −1…1, `speed` 1–100). No brakes — counter-spin to slow down |
+| `get_game_state` | screen, race, timer, score, marble x/y/height/velocity, finished/won/finalScore |
+| `wait_for_race_event` | block until death, checkpoint, goal, race_end, or timeout |
 | `start_or_respawn` | advance menus / confirm readiness in a lobby |
 | `submit_leaderboard_score` | post to High Rollers (tagged AI) |
 

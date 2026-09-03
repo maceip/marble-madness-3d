@@ -2,7 +2,7 @@
  * Audio: stage BGM via HTMLAudioElement, SFX via WebAudio buffers.
  * Menus are silent (as in the NES original); music starts with the race intro.
  */
-export type SfxName = 'roll' | 'bounce' | 'fall' | 'shatter' | 'muncher' | 'checkpoint' | 'goal' | 'springboard' | 'item' | 'tick';
+export type SfxName = 'roll' | 'bounce' | 'fall' | 'shatter' | 'muncher' | 'checkpoint' | 'goal' | 'springboard' | 'item' | 'tick' | 'vacuum';
 
 export const BGM: Record<string, string> = {
   practice: 'bgm/practice-race.mp3',
@@ -25,6 +25,7 @@ const SFX: Record<SfxName, string> = {
   goal: 'marble-061.mp3',
   item: 'marble-065.mp3',
   tick: 'marble-062.mp3',
+  vacuum: 'marble-066.mp3',
 };
 
 import { TrackballAudio } from './trackball_audio.js';
@@ -51,15 +52,24 @@ export class Sound {
     this.muted = localStorage.getItem('mm_muted') === '1';
   }
 
-  /** must be called from a user gesture */
+  /** Safari still exposes webkitAudioContext in older iOS / in-app browsers; latencyHint can throw there. */
+  private openContext(): AudioContext {
+    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctor) throw new Error('no AudioContext');
+    try { return new Ctor({ latencyHint: 'interactive' }); } catch { return new Ctor(); }
+  }
+
+  /** must be called from a user gesture — also unlocks the reused HTMLAudio element iOS needs for BGM */
   init(): void {
     if (this.ctx) {
       if (this.ctx.state === 'suspended') void this.ctx.resume();
+      this.unlockBgmElement();
       return;
     }
     try {
-      this.ctx = new AudioContext({ latencyHint: 'interactive' });
+      this.ctx = this.openContext();
       void this.ctx.resume();
+      this.unlockBgmElement();
       this.sfxBus = this.ctx.createGain();
       this.sfxBus.gain.value = this.muted ? 0 : this.sfxVolume;
       this.sfxBus.connect(this.ctx.destination);
@@ -73,6 +83,28 @@ export class Sound {
       this.onInit?.(this);
     } catch { this.ctx = null; return; }
     for (const [k, f] of Object.entries(SFX)) void this.loadBuffer(k, ROOT + f);
+  }
+
+  /** iOS suspends AudioContext in the background; call on visibilitychange / pageshow. */
+  resume(): void {
+    if (this.ctx?.state === 'suspended') void this.ctx.resume();
+    if (this.bgmEl && this.bgmEl.paused && this.bgmKey) void this.bgmEl.play().catch(() => {});
+  }
+
+  private prepBgmElement(el: HTMLAudioElement): void {
+    el.setAttribute('playsinline', '');
+    el.setAttribute('webkit-playsinline', '');
+    el.preload = 'auto';
+  }
+
+  /** iOS will not start a *new* HTMLAudioElement later unless one played during the gesture. */
+  private unlockBgmElement(): void {
+    if (this.bgmEl) return;
+    const el = new Audio();
+    this.prepBgmElement(el);
+    el.volume = 0;
+    void el.play().then(() => { el.pause(); el.volume = this.muted ? 0 : this.musicVolume; }).catch(() => {});
+    this.bgmEl = el;
   }
 
   private async loadBuffer(key: string, url: string): Promise<void> {
@@ -113,15 +145,21 @@ export class Sound {
   playBgm(key: string, loop = true): void {
     const file = BGM[key]; if (!file) return;
     if (this.bgmEl && this.bgmKey === key && !this.bgmEl.paused) return;
-    this.stopBgm();
-    const el = new Audio(ROOT + file);
-    el.loop = loop; el.volume = this.muted ? 0 : this.musicVolume; el.preload = 'auto';
+    if (!this.bgmEl) {
+      this.bgmEl = new Audio();
+      this.prepBgmElement(this.bgmEl);
+    }
+    const el = this.bgmEl;
+    this.prepBgmElement(el);
+    el.loop = loop;
+    el.volume = this.muted ? 0 : this.musicVolume;
+    if (this.bgmKey !== key) el.src = ROOT + file;
+    this.bgmKey = key;
     void el.play().catch(() => {});
-    this.bgmEl = el; this.bgmKey = key;
   }
 
   stopBgm(): void {
-    if (this.bgmEl) { this.bgmEl.pause(); this.bgmEl.src = ''; this.bgmEl = null; }
+    if (this.bgmEl) this.bgmEl.pause();
     this.bgmKey = '';
   }
 

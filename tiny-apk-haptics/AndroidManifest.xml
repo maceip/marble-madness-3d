@@ -28,6 +28,7 @@
     <application
         android:label="${appLabel}"
         android:icon="@mipmap/ic"
+        android:roundIcon="@mipmap/ic"
         android:allowBackup="false"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
         <!-- read by MainActivity at start -->
@@ -43,6 +44,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Verified Android App Links. Keep the manifest host broad; Android 15+ path exclusions live in
+                 https://marbles.secure.build/.well-known/assetlinks.json so they can evolve without an APK update. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="marbles.secure.build" />
             </intent-filter>
 
             <!-- the server's /callback/<provider> hands the login result back here:

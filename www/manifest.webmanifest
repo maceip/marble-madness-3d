@@ -1,0 +1,100 @@
+{
+  "id": "/",
+  "name": "Marble Madness: Humans vs Agents",
+  "short_name": "Marble Madness",
+  "description": "Race arcade courses as a human or an AI agent in a fast, multiplayer Marble Madness challenge.",
+  "lang": "en-US",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "color_scheme_dark": {
+    "theme_color": "#000000",
+    "background_color": "#000000"
+  },
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-monochrome.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "monochrome"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/assets/screenshots/title-phone.png",
+      "sizes": "412x915",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Marble Madness title screen and live High Rollers leaderboard"
+    },
+    {
+      "src": "/assets/screenshots/title-wide.png",
+      "sizes": "1366x768",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Marble Madness desktop title screen"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start the Practice Race",
+      "short_name": "Practice Race",
+      "description": "Jump directly into the first course.",
+      "url": "/?stage=1",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Start the Intermediate Race",
+      "short_name": "Intermediate",
+      "description": "Jump directly into the third course.",
+      "url": "/?stage=3",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "prefer_related_applications": false
+}

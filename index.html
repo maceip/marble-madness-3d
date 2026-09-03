@@ -2,35 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Marble Madness" />
+  <meta name="application-name" content="Marble Madness" />
+  <meta name="msapplication-TileColor" content="#000000" />
   <title>Marble Madness</title>
-  <link rel="icon" href="/favicon.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <style>
-    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+    html, body { margin: 0; height: 100%; height: 100dvh; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
     body { display: flex; align-items: center; justify-content: center; font-family: "Courier New", monospace; color: #cfd2ff; }
     canvas#game {
       position: fixed;
       inset: 0;
+      z-index: 1;
       width: 100vw;
       height: 100vh;
+      height: 100dvh;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
       background: #000;
       cursor: crosshair;
     }
-    #overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; pointer-events: none; }
-    #overlay.show { display: flex; }
-    .panel { pointer-events: auto; background: #000; border: 4px double #9aa0ff; padding: 20px 26px; max-width: min(90vw, 720px); color: #cfd2ff; font-size: 18px; line-height: 1.5; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 0 0 4px #000; }
-    .panel h2 { margin: 0 0 12px; color: #8a90e6; font-size: 20px; }
-    .panel textarea { width: 100%; box-sizing: border-box; background: #05061a; color: #e0e2ff; border: 2px solid #4a50a8; font: inherit; font-size: 15px; text-transform: none; letter-spacing: 0; padding: 10px; resize: none; }
-    .panel button { display: block; width: 100%; margin-top: 14px; padding: 16px; font: inherit; font-size: 20px; font-weight: bold; text-transform: uppercase; background: #b7b95c; color: #111; border: 4px solid #e8ea9a; cursor: pointer; }
-    .panel button:hover { background: #dcdf7a; }
-    .panel .status { margin-top: 12px; color: #b7b95c; font-size: 15px; min-height: 22px; }
-    .panel .small { font-size: 13px; color: #8d95b8; text-transform: none; letter-spacing: 0; }
     #settings {
       position: fixed;
-      left: 14px;
-      bottom: 12px;
+      left: max(14px, env(safe-area-inset-left));
+      bottom: max(12px, env(safe-area-inset-bottom));
       font-size: 11px;
       color: #9aa0ff;
       background: rgba(10, 12, 24, 0.75);
@@ -50,8 +53,8 @@
     /* 3D Bowling Ball Trackball Dock (Bottom Right on Mobile & Desktop) */
     #trackball-container {
       position: fixed;
-      bottom: 16px;
-      right: 18px;
+      bottom: max(16px, calc(env(safe-area-inset-bottom) + 8px));
+      right: max(18px, env(safe-area-inset-right));
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -70,6 +73,258 @@
       box-shadow: 0 10px 30px rgba(0,0,0,0.85), inset 0 0 16px rgba(0,0,0,0.9);
       touch-action: none;
     }
+    #ui-root {
+      position: fixed; inset: 0; z-index: 30; pointer-events: auto;
+      display: flex; flex-direction: column;
+    }
+    #ui-root[hidden] { display: none !important; }
+    #ui-fx {
+      position: fixed; inset: 0; z-index: 40; pointer-events: none;
+      width: 100vw; height: 100dvh;
+    }
+    #ui-fx[hidden] { display: none !important; }
+    .ui-screen, #ui-title, #ui-menu, #ui-name, #ui-connect, #ui-congrats, #ui-rematch {
+      pointer-events: auto;
+      position: absolute; inset: 0;
+      z-index: 2;
+      display: flex; flex-direction: column;
+      align-items: center;
+      padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 72px max(12px, env(safe-area-inset-left));
+      box-sizing: border-box;
+      width: 100%;
+      overflow-x: hidden; overflow-y: auto;
+    }
+    #ui-title[hidden], #ui-menu[hidden], #ui-name[hidden], #ui-connect[hidden],
+    #ui-congrats[hidden], #ui-rematch[hidden] { display: none !important; }
+
+    .ui-tap {
+      cursor: pointer; appearance: none; -webkit-appearance: none;
+      transition: transform 90ms ease, filter 90ms ease, box-shadow 90ms ease;
+      transform-origin: center;
+      touch-action: manipulation;
+    }
+    .ui-tap:hover { filter: brightness(1.12); }
+    .ui-tap:active, .ui-tap.pressed {
+      transform: translateY(5px) scale(0.96);
+      filter: brightness(0.82);
+    }
+    .ui-tap:focus-visible { outline: 2px solid #ffe019; outline-offset: 2px; }
+
+    #android-app-prompt {
+      position: fixed; inset: 0; z-index: 90; pointer-events: none;
+      display: flex; align-items: flex-end; justify-content: center;
+      padding: 16px max(12px, env(safe-area-inset-right)) max(18px, calc(env(safe-area-inset-bottom) + 10px)) max(12px, env(safe-area-inset-left));
+      box-sizing: border-box;
+      background: linear-gradient(transparent 42%, rgba(0, 0, 0, .78));
+    }
+    #android-app-prompt[hidden] { display: none !important; }
+    .android-app-card {
+      pointer-events: auto; width: min(94vw, 620px); box-sizing: border-box;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      padding: 16px 14px 12px; background: #000;
+      border: 6px double #4ec4ff; border-radius: 14px;
+      box-shadow: 0 0 0 3px #000, 0 12px 40px rgba(0, 0, 0, .9);
+    }
+    .android-app-copy { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 100%; }
+    .android-app-actions { width: 100%; display: flex; gap: 10px; }
+    .android-app-actions > * {
+      min-width: 0; min-height: 48px; flex: 1; box-sizing: border-box;
+      display: flex; align-items: center; justify-content: center;
+      padding: 10px 8px; border-radius: 8px; text-decoration: none;
+    }
+    #android-app-open { background: #ffd23f; border: 3px solid #ffe89a; }
+    #android-app-dismiss { background: #111524; border: 3px solid #4a50a8; }
+
+    .ui-spread {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%; flex-shrink: 0; min-height: 18px; margin-bottom: 2px;
+    }
+    .ui-spread-letter { flex: 1; display: flex; justify-content: center; }
+    .ui-spread-gap { flex: 0.55; }
+    #ui-presents { margin-bottom: 8px; }
+    .ui-logo {
+      width: min(72vw, 620px); max-width: 100%; height: auto;
+      image-rendering: pixelated; image-rendering: crisp-edges;
+      margin: 4px 0 14px;
+    }
+    .ui-lb {
+      width: min(94vw, 680px);
+      border: 6px double #4ec4ff;
+      border-radius: 16px;
+      padding: 10px 8px 6px;
+      box-sizing: border-box;
+      background: #000;
+      position: relative;
+      z-index: 2;
+    }
+    .ui-lb-head, .ui-lb-row {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1.05fr) minmax(0, 1.1fr);
+      align-items: center;
+      gap: 0;
+    }
+    .ui-lb-head {
+      padding: 6px 7px;
+      border-bottom: 2px solid #4ec4ff;
+    }
+    .ui-lb-head > :first-child { grid-column: 2; justify-self: start; }
+    .ui-lb-head > :last-child { grid-column: 3; justify-self: start; padding-left: 12px; }
+    .ui-lb-row {
+      min-height: 27px; padding: 4px 7px;
+      border-bottom: 1px dotted #3a8eb8;
+    }
+    .ui-lb-row:last-child { border-bottom: 0; }
+    .ui-lb-name { padding-right: 10px; border-right: 2px dotted #4ec4ff; min-width: 0; display: flex; align-items: center; align-self: stretch; }
+    .ui-lb-name.you canvas { filter: drop-shadow(0 1px 0 #4ec4ff); }
+    .ui-lb-intel { padding-left: 12px; }
+    #ui-press-start, #ui-menu-press, #ui-name-start {
+      display: flex; justify-content: center; align-items: center;
+      background: none; border: 0; padding: 14px 20px; margin-top: 10px;
+    }
+    .ui-foot {
+      flex-shrink: 0; display: flex; justify-content: center; align-items: center;
+      padding-top: 10px; min-height: 56px; margin-top: auto;
+    }
+    .ui-foot img { height: 44px; width: auto; image-rendering: pixelated; display: block; }
+    #ui-menu { justify-content: flex-start; gap: 12px; background: #000; padding-top: max(28px, env(safe-area-inset-top)); }
+    .ui-logo-menu { width: min(82vw, 520px); margin-bottom: clamp(42px, 10vh, 90px); }
+    .ui-modes { display: flex; flex-direction: column; gap: 14px; width: min(76vw, 620px); }
+    .ui-mode {
+      display: flex; align-items: center; gap: 16px;
+      background: transparent; border: 0; color: inherit;
+      padding: 5px 8px; text-align: left; width: 100%;
+    }
+    .ui-mode-col { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+    .ui-mark { width: 34px; flex-shrink: 0; display: flex; justify-content: center; }
+    .ui-mode-marble { width: 32px; height: 32px; image-rendering: pixelated; }
+    #ui-menu-agent { margin-top: clamp(44px, 9vh, 80px); }
+    #ui-menu-press { margin-top: clamp(38px, 8vh, 72px); }
+
+    #ui-name { justify-content: flex-start; gap: 8px; }
+    .ui-oauth-row {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      flex-wrap: wrap; width: min(96vw, 820px); margin: 6px 0 8px;
+    }
+    #ui-oauth-hint { margin-top: 8px; }
+    .ui-oauth {
+      width: min(42vw, 260px); height: 52px; border: 2px solid #394258; border-radius: 8px;
+      background: #05070f; color: #fff; display: flex; align-items: center; justify-content: center;
+      gap: 9px;
+    }
+    .ui-oauth.on { border-color: #ffe019; box-shadow: 0 0 0 2px #ffe019; }
+    .ui-oauth svg { width: 22px; height: 22px; fill: #fff; }
+    #ui-keys {
+      display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 6px; width: min(96vw, 720px); flex: 0 0 auto; min-height: 0;
+      grid-auto-rows: clamp(40px, 6.2vh, 54px); align-content: start;
+    }
+    .ui-key {
+      position: relative; min-height: 48px; height: 100%;
+      background: #111524; border: 2px solid #272f48; border-radius: 8px;
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      padding: 4px;
+    }
+    .ui-key.on { border-color: #ffe019; background: #243054; }
+    .ui-key-marble {
+      position: absolute; left: 4px; top: 50%; transform: translateY(-50%);
+      width: 28px; height: 28px; image-rendering: pixelated; pointer-events: none;
+      opacity: 0;
+    }
+    .ui-key.on .ui-key-marble { opacity: 1; }
+    #ui-name-val {
+      width: min(88vw, 540px); min-height: 44px; display: flex; justify-content: center; align-items: center;
+      margin: 8px 0; border: 2px solid #ffe019; border-radius: 8px;
+    }
+    #ui-name-start {
+      width: min(68vw, 360px); background: #ffd23f; border: 2px solid #ffe89a;
+      border-radius: 8px; min-height: 44px; margin-top: auto;
+    }
+    #ui-name-start.dim { opacity: 0.45; }
+
+    #ui-connect { justify-content: center; gap: 18px; }
+    #ui-copy {
+      position: absolute; top: max(12px, env(safe-area-inset-top));
+      right: max(12px, env(safe-area-inset-right));
+      background: #000; border: 4px double #ffe019; border-radius: 6px;
+      padding: 10px 12px; z-index: 4;
+    }
+    .ui-connect-box {
+      position: relative;
+      width: min(94vw, 760px);
+      border: 3px solid #4ec4ff;
+      border-radius: 16px;
+      padding: 34px 10px 18px;
+      box-sizing: border-box;
+      text-align: center;
+    }
+    .ui-speech {
+      position: absolute; top: -14px; left: 18px;
+      background: #000; border: 2px solid #4ec4ff; border-radius: 8px;
+      padding: 4px 8px;
+    }
+    #ui-connect-h { display: flex; justify-content: center; margin-bottom: 16px; }
+    #ui-connect-body { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; }
+    .ui-connect-line { display: flex; flex-wrap: wrap; justify-content: center; gap: 0; }
+    .ui-marble-row {
+      display: flex; align-items: center; justify-content: center; gap: 14px;
+      margin-top: 22px; color: #ffe019; letter-spacing: 6px; font-size: 18px;
+    }
+    #ui-connect-marble { width: 56px; height: 56px; image-rendering: pixelated; }
+    #ui-connect-wait { margin-top: 8px; }
+
+    #ui-congrats { justify-content: center; gap: 8px; }
+    #ui-win-rows { width: min(94vw, 720px); display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+    .ui-win-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; width: 100%; }
+    #ui-win-final { margin-top: 12px; }
+
+    #ui-rematch { justify-content: center; gap: 16px; }
+    .ui-big {
+      width: min(92vw, 560px); min-height: 56px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 12px; border: 3px solid #e8ea9a; padding: 12px;
+    }
+    #ui-play-again { background: #b7b95c; }
+    #ui-exit-lb { background: #26304f; }
+
+    @media (max-width: 520px) {
+      .ui-logo { width: min(94vw, 520px); }
+      .ui-lb { width: 94vw; padding: 0; border: 2px solid #4ec4ff; border-radius: 0; }
+      .ui-lb-head, .ui-lb-row { grid-template-columns: 24px minmax(0, .95fr) minmax(0, 1.15fr); }
+      .ui-lb-name { padding-right: 5px; }
+      .ui-lb-intel, .ui-lb-head > :last-child { padding-left: 5px; }
+      #ui-title { padding-left: 10px; padding-right: 10px; }
+      #ui-title .ui-logo { margin-bottom: 8px; }
+      .ui-key { min-height: 40px; }
+      #ui-copy { position: static; align-self: flex-end; margin-bottom: 8px; }
+      #ui-connect { justify-content: flex-start; padding-top: 16px; }
+      .ui-connect-box { margin-top: 32px; }
+    }
+    @media (max-height: 520px) and (orientation: landscape) {
+      #ui-title, #ui-name, #ui-connect, #ui-congrats, #ui-menu, #ui-rematch {
+        padding: 6px 10px 48px; gap: 4px;
+      }
+      .ui-logo { width: min(36vw, 300px); margin: 0 0 4px; }
+      #ui-menu .ui-logo-menu { width: min(30vw, 260px); }
+      #ui-menu .ui-modes { gap: 2px; }
+      #ui-menu-agent, #ui-menu-press { margin-top: 2px; }
+      .ui-lb { width: min(52vw, 480px); padding: 4px 6px; }
+      #ui-title { flex-flow: row wrap; justify-content: center; align-content: center; }
+      #ui-title .ui-spread, #ui-title #ui-presents, #ui-title #ui-press-start, #ui-title .ui-foot { width: 100%; }
+      #ui-keys { gap: 3px; width: min(70vw, 640px); }
+      .ui-key { min-height: 28px; }
+      #ui-name { gap: 2px; overflow-y: hidden; }
+      #ui-oauth-hint { margin-top: 0; }
+      .ui-oauth-row { margin: 2px 0; gap: 8px; }
+      .ui-oauth { width: 120px; height: 32px; }
+      .ui-oauth svg { width: 16px; height: 16px; }
+      #ui-name-val { min-height: 32px; margin: 2px 0; }
+      #ui-keys { grid-auto-rows: 28px; }
+      #ui-name-start { min-height: 32px; margin-top: 2px; }
+      .ui-foot { min-height: 28px; }
+      .ui-foot img { height: 24px; }
+      #ui-copy { padding: 6px 8px; }
+    }
+
     #trackball:active {
       cursor: grabbing;
     }
@@ -92,24 +347,100 @@
 </head>
 <body>
   <canvas id="game" width="288" height="240"></canvas>
+  <canvas id="ui-fx" hidden></canvas>
+  <div id="ui-root" hidden>
+    <section id="ui-title" hidden>
+      <div class="ui-spread" id="ui-spread"></div>
+      <div id="ui-presents"></div>
+      <img class="ui-logo" src="/assets/screens/parts/logo.png" alt="Marble Madness">
+      <div class="ui-lb">
+        <div class="ui-lb-head">
+          <div id="ui-col-player"></div>
+          <div id="ui-col-intel"></div>
+        </div>
+        <div id="ui-lb-rows"></div>
+      </div>
+      <button type="button" class="ui-tap" id="ui-press-start"></button>
+      <footer class="ui-foot"><img src="/assets/screens/parts/icons_browsers.png" alt=""></footer>
+    </section>
+    <section id="ui-menu" hidden>
+      <img class="ui-logo ui-logo-menu" src="/assets/screens/parts/logo.png" alt="Marble Madness">
+      <div class="ui-modes">
+        <button type="button" class="ui-tap ui-mode" id="ui-mode-0"></button>
+        <button type="button" class="ui-mode ui-tap" id="ui-mode-1"></button>
+      </div>
+      <div id="ui-menu-agent"></div>
+      <button type="button" class="ui-tap" id="ui-menu-press"></button>
+    </section>
+    <section id="ui-name" hidden>
+      <div id="ui-name-p1"></div>
+      <div id="ui-name-h"></div>
+      <div id="ui-oauth-hint"></div>
+      <div class="ui-oauth-row">
+        <button type="button" class="ui-tap ui-oauth" id="ui-github" aria-label="GitHub">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.6 7.6 0 0 1 8 4.77c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg>
+          <span id="ui-github-label"></span>
+        </button>
+        <button type="button" class="ui-tap ui-oauth" id="ui-twitter" aria-label="Twitter">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.725-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          <span id="ui-twitter-label"></span>
+        </button>
+      </div>
+      <div id="ui-name-val"></div>
+      <div id="ui-keys"></div>
+      <button type="button" class="ui-tap" id="ui-name-start"></button>
+    </section>
+    <section id="ui-connect" hidden>
+      <button type="button" class="ui-tap" id="ui-copy"></button>
+      <div class="ui-connect-box">
+        <div class="ui-speech" id="ui-speech"></div>
+        <div id="ui-connect-h"></div>
+        <div id="ui-connect-body"></div>
+        <div class="ui-marble-row">
+          <span>···</span>
+          <canvas id="ui-connect-marble" width="56" height="56"></canvas>
+          <span>···</span>
+        </div>
+      </div>
+      <div id="ui-connect-wait"></div>
+    </section>
+    <section id="ui-congrats" hidden>
+      <div id="ui-win-h"></div>
+      <div id="ui-win-who"></div>
+      <div id="ui-win-sub"></div>
+      <div id="ui-win-sub2"></div>
+      <div id="ui-win-rows"></div>
+      <div id="ui-win-final"></div>
+    </section>
+    <section id="ui-rematch" hidden>
+      <div id="ui-rematch-h"></div>
+      <div id="ui-rematch-score"></div>
+      <button type="button" class="ui-tap ui-big" id="ui-play-again"></button>
+      <button type="button" class="ui-tap ui-big" id="ui-exit-lb"></button>
+    </section>
+  </div>
+  <aside id="android-app-prompt" role="dialog" aria-label="Get the Marble Madness Android app" hidden>
+    <div class="android-app-card">
+      <div class="android-app-copy">
+        <div id="android-app-title"></div>
+        <div id="android-app-subtitle"></div>
+      </div>
+      <div class="android-app-actions">
+        <a class="ui-tap" id="android-app-open" href="https://play.google.com/store/apps/details?id=build.secure.marbles" target="_blank" rel="noopener" aria-label="Open Marble Madness in Google Play"></a>
+        <button class="ui-tap" id="android-app-dismiss" type="button" aria-label="Dismiss Android app prompt"></button>
+      </div>
+    </div>
+  </aside>
   <div id="trackball-container">
     <canvas id="trackball" width="240" height="240"></canvas>
     <div id="trackball-label">ARCADE TRACKBALL</div>
-  </div>
-  <div id="overlay">
-    <div class="panel" id="connect-panel" style="display:none">
-      <h2>Connect Your Agent</h2>
-      <div class="small">Paste this into Codex. When the agent joins, the race starts.</div>
-      <textarea id="connect-text" rows="3" readonly></textarea>
-      <button id="connect-copy">Copy / Add to Clipboard</button>
-      <div class="status" id="connect-status">Waiting for your agent to join...</div>
-      <div class="small">Lobby <span id="connect-lobby"></span> &middot; Esc to cancel</div>
-    </div>
   </div>
   <div id="settings">
     <label>Music <input id="vol-music" type="range" min="0" max="1" step="0.05" /></label>
     <label>SFX <input id="vol-sfx" type="range" min="0" max="1" step="0.05" /></label>
     <label><input id="opt-haptics" type="checkbox" checked /> Haptics</label>
+    <a id="privacy-link" href="/privacy.html" target="_blank" rel="noopener">Privacy</a>
+    <a id="support-link" href="/support.html" target="_blank" rel="noopener">Support</a>
   </div>
   <script type="module" src="/bundle.js"></script>
 </body>

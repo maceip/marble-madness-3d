@@ -35,9 +35,15 @@
 </head>
 <body>
 <div id="side">
-  <h2>1 · Load stage art</h2>
+  <h2>1 · Load stage art & labels</h2>
+  <label>Stage image (Stage N.png):</label>
   <input type="file" id="file" accept="image/png" style="width:100%">
-  <div class="help">Pick a <b>Stage N.png</b>. It stays in your browser — nothing uploads.</div>
+  <div style="margin-top:6px; display:flex; gap:5px;">
+    <button id="btnImport" style="flex:1" title="Import prefiltered labels8.png and labels.json">⬆ Import labels (JSON + PNG)</button>
+  </div>
+  <input type="file" id="importJson" accept=".json,application/json" style="display:none">
+  <input type="file" id="importPng" accept="image/png" style="display:none">
+  <div class="help">Pick a <b>Stage N.png</b>, or import existing <b>.labels.json</b> + <b>.labels8.png</b>.</div>
 
   <h2>2 · Height layers</h2>
   <div class="help">You are marking, for every part of the map, <b>how high it sits</b>. Bigger number = higher platform. The marble rolls downhill and falls off edges.<br>
@@ -190,6 +196,54 @@ window.addEventListener('keydown', e=>{ if(e.code==='Space'){spaceDown=true; e.p
 window.addEventListener('keyup', e=>{ if(e.code==='Space') spaceDown=false; });
 
 $('file').onchange = e => { const f=e.target.files[0]; if(f){ window.__stageName=f.name; loadImage(URL.createObjectURL(f)); } };
+
+$('btnImport').onclick = () => { $('importJson').click(); };
+$('importJson').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const man = JSON.parse(ev.target.result);
+      if (man.layers && Array.isArray(man.layers)) {
+        layers = man.layers.map(l => ({
+          name: l.name, z: l.z, color: l.color || hh(l.index),
+          kind: l.kind || 'floor', desc: l.desc || ''
+        }));
+        sel = Math.min(2, layers.length - 1);
+        renderLayers();
+        status(`Loaded ${layers.length} layers from JSON! Now select matching .labels8.png...`);
+        $('importPng').click();
+      }
+    } catch (err) { status('Failed to parse JSON: ' + err.message); }
+  };
+  reader.readAsText(f);
+};
+$('importPng').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const im = new Image();
+  im.onload = () => {
+    if (!W || !H) {
+      W = im.width; H = im.height;
+      art.width = lab.width = W; art.height = lab.height = H;
+      labelIdx = new Int16Array(W * H).fill(-1);
+      fit();
+    }
+    const oc = document.createElement('canvas'); oc.width = im.width; oc.height = im.height;
+    const octx = oc.getContext('2d');
+    octx.drawImage(im, 0, 0);
+    const data = octx.getImageData(0, 0, im.width, im.height).data;
+    pushUndo();
+    let imported = 0;
+    for (let i = 0; i < W * H; i++) {
+      const v = data[i * 4];
+      if (v > 0) { labelIdx[i] = v - 1; imported++; }
+      else { labelIdx[i] = -1; }
+    }
+    repaintLabels();
+    status(`Imported ${imported} labeled px across ${layers.length} layers!`);
+  };
+  im.src = URL.createObjectURL(f);
+};
 const tools = { tSmart:'smart', tFill:'fill', tBrush:'brush', tErase:'erase', tPan:'pan', tPick:'pick' };
 for (const [id,t] of Object.entries(tools)) $(id).onclick=()=>{ tool=t; for(const x of Object.keys(tools)) $(x).classList.toggle('on', x===id); };
 $('tol').oninput=e=>{tol=+e.target.value;$('tolv').textContent=tol;};

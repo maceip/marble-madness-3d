@@ -21,10 +21,12 @@
     "checkpoint": "marble-054.mp3",
     "springboard": "marble-060.mp3",
     "goal": "marble-061.mp3",
-    "item": "marble-065.mp3"
+    "item": "marble-065.mp3",
+    "tick": "marble-062.mp3",
+    "vacuum": "marble-066.mp3"
   },
   "legacyNumberedMusicNotUsedForCourseIdentity": [
-    "marble-056.mp3", "marble-066.mp3", "marble-067.mp3", "marble-069.mp3",
+    "marble-056.mp3", "marble-067.mp3", "marble-069.mp3",
     "marble-073.mp3", "marble-075.mp3", "marble-077.mp3", "marble-079.mp3", "marble-081.mp3"
   ]
 }
