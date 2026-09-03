@@ -204,4 +204,22 @@ export class Renderer {
     this.screenCtx.imageSmoothingEnabled = false;
     this.screenCtx.drawImage(this.off, 0, 0, this.viewW, this.viewH, 0, 0, this.canvas.width, this.canvas.height);
   }
+
+  drawLitGoal(overlay: HTMLImageElement, stageId: number): void {
+    const bbox = GOAL_OVERLAY_BBOX[stageId];
+    if (!bbox) return;
+    const sx = bbox.x0 - this.cam.x;
+    const sy = bbox.y0 - this.cam.y;
+    this.ctx.drawImage(overlay, Math.round(sx), Math.round(sy));
+  }
 }
+
+export const GOAL_OVERLAY_BBOX: Record<number, { x0: number; y0: number }> = {
+  1: { x0: 18, y0: 485 },
+  2: { x0: 105, y0: 1065 },
+  3: { x0: 187, y0: 1005 },
+  4: { x0: 43, y0: 942 },
+  5: { x0: 105, y0: 32 },
+  6: { x0: 111, y0: 676 },
+};
+

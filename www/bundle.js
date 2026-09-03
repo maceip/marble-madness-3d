@@ -1798,6 +1798,20 @@ var Assets = class {
     }
     return im;
   }
+  goalLitCache = /* @__PURE__ */ new Map();
+  async goalLit(stageId, color = "blue") {
+    const key = `stages/goal_${color}_${stageId}.png`;
+    let im = this.goalLitCache.get(key);
+    if (!im) {
+      try {
+        im = await loadImage(ASSET_ROOT + key);
+        this.goalLitCache.set(key, im);
+      } catch {
+        return null;
+      }
+    }
+    return im;
+  }
 };
 function drawFrame(ctx, img, f, x, y, flipX = false) {
   const dx = Math.round(x - f.px), dy = Math.round(y - f.py);
@@ -2037,6 +2051,21 @@ var Renderer = class {
     this.screenCtx.imageSmoothingEnabled = false;
     this.screenCtx.drawImage(this.off, 0, 0, this.viewW, this.viewH, 0, 0, this.canvas.width, this.canvas.height);
   }
+  drawLitGoal(overlay, stageId) {
+    const bbox = GOAL_OVERLAY_BBOX[stageId];
+    if (!bbox) return;
+    const sx = bbox.x0 - this.cam.x;
+    const sy = bbox.y0 - this.cam.y;
+    this.ctx.drawImage(overlay, Math.round(sx), Math.round(sy));
+  }
+};
+var GOAL_OVERLAY_BBOX = {
+  1: { x0: 18, y0: 485 },
+  2: { x0: 105, y0: 1065 },
+  3: { x0: 187, y0: 1005 },
+  4: { x0: 43, y0: 942 },
+  5: { x0: 105, y0: 32 },
+  6: { x0: 111, y0: 676 }
 };
 
 // src/engine/trackball.ts
@@ -3601,9 +3630,20 @@ L3.strip(210, 880, -40, 140, 1e3, -100, 3, "waveR");
 L3.strip(80, 1e3, -100, 230, 1040, -120, 4, "goalRun");
 var signC2 = L3.uv(232, 1036, -120);
 L3.rect(signC2.u - 3.5, signC2.v - 3.5, signC2.u + 3.5, signC2.v + 3.5, -120, 0, 0, "goalSign");
-var start3 = L3.uv(146, 100, 100);
-L3.start(start3.u, start3.v);
+var TOWER_Z = 240;
+{
+  const tl = L3.uv(45, 52, TOWER_Z);
+  L3.rect(tl.u - 3, tl.v - 3, tl.u + 3, tl.v + 3, TOWER_Z, 0, 0, "towerL");
+  const tr = L3.uv(243, 52, TOWER_Z);
+  L3.rect(tr.u - 3, tr.v - 3, tr.u + 3, tr.v + 3, TOWER_Z, 0, 0, "towerR");
+}
+var rampFromLeft = L3.slide([[45, 52, TOWER_Z], [58, 62, TOWER_Z], [72, 85, 205], [84, 110, 165], [91, 132, 130], [94, 150, 100]]);
+var rampFromRight = L3.slide([[243, 52, TOWER_Z], [230, 62, TOWER_Z], [216, 85, 205], [204, 110, 165], [197, 132, 130], [194, 150, 100]]);
+var start3 = L3.uv(45, 52, TOWER_Z);
+L3.start(start3.u, start3.v, TOWER_Z, rampFromLeft);
 L3.checkpoint(start3.u, start3.v);
+var start22 = L3.uv(243, 52, TOWER_Z);
+L3.start2(start22.u, start22.v, TOWER_Z, rampFromRight);
 var c12 = L3.uv(150, 500, 100);
 L3.checkpoint(c12.u, c12.v);
 L3.zone("checkpoint", c12.u - 8, c12.v - 8, c12.u + 8, c12.v + 8, 1, "cp1", 90, 110);
@@ -3637,15 +3677,15 @@ var L4 = new LevelBuilder({
   timeAdd: 30,
   carryTime: true
 });
-var TOWER_Z = 285;
+var TOWER_Z2 = 285;
 {
-  const tl = L4.uv(35, 55, TOWER_Z);
-  L4.rect(tl.u - 3, tl.v - 3, tl.u + 3, tl.v + 3, TOWER_Z, 0, 0, "towerL");
-  const tr = L4.uv(250, 55, TOWER_Z);
-  L4.rect(tr.u - 3, tr.v - 3, tr.u + 3, tr.v + 3, TOWER_Z, 0, 0, "towerR");
+  const tl = L4.uv(35, 55, TOWER_Z2);
+  L4.rect(tl.u - 3, tl.v - 3, tl.u + 3, tl.v + 3, TOWER_Z2, 0, 0, "towerL");
+  const tr = L4.uv(250, 55, TOWER_Z2);
+  L4.rect(tr.u - 3, tr.v - 3, tr.u + 3, tr.v + 3, TOWER_Z2, 0, 0, "towerR");
 }
-var rampFromLeft = L4.slide([[35, 55, TOWER_Z], [52, 60, TOWER_Z], [80, 90, 262], [115, 122, 232], [145, 148, 208], [178, 168, 185], [200, 190, 160], [215, 215, 147]]);
-var rampFromRight = L4.slide([[250, 55, TOWER_Z], [234, 60, TOWER_Z], [205, 90, 275], [175, 120, 262], [145, 148, 250], [105, 172, 238], [80, 195, 225], [60, 220, 217]]);
+var rampFromLeft2 = L4.slide([[35, 55, TOWER_Z2], [52, 60, TOWER_Z2], [80, 90, 262], [115, 122, 232], [145, 148, 208], [178, 168, 185], [200, 190, 160], [215, 215, 147]]);
+var rampFromRight2 = L4.slide([[250, 55, TOWER_Z2], [234, 60, TOWER_Z2], [205, 90, 275], [175, 120, 262], [145, 148, 250], [105, 172, 238], [80, 195, 225], [60, 220, 217]]);
 L4.strip(86, 238, 191, 124, 300, 100, 3, "slidePink");
 L4.strip(198, 254, 130, 186, 300, 100, 3, "slideYellow");
 L4.strip(122, 640, 100, 96, 700, 15, 3, "downLeft");
@@ -3653,11 +3693,11 @@ L4.strip(176, 560, 100, 214, 660, 8, 3, "downRight");
 L4.strip(110, 790, 15, 112, 848, -80, 3, "toBlueL");
 L4.strip(206, 732, 8, 206, 756, -80, 3, "toBlueR");
 L4.strip(86, 950, -80, 86, 998, -112, 3, "toGoal");
-var start4 = L4.uv(250, 55, TOWER_Z);
-L4.start(start4.u, start4.v, TOWER_Z, rampFromRight);
+var start4 = L4.uv(250, 55, TOWER_Z2);
+L4.start(start4.u, start4.v, TOWER_Z2, rampFromRight2);
 L4.checkpoint(start4.u, start4.v);
-var start22 = L4.uv(35, 55, TOWER_Z);
-L4.start2(start22.u, start22.v, TOWER_Z, rampFromLeft);
+var start23 = L4.uv(35, 55, TOWER_Z2);
+L4.start2(start23.u, start23.v, TOWER_Z2, rampFromLeft2);
 var c13 = L4.uv(100, 300, 100);
 L4.checkpoint(c13.u, c13.v);
 L4.zone("checkpoint", c13.u - 6, c13.v - 6, c13.u + 6, c13.v + 6, 1, "cp1", 90, 110);
@@ -5457,10 +5497,16 @@ var Game = class {
     this.scoreSubmitted = false;
     void this.loadStage(stageIdx).then(() => this.go("intro"));
   }
+  litGoalBlue = null;
+  litGoalRed = null;
   async loadStage(idx) {
     this.stageIdx = idx;
     this.stage = STAGES[idx];
     this.stageImg = await this.assets.stage(this.stage.image);
+    [this.litGoalBlue, this.litGoalRed] = await Promise.all([
+      this.assets.goalLit(idx + 1, "blue"),
+      this.assets.goalLit(idx + 1, "red")
+    ]);
     if (!this.stage.heightmap) {
       const hm = await loadHeightMap(this.stage);
       if (hm) attachHeightMap(this.stage, hm);
@@ -5973,6 +6019,11 @@ var Game = class {
       return;
     }
     r.drawStage(this.stageImg, this.stage);
+    if (this.goalReached || this.finished || this.oppFinished) {
+      const isBlue = this.wonLast || !this.oppFinished;
+      const overlay = isBlue ? this.litGoalBlue : this.litGoalRed;
+      if (overlay) r.drawLitGoal(overlay, this.stageIdx + 1);
+    }
     const sprites = [];
     const ctx = this.hazardCtx(0);
     for (const h of this.hazards) h.sprites(ctx, sprites);

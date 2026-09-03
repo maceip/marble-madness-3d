@@ -71,6 +71,21 @@ export class Assets {
     }
     return im;
   }
+
+  private goalLitCache = new Map<string, HTMLImageElement>();
+  async goalLit(stageId: number, color: 'blue' | 'red' = 'blue'): Promise<HTMLImageElement | null> {
+    const key = `stages/goal_${color}_${stageId}.png`;
+    let im = this.goalLitCache.get(key);
+    if (!im) {
+      try {
+        im = await loadImage(ASSET_ROOT + key);
+        this.goalLitCache.set(key, im);
+      } catch {
+        return null;
+      }
+    }
+    return im;
+  }
 }
 
 /** Draw a frame with its pivot at (x, y). */

@@ -249,10 +249,17 @@ export class Game {
     void this.loadStage(stageIdx).then(() => this.go('intro'));
   }
 
+  private litGoalBlue: HTMLImageElement | null = null;
+  private litGoalRed: HTMLImageElement | null = null;
+
   async loadStage(idx: number): Promise<void> {
     this.stageIdx = idx;
     this.stage = STAGES[idx];
     this.stageImg = await this.assets.stage(this.stage.image);
+    [this.litGoalBlue, this.litGoalRed] = await Promise.all([
+      this.assets.goalLit(idx + 1, 'blue'),
+      this.assets.goalLit(idx + 1, 'red'),
+    ]);
     if (!this.stage.heightmap) {
       const hm = await loadHeightMap(this.stage);
       if (hm) attachHeightMap(this.stage, hm);
@@ -713,6 +720,11 @@ export class Game {
     const r = this.r;
     if (!this.stageImg) { r.clear(); return; }
     r.drawStage(this.stageImg, this.stage);
+    if (this.goalReached || this.finished || this.oppFinished) {
+      const isBlue = this.wonLast || !this.oppFinished;
+      const overlay = isBlue ? this.litGoalBlue : this.litGoalRed;
+      if (overlay) r.drawLitGoal(overlay, this.stageIdx + 1);
+    }
     const sprites: Sprite[] = [];
     const ctx = this.hazardCtx(0);
     for (const h of this.hazards) h.sprites(ctx, sprites);

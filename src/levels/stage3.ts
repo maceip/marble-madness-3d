@@ -25,9 +25,23 @@ L.strip(210, 880, -40, 140, 1000, -100, 3, 'waveR');
 L.strip(80, 1000, -100, 230, 1040, -120, 4, 'goalRun');
 const signC = L.uv(232, 1036, -120); L.rect(signC.u - 3.5, signC.v - 3.5, signC.u + 3.5, signC.v + 3.5, -120, 0, 0, 'goalSign');
 
+// --- the two towers and starting ramps (arcade: 2player_longplay.mov t=55-63) --------------------
+// P1 (blue) starts on the LEFT tower top and slides down to the left maze platform (z 100);
+// P2 (red) starts on the RIGHT tower top and slides down to the right maze platform (z 100).
+// Scripted roll: no control until dizzy landing on the platform centre.
+const TOWER_Z = 240;
+{
+  const tl = L.uv(45, 52, TOWER_Z); L.rect(tl.u - 3, tl.v - 3, tl.u + 3, tl.v + 3, TOWER_Z, 0, 0, 'towerL');
+  const tr = L.uv(243, 52, TOWER_Z); L.rect(tr.u - 3, tr.v - 3, tr.u + 3, tr.v + 3, TOWER_Z, 0, 0, 'towerR');
+}
+const rampFromLeft = L.slide([[45, 52, TOWER_Z], [58, 62, TOWER_Z], [72, 85, 205], [84, 110, 165], [91, 132, 130], [94, 150, 100]]);
+const rampFromRight = L.slide([[243, 52, TOWER_Z], [230, 62, TOWER_Z], [216, 85, 205], [204, 110, 165], [197, 132, 130], [194, 150, 100]]);
+
 // start / checkpoints
-const start = L.uv(146, 100, 100);
-L.start(start.u, start.v); L.checkpoint(start.u, start.v);
+const start = L.uv(45, 52, TOWER_Z);
+L.start(start.u, start.v, TOWER_Z, rampFromLeft); L.checkpoint(start.u, start.v);
+const start2 = L.uv(243, 52, TOWER_Z);
+L.start2(start2.u, start2.v, TOWER_Z, rampFromRight);
 const c1 = L.uv(150, 500, 100); L.checkpoint(c1.u, c1.v); L.zone('checkpoint', c1.u - 8, c1.v - 8, c1.u + 8, c1.v + 8, 1, 'cp1', 90, 110);
 const c2 = L.uv(150, 760, -25); L.checkpoint(c2.u, c2.v); L.zone('checkpoint', c2.u - 5, c2.v - 5, c2.u + 5, c2.v + 5, 2, 'cp2', -40, -10);
 const c3 = L.uv(160, 850, -40); L.checkpoint(c3.u, c3.v); L.zone('checkpoint', c3.u - 6, c3.v - 6, c3.u + 6, c3.v + 6, 3, 'cp3', -55, -25);
