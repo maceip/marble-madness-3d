@@ -6525,8 +6525,14 @@ var WebMCP = class {
     const doc = document;
     if (nav.modelContext?.registerTool) surfaces.push(nav.modelContext);
     if (doc.modelContext?.registerTool) surfaces.push(doc.modelContext);
+    const traced = this.tools.map((t) => ({ ...t, execute: async (args) => {
+      mmTrace("webmcp.call", { tool: t.name, args, screen: this.game.screen });
+      const out = await t.execute(args ?? {});
+      mmTrace("webmcp.done", { tool: t.name, screen: this.game.screen, out: out && typeof out === "object" ? out : { v: out } });
+      return out;
+    } }));
     for (const s of surfaces) {
-      for (const t of this.tools) {
+      for (const t of traced) {
         try {
           s.registerTool?.(t);
         } catch (e) {
@@ -6545,8 +6551,14 @@ var WebMCP = class {
       listTools: () => this.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
       callTool: async (name, args = {}) => {
         const t = this.tools.find((x) => x.name === name);
-        if (!t) throw new Error(`unknown tool ${name}`);
-        return t.execute(args ?? {});
+        if (!t) {
+          mmTrace("webmcp.unknown", { name });
+          throw new Error(`unknown tool ${name}`);
+        }
+        mmTrace("webmcp.call", { tool: name, args, screen: this.game.screen });
+        const out = await t.execute(args ?? {});
+        mmTrace("webmcp.done", { tool: name, screen: this.game.screen, out: out && typeof out === "object" ? out : { v: out } });
+        return out;
       },
       listResources: () => this.resources,
       readResource: async (uri) => {
@@ -7101,6 +7113,10 @@ var Game = class {
   /* flow                                                                    */
   /* ---------------------------------------------------------------------- */
   go(screen) {
+    if (this.isAgentPage && !(screen === "connect" || screen === "intro" || screen === "race" || screen === "timebonus")) {
+      mmTrace("screen.agentGuard", { from: this.screen, wanted: screen, forced: "connect" });
+      screen = "connect";
+    }
     mmTrace("screen", { from: this.screen, to: screen, mode: this.mode, agent: this.isAgentPage });
     this.screen = screen;
     this.t = 0;

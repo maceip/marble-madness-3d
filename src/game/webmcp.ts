@@ -1,4 +1,5 @@
 import type { Game } from './game';
+import { mmTrace } from '../engine/trace';
 import { STAGES } from '../levels';
 
 /**
@@ -149,8 +150,15 @@ export class WebMCP {
     if (nav.modelContext?.registerTool) surfaces.push(nav.modelContext);
     if (doc.modelContext?.registerTool) surfaces.push(doc.modelContext);
 
+    // wrap each tool's execute so the modelContext path (what Codex's embedded browser calls) is traced too
+    const traced = this.tools.map((t) => ({ ...t, execute: async (args: Record<string, unknown>) => {
+      mmTrace('webmcp.call', { tool: t.name, args, screen: this.game.screen });
+      const out = await t.execute(args ?? {});
+      mmTrace('webmcp.done', { tool: t.name, screen: this.game.screen, out: (out && typeof out === 'object') ? out : { v: out } });
+      return out;
+    } }));
     for (const s of surfaces) {
-      for (const t of this.tools) {
+      for (const t of traced) {
         try { s.registerTool?.(t); } catch (e) { console.warn('[webmcp] tool register failed', t.name, e); }
       }
       for (const r of this.resources) {
@@ -162,8 +170,11 @@ export class WebMCP {
       listTools: () => this.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
       callTool: async (name: string, args: Record<string, unknown> = {}) => {
         const t = this.tools.find((x) => x.name === name);
-        if (!t) throw new Error(`unknown tool ${name}`);
-        return t.execute(args ?? {});
+        if (!t) { mmTrace('webmcp.unknown', { name }); throw new Error(`unknown tool ${name}`); }
+        mmTrace('webmcp.call', { tool: name, args, screen: this.game.screen });
+        const out = await t.execute(args ?? {});
+        mmTrace('webmcp.done', { tool: name, screen: this.game.screen, out: (out && typeof out === 'object') ? out : { v: out } });
+        return out;
       },
       listResources: () => this.resources,
       readResource: async (uri: string) => {

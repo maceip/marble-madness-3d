@@ -196,6 +196,13 @@ export class Game {
   /* ---------------------------------------------------------------------- */
 
   go(screen: Screen): void {
+    // the WebMCP agent's embedded browser must never see a human screen. The human drives every menu and
+    // starts every race; the agent only ever waits (connect) or plays (intro/race/timebonus). Any other
+    // target is redirected to the lobby so no code path can strand it in title/menu/name/control/gameover/congrats.
+    if (this.isAgentPage && !(screen === 'connect' || screen === 'intro' || screen === 'race' || screen === 'timebonus')) {
+      mmTrace('screen.agentGuard', { from: this.screen, wanted: screen, forced: 'connect' });
+      screen = 'connect';
+    }
     mmTrace('screen', { from: this.screen, to: screen, mode: this.mode, agent: this.isAgentPage });
     this.screen = screen; this.t = 0;
     if (screen === 'connect' && !this.isAgentPage) {
