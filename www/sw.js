@@ -1,4 +1,4 @@
-const CACHE = 'marbles-876614482253c8c9';
+const CACHE = 'marbles-cf9723c918d53a71';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

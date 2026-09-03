@@ -20,6 +20,8 @@ export class HtmlMenus {
   private lastSig = '';
   private lastScale = 0;
   private keysReady = false;
+  private agentChooserOpen = false;
+  private agentTeaserDismissed = false;
   readonly rain = new MarbleRain();
   private fx: HTMLCanvasElement | null = null;
 
@@ -85,6 +87,35 @@ export class HtmlMenus {
       this.game.sound.init();
       void this.game.chromeAgent.start();
     });
+    document.getElementById('ui-no-codex')?.addEventListener('click', (e) => {
+      flashPress(e.currentTarget as HTMLElement);
+      this.agentTeaserDismissed = true;
+      this.agentChooserOpen = true;
+      this.lastSig = '';
+      this.sync('connect');
+    });
+    document.getElementById('ui-agent-picker-close')?.addEventListener('click', () => {
+      this.agentChooserOpen = false;
+      this.agentTeaserDismissed = false;
+      this.lastSig = '';
+      this.sync('connect');
+    });
+    document.getElementById('ui-agent-picker')?.addEventListener('click', (e) => {
+      if (e.target !== e.currentTarget) return;
+      this.agentChooserOpen = false;
+      this.agentTeaserDismissed = false;
+      this.lastSig = '';
+      this.sync('connect');
+    });
+    document.getElementById('ui-agent-option-chrome')?.addEventListener('click', (e) => {
+      if (!this.game.chromeAgent.optionVisible || this.game.chromeAgent.active) return;
+      flashPress(e.currentTarget as HTMLElement);
+      this.agentChooserOpen = false;
+      this.agentTeaserDismissed = true;
+      this.game.sound.init();
+      this.lastSig = '';
+      void this.game.chromeAgent.start();
+    });
     window.addEventListener('mm:chrome-agent-status', () => {
       this.lastSig = '';
       if (this.game.screen === 'connect') this.sync('connect');
@@ -120,6 +151,10 @@ export class HtmlMenus {
     this.game.r.canvas.style.pointerEvents = humanHtml ? 'none' : '';
     if (this.fx) this.fx.hidden = screen !== 'congrats';
     if (screen !== this.lastScreen) {
+      if (screen === 'connect') {
+        this.agentChooserOpen = false;
+        this.agentTeaserDismissed = false;
+      }
       this.lastSig = '';
       this.lastScreen = screen;
       this.lastScale = 0;
@@ -348,17 +383,73 @@ export class HtmlMenus {
     const btn = document.getElementById('ui-copy');
     if (!btn) return;
     const label = document.createElement('span');
+    label.className = 'ui-copy-callout';
     label.appendChild(pxCanvas(font, copied ? 'COPIED' : 'COPY TO CLIPBOARD', 'orange', Math.max(1, sc - 1)));
-    btn.replaceChildren(label);
+    const icon = document.createElement('img');
+    icon.className = 'ui-copy-icon';
+    icon.src = '/assets/screens/parts/copybutton.png';
+    icon.alt = '';
+    btn.replaceChildren(label, icon);
   }
 
   private paintChromeAgentButton(font: BitmapFont, sc: number): void {
     const btn = document.getElementById('ui-chrome-ai') as HTMLButtonElement | null;
     if (!btn) return;
+    btn.hidden = true;
+  }
+
+  private paintAgentChooser(font: BitmapFont, sc: number): void {
     const agent = this.game.chromeAgent;
-    btn.hidden = !agent.optionVisible;
-    btn.disabled = agent.active;
-    if (!btn.hidden) pxFill(btn, font, agent.buttonLabel, agent.phase === 'error' ? 'white' : 'orange', Math.max(1, sc - 1));
+    const picker = document.getElementById('ui-agent-picker');
+    const teaser = document.getElementById('ui-agent-teaser');
+    const desktop = matchMedia('(pointer: fine)').matches && window.innerWidth >= 760;
+    const showTeaser = desktop && this.game.screens.idle >= 30 && !this.agentTeaserDismissed &&
+      !this.agentChooserOpen && !agent.active && !this.game.agentJoined;
+    if (teaser) teaser.hidden = !showTeaser;
+    if (picker) picker.hidden = !this.agentChooserOpen;
+
+    if (showTeaser) {
+      pxFill(document.getElementById('ui-no-codex'), font, "DON'T HAVE CODEX?", 'white', Math.max(1, sc - 1));
+      this.paintSlippy(Math.floor(this.game.screens.blink * 5) % 2 === 0);
+    }
+    if (!this.agentChooserOpen) return;
+    pxFill(document.getElementById('ui-agent-picker-title'), font, 'CHOOSE YOUR AGENT', 'cyan', sc);
+    const chrome = document.getElementById('ui-agent-option-chrome') as HTMLButtonElement | null;
+    if (chrome) {
+      chrome.disabled = !agent.optionVisible || agent.active;
+      const suffix = !agent.optionVisible ? ' - UNAVAILABLE'
+        : agent.availability === 'downloadable' || agent.availability === 'downloading' ? ' - DOWNLOAD' : ' - READY';
+      const label = 'CHROME AI' + suffix;
+      chrome.setAttribute('aria-label', label);
+      pxFill(chrome, font, label, agent.optionVisible ? 'orange' : 'lavender', Math.max(1, sc - 1));
+    }
+    pxFill(document.getElementById('ui-agent-option-llama'), font, 'LLAMA.CPP', 'lavender', Math.max(1, sc - 1));
+    pxFill(document.getElementById('ui-agent-option-mtplx'), font, 'MTPLX', 'lavender', Math.max(1, sc - 1));
+    pxFill(document.getElementById('ui-agent-picker-note'), font, 'LOCAL BRIDGE REQUIRED', 'lavender', 1);
+  }
+
+  private paintSlippy(mouthOpen: boolean): void {
+    const cv = document.getElementById('ui-slippy') as HTMLCanvasElement | null;
+    const ctx = cv?.getContext('2d');
+    if (!cv || !ctx) return;
+    ctx.clearRect(0, 0, 48, 48);
+    const rect = (x: number, y: number, w: number, h: number, color: string) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); };
+    // Shoulders and flight suit.
+    rect(10, 38, 28, 8, '#07132f'); rect(14, 36, 20, 8, '#346dce'); rect(20, 36, 8, 10, '#dcecff');
+    // Frog head silhouette, cheeks, and snout.
+    rect(8, 14, 32, 22, '#07132f'); rect(11, 11, 10, 8, '#07132f'); rect(27, 11, 10, 8, '#07132f');
+    rect(10, 16, 28, 18, '#36b857'); rect(13, 12, 7, 9, '#50dc70'); rect(28, 12, 7, 9, '#50dc70');
+    rect(7, 22, 7, 8, '#36b857'); rect(34, 22, 7, 8, '#36b857'); rect(14, 25, 20, 10, '#6ee883');
+    rect(17, 27, 14, 5, '#8df49a');
+    // Eyes and pupils.
+    rect(13, 14, 7, 8, '#f7fff2'); rect(28, 14, 7, 8, '#f7fff2');
+    rect(16, 16, 3, 5, '#081020'); rect(29, 16, 3, 5, '#081020'); rect(17, 16, 1, 2, '#4ec4ff'); rect(30, 16, 1, 2, '#4ec4ff');
+    // Blue headset and microphone.
+    rect(7, 15, 3, 14, '#1d66d8'); rect(38, 15, 3, 14, '#1d66d8'); rect(10, 9, 28, 3, '#2f8fff');
+    rect(37, 27, 3, 6, '#2f8fff'); rect(34, 31, 5, 2, '#ffe019');
+    // Talking mouth: two deliberately chunky frames.
+    if (mouthOpen) { rect(19, 30, 10, 5, '#07101e'); rect(21, 33, 6, 2, '#e85a63'); }
+    else { rect(18, 31, 12, 2, '#15341f'); rect(22, 30, 4, 1, '#f3f08a'); }
   }
 
   private paintConnectBody(font: BitmapFont, sc: number): void {
@@ -368,10 +459,11 @@ export class HtmlMenus {
     const origin = (this.game.publicOrigin || location.origin).replace(/^https?:\/\//, '').replace(/\/$/, '');
     const lobby = this.game.lobbyId;
     const lines: { t: string; c: FontVariant }[][] = [
-      [{ t: 'OPEN THIS LINK IN CODEX', c: 'white' }],
+      [{ t: 'COPY + PASTE INTO CODEX:', c: 'white' }],
+      [{ t: 'OPEN THIS URL IN YOUR', c: 'white' }],
+      [{ t: 'EMBEDDED BROWSER:', c: 'white' }],
       [{ t: origin + '/', c: 'cyan' }],
       [{ t: lobby, c: 'cyan' }],
-      [{ t: 'WEBMCP STARTS AUTOMATICALLY', c: 'cyan' }],
     ];
     const lineSc = Math.max(1, sc - 1);
     for (const parts of lines) {
@@ -387,11 +479,14 @@ export class HtmlMenus {
     const wait = this.game.chromeAgent.statusText || (this.game.agentJoined
       ? 'AGENT CONNECTED'
       : 'Waiting for agent to join' + '.'.repeat(1 + (Math.floor(this.game.screens.blink * 2) % 3)));
-    const sig = `${copied ? 1 : 0}|${wait}|${sc}|${this.game.chromeAgent.buttonLabel}|${this.game.chromeAgent.optionVisible}`;
+    const teaserReady = this.game.screens.idle >= 30 ? 1 : 0;
+    const mouth = Math.floor(this.game.screens.blink * 5) % 2;
+    const sig = `${copied ? 1 : 0}|${wait}|${sc}|${this.game.chromeAgent.buttonLabel}|${this.game.chromeAgent.optionVisible}|${teaserReady}|${this.agentChooserOpen ? 1 : 0}|${this.agentTeaserDismissed ? 1 : 0}|${mouth}`;
     if (sig === this.lastSig) return;
     this.lastSig = sig;
     this.paintCopy(copied, font, sc);
     this.paintChromeAgentButton(font, sc);
+    this.paintAgentChooser(font, sc);
     pxFill(document.getElementById('ui-connect-wait'), font, wait, 'cyan', Math.max(1, sc - 1));
     this.paintConnectMarble();
   }

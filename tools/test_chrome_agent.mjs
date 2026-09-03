@@ -14,6 +14,7 @@ const check = (name, ok, detail = '') => {
 mkdirSync('artifacts/browser', { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const context = await browser.newContext({ viewport: { width: 1180, height: 820 } });
+await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(BASE).origin });
 await context.addInitScript(() => {
   localStorage.setItem('mm_desktop_trackball_tutorial_v1', '1');
   window.__chromeAiTest = { created: 0, destroyed: 0, prompts: 0, constrained: 0, initialPrompt: '' };
@@ -50,10 +51,22 @@ await page.evaluate(() => {
   window.game.go('connect');
 });
 
-await page.waitForSelector('#ui-chrome-ai:not([hidden])');
-check('supported desktop shows the Chrome AI choice', await page.locator('#ui-chrome-ai').isVisible());
+check('old standalone Chrome download button stays hidden', await page.locator('#ui-chrome-ai').isHidden());
+check('local-agent teaser waits 30 seconds', await page.locator('#ui-agent-teaser').isHidden());
+check('clipboard callout uses the supplied icon', await page.locator('#ui-copy .ui-copy-icon').getAttribute('src') === '/assets/screens/parts/copybutton.png');
+await page.locator('#ui-copy').click();
+const copied = await page.evaluate(() => navigator.clipboard.readText());
+check('clipboard copy is a direct embedded-browser instruction', /^Open this URL in your embedded browser: https?:\/\//.test(copied) && /WebMCP tools to join as Player 2/.test(copied));
+await page.evaluate(() => { window.game.screens.idle = 31; });
+await page.waitForSelector('#ui-agent-teaser:not([hidden])');
+check('Slippy portal teaser appears after 30 seconds', await page.locator('#ui-agent-teaser').isVisible() && await page.locator('#ui-slippy').isVisible());
+await page.locator('#ui-no-codex').click();
+await page.waitForSelector('#ui-agent-picker:not([hidden])');
+check('agent chooser exposes all requested runtimes', await page.locator('#ui-agent-option-chrome').isVisible() && await page.locator('#ui-agent-option-llama').isVisible() && await page.locator('#ui-agent-option-mtplx').isVisible());
+check('unimplemented local bridges are explicitly disabled', !await page.locator('#ui-agent-option-llama').isEnabled() && !await page.locator('#ui-agent-option-mtplx').isEnabled());
+check('supported desktop enables Chrome AI in the chooser', await page.locator('#ui-agent-option-chrome').isEnabled());
 await page.screenshot({ path: 'artifacts/browser/chrome-ai-connect.png' });
-await page.locator('#ui-chrome-ai').click();
+await page.locator('#ui-agent-option-chrome').click();
 await page.waitForFunction(() => window.__chromeAiTest.created === 1);
 check('user click creates one local model session', await page.evaluate(() => window.__chromeAiTest.created === 1));
 check('session receives the arcade-agent system prompt', await page.evaluate(() => /physical\s+arcade\s+trackball/i.test(window.__chromeAiTest.initialPrompt)));
@@ -104,8 +117,10 @@ const unsupportedContext = await browser.newContext({ viewport: { width: 1180, h
 const unsupported = await unsupportedContext.newPage();
 await unsupported.goto(BASE);
 await unsupported.waitForFunction(() => typeof window.game?.go === 'function' && window.game.chromeAgent.availability !== 'unknown' && window.game.chromeAgent.availability !== 'checking', null, { timeout: 20000 });
-await unsupported.evaluate(() => { window.game.mode = 'ai'; window.game.playerName = 'HUMAN'; window.game.go('connect'); });
-check('unsupported Chrome keeps the existing Codex flow without a dead button', await unsupported.locator('#ui-chrome-ai').isHidden());
+await unsupported.evaluate(() => { window.game.mode = 'ai'; window.game.playerName = 'HUMAN'; window.game.go('connect'); window.game.screens.idle = 31; });
+await unsupported.waitForSelector('#ui-agent-teaser:not([hidden])');
+await unsupported.locator('#ui-no-codex').click();
+check('unsupported Chrome keeps Codex flow and disables the unavailable runtime', await unsupported.locator('#ui-chrome-ai').isHidden() && !await unsupported.locator('#ui-agent-option-chrome').isEnabled());
 await unsupportedContext.close();
 
 await browser.close();

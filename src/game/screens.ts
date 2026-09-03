@@ -129,14 +129,8 @@ export class Screens {
     const g = this.g;
     const origin = g.publicOrigin || location.origin;
     const url = `${origin}/${g.lobbyId}`;
-    const text = `Marble Madness 2-player challenge:
-${url}
-
-Open the link in your embedded browser. WebMCP registers automatically.
-1. Call set_name once.
-2. Wait for race_start with wait_for_race_event.
-3. Steer with spin_trackball; counter-spin to brake.
-4. After race_end, keep the page open. PLAY AGAIN starts the rematch.`;
+    const text = `Open this URL in your embedded browser: ${url}
+Use the page's WebMCP tools to join as Player 2 and race me.`;
     try {
       await navigator.clipboard.writeText(text);
     } catch {
