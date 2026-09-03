@@ -36,6 +36,8 @@ export class Marble {
   support: Support | null = null;
   /** external velocity impulse accumulated this frame (bumps) */
   impU = 0; impV = 0;
+  /** debug: last surface that blocked movement */
+  lastBlock = '';
   /** squeeze direction for the suck/eat animation */
   squeezeDir: 1 | -1 = 1;
   /** true while inside a pipe (invisible, uncontrollable) */
@@ -116,8 +118,8 @@ export class Marble {
       av += dir.dv * ACCEL;
       if (this.support) {
         const g = gradientOn(this.support.s, this.u, this.v);
-        au += g.gu * SLOPE_K;
-        av += g.gv * SLOPE_K;
+        au -= g.gu * SLOPE_K;   // gravity pulls toward lower z
+        av -= g.gv * SLOPE_K;
       }
     } else {
       // slight air control, like the arcade
@@ -143,7 +145,7 @@ export class Marble {
     const moved = this.tryMove(level, nu, nv, zRef, events);
 
     // --- vertical: support / falling --------------------------------------
-    const sup = supportAt(level, this.u, this.v, zRef, this.grounded ? STEP_UP : 0.01);
+    const sup = supportAt(level, this.u, this.v, zRef, this.grounded ? STEP_UP : 0.01, this.grounded ? this.support?.s : null);
     if (this.grounded) {
       if (sup && this.z - sup.z <= DROP_SNAP) {
         // follow the floor (ramps, small steps)
@@ -196,8 +198,10 @@ export class Marble {
 
   /** Move toward (nu,nv) resolving wall faces axis by axis. Returns true if the marble moved. */
   private tryMove(level: StageDef, nu: number, nv: number, zRef: number, events: MarbleEvent[]): boolean {
-    // surfaces already claiming the marble's current spot above it are overlap artifacts / overpasses, not walls
+    // surfaces already claiming the marble's current spot above it are overlap artifacts / overpasses, not walls;
+    // the surface we stand on can never block us (steep ramps probe higher up-slope)
     const here = new Set<number>();
+    if (this.support) here.add(this.support.s.id);
     for (const s of level.surfaces) {
       if (s.kind === 'wall') continue;
       if (inRect(s, this.u, this.v) && heightOn(s, this.u, this.v) > zRef + STEP_UP) here.add(s.id);
@@ -209,7 +213,7 @@ export class Marble {
       const pu = u + (dx / m) * MARBLE_R, pv = v + (dy / m) * MARBLE_R;
       for (const [qu, qv] of [[u, v], [pu, pv]] as const) {
         const hb = highestBelow(level, qu, qv, zRef, undefined, here);
-        if (hb && hb.z > zRef + STEP_UP) return true;
+        if (hb && hb.z > zRef + STEP_UP) { this.lastBlock = `${hb.s.name ?? hb.s.id}@${hb.z.toFixed(1)} at ${qu.toFixed(2)},${qv.toFixed(2)} z${zRef.toFixed(1)}`; return true; }
       }
       return false;
     };

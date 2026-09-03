@@ -1023,14 +1023,14 @@ function drawFrame(ctx, img, f, x, y, flipX = false) {
 var VIEW_W = 288;
 var VIEW_H = 240;
 var MARBLE_R = 0.55;
-var ACCEL = 24;
+var ACCEL = 26;
 var FRICTION = 2;
 var MAX_SPEED = 16;
-var SLOPE_K = 1.9;
+var SLOPE_K = 1.7;
 var GRAVITY = 420;
-var STEP_UP = 3;
+var STEP_UP = 4;
 var DROP_SNAP = 4;
-var WALL_MAX = 56;
+var WALL_MAX = 8;
 var BOUNCE = 0.38;
 var BOUNCE_SFX_SPEED = 2.5;
 var DIZZY_FALL = 18;
@@ -1051,6 +1051,8 @@ var FINISH_BONUS = 2e4;
 var SEC_LEFT_BONUS = 1e3;
 var TIME_BONUS_PER_SEC = 100;
 var BIRD_ZAP_RESETS_TO_START = true;
+var TWO_PLAYER_TELEPORT_PENALTY = 1e3;
+var TWO_PLAYER_TRAIL_MARGIN = 40;
 
 // src/engine/iso.ts
 var HALF_W = 8;
@@ -1589,9 +1591,13 @@ function inRect(r, u, v) {
   }
   return u >= r.u0 && u <= r.u1 && v >= r.v0 && v <= r.v1;
 }
-function supportAt(level, u, v, zRef, stepUp = STEP_UP) {
-  let best = null;
+function supportAt(level, u, v, zRef, stepUp = STEP_UP, prefer) {
   const lim = zRef + stepUp;
+  if (prefer && prefer.kind !== "wall" && inRect(prefer, u, v)) {
+    const zp = heightOn(prefer, u, v);
+    if (zp <= lim && zp >= zRef - 6) return { z: zp, s: prefer };
+  }
+  let best = null;
   for (const s of level.surfaces) {
     if (s.kind === "wall") continue;
     if (!inRect(s, u, v)) continue;
@@ -1606,7 +1612,12 @@ function highestBelow(level, u, v, zRef, wallMax = WALL_MAX, ignore) {
   for (const s of level.surfaces) {
     if (ignore && ignore.has(s.id)) continue;
     if (!inRect(s, u, v)) continue;
-    if (s.kind === "wall") return { z: zRef + wallMax, s };
+    if (s.kind === "wall") {
+      const zw = heightOn(s, u, v);
+      const h = s.wallH ?? 300;
+      if (zRef <= zw + h && zRef >= zw - 8) return { z: zRef + wallMax, s };
+      continue;
+    }
     const z = heightOn(s, u, v);
     if (z <= lim && (!best || z > best.z)) best = { z, s };
   }
@@ -1698,33 +1709,42 @@ var LevelBuilder = class {
    * Axis-aligned strip between two map points (with heights): a ramp/corridor `width` tiles wide
    * whose height varies linearly along its long axis (u or v, whichever changes more).
    */
-  strip(x0, y0, z0, x1, y1, z12, width, name) {
+  strip(x0, y0, z0, x1, y1, z12, width, name, ext = 0.35) {
     const a = toWorld(x0, y0, z0), b = toWorld(x1, y1, z12);
     const du = b.u - a.u, dv = b.v - a.v;
     const half = width / 2;
     if (Math.abs(du) >= Math.abs(dv)) {
-      const u0 = Math.min(a.u, b.u), u1 = Math.max(a.u, b.u);
-      const vc = (a.v + b.v) / 2;
       const gu = (z12 - z0) / (b.u - a.u);
-      const zAtU0 = a.u <= b.u ? z0 : z12;
+      const u0 = Math.min(a.u, b.u) - ext, u1 = Math.max(a.u, b.u) + ext;
+      const vc = (a.v + b.v) / 2;
+      const zAtU0 = (a.u <= b.u ? z0 : z12) - gu * ext;
       return this.rect(u0, vc - half, u1, vc + half, zAtU0, gu, 0, name);
     }
-    const v0 = Math.min(a.v, b.v), v1 = Math.max(a.v, b.v);
-    const uc = (a.u + b.u) / 2;
     const gv = (z12 - z0) / (b.v - a.v);
-    const zAtV0 = a.v <= b.v ? z0 : z12;
+    const v0 = Math.min(a.v, b.v) - ext, v1 = Math.max(a.v, b.v) + ext;
+    const uc = (a.u + b.u) / 2;
+    const zAtV0 = (a.v <= b.v ? z0 : z12) - gv * ext;
     return this.rect(uc - half, v0, uc + half, v1, zAtV0, 0, gv, name);
   }
   /** Solid rails along both long edges of a strip (so the marble stays in the chute). */
-  rails(s, thickness = 0.6) {
+  rails(s, thickness = 0.6, wallH = 14) {
     const alongU = s.u1 - s.u0 >= s.v1 - s.v0;
+    const mk = (u0, v0, u1, v1, name) => {
+      const r = this.rect(u0, v0, u1, v1, heightOn(s, u0, v0), s.gu, s.gv, name, "wall");
+      r.wallH = wallH;
+    };
     if (alongU) {
-      this.rect(s.u0, s.v0 - thickness, s.u1, s.v0, 0, 0, 0, `${s.name ?? "strip"}-railA`, "wall");
-      this.rect(s.u0, s.v1, s.u1, s.v1 + thickness, 0, 0, 0, `${s.name ?? "strip"}-railB`, "wall");
+      mk(s.u0, s.v0 - thickness, s.u1, s.v0, `${s.name ?? "strip"}-railA`);
+      mk(s.u0, s.v1, s.u1, s.v1 + thickness, `${s.name ?? "strip"}-railB`);
     } else {
-      this.rect(s.u0 - thickness, s.v0, s.u0, s.v1, 0, 0, 0, `${s.name ?? "strip"}-railA`, "wall");
-      this.rect(s.u1, s.v0, s.u1 + thickness, s.v1, 0, 0, 0, `${s.name ?? "strip"}-railB`, "wall");
+      mk(s.u0 - thickness, s.v0, s.u0, s.v1, `${s.name ?? "strip"}-railA`);
+      mk(s.u1, s.v0, s.u1 + thickness, s.v1, `${s.name ?? "strip"}-railB`);
     }
+  }
+  /** Solid rails along both D edges of a screen-aligned band (half-pipe walls). */
+  bandRails(b, thickness = 0.6, wallH = 14) {
+    this.def.surfaces.push({ id: this.nextId++, u0: b.u0, v0: b.v0 - thickness, u1: b.u1, v1: b.v0, z0: b.z0 - b.gv * thickness, gu: b.gu, gv: b.gv, kind: "wall", sd: true, name: `${b.name ?? "band"}-railA`, wallH });
+    this.def.surfaces.push({ id: this.nextId++, u0: b.u0, v0: b.v1, u1: b.u1, v1: b.v1 + thickness, z0: b.z0 + b.gv * (b.v1 - b.v0), gu: b.gu, gv: b.gv, kind: "wall", sd: true, name: `${b.name ?? "band"}-railB`, wallH });
   }
   /** Solid obstacle (tent, post, cube cluster): blocks the marble at any height. Map-pixel screen rectangle. */
   wallBand(x0, x1, y0, y1, zRef, name) {
@@ -1789,8 +1809,8 @@ var LevelBuilder = class {
   build() {
     const dMax = this.def.width / HALF_W;
     const sMax = (this.def.height + 400) / HALF_H;
-    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: -6, u1: sMax, v1: -0.4, z0: 0, gu: 0, gv: 0, kind: "wall", sd: true, name: "edgeL" });
-    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: dMax + 0.4, u1: sMax, v1: dMax + 6, z0: 0, gu: 0, gv: 0, kind: "wall", sd: true, name: "edgeR" });
+    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: -6, u1: sMax, v1: -0.4, z0: -3e3, gu: 0, gv: 0, kind: "wall", sd: true, name: "edgeL", wallH: 6e3 });
+    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: dMax + 0.4, u1: sMax, v1: dMax + 6, z0: -3e3, gu: 0, gv: 0, kind: "wall", sd: true, name: "edgeR", wallH: 6e3 });
     this.def.manualSurfaces = [...this.def.surfaces];
     computeFloorMin(this.def);
     return this.def;
@@ -1857,6 +1877,8 @@ var Marble = class {
   /** external velocity impulse accumulated this frame (bumps) */
   impU = 0;
   impV = 0;
+  /** debug: last surface that blocked movement */
+  lastBlock = "";
   /** squeeze direction for the suck/eat animation */
   squeezeDir = 1;
   /** true while inside a pipe (invisible, uncontrollable) */
@@ -1946,8 +1968,8 @@ var Marble = class {
       av += dir.dv * ACCEL;
       if (this.support) {
         const g = gradientOn(this.support.s, this.u, this.v);
-        au += g.gu * SLOPE_K;
-        av += g.gv * SLOPE_K;
+        au -= g.gu * SLOPE_K;
+        av -= g.gv * SLOPE_K;
       }
     } else {
       au += dir.du * ACCEL * 0.25;
@@ -1972,7 +1994,7 @@ var Marble = class {
     const nv = this.v + this.vv * h;
     const zRef = this.z;
     const moved = this.tryMove(level, nu, nv, zRef, events);
-    const sup = supportAt(level, this.u, this.v, zRef, this.grounded ? STEP_UP : 0.01);
+    const sup = supportAt(level, this.u, this.v, zRef, this.grounded ? STEP_UP : 0.01, this.grounded ? this.support?.s : null);
     if (this.grounded) {
       if (sup && this.z - sup.z <= DROP_SNAP) {
         if (sup.z > this.z) this.z = sup.z;
@@ -2022,6 +2044,7 @@ var Marble = class {
   /** Move toward (nu,nv) resolving wall faces axis by axis. Returns true if the marble moved. */
   tryMove(level, nu, nv, zRef, events) {
     const here = /* @__PURE__ */ new Set();
+    if (this.support) here.add(this.support.s.id);
     for (const s of level.surfaces) {
       if (s.kind === "wall") continue;
       if (inRect(s, this.u, this.v) && heightOn(s, this.u, this.v) > zRef + STEP_UP) here.add(s.id);
@@ -2032,7 +2055,10 @@ var Marble = class {
       const pu = u + dx / m * MARBLE_R, pv = v + dy / m * MARBLE_R;
       for (const [qu, qv] of [[u, v], [pu, pv]]) {
         const hb = highestBelow(level, qu, qv, zRef, void 0, here);
-        if (hb && hb.z > zRef + STEP_UP) return true;
+        if (hb && hb.z > zRef + STEP_UP) {
+          this.lastBlock = `${hb.s.name ?? hb.s.id}@${hb.z.toFixed(1)} at ${qu.toFixed(2)},${qv.toFixed(2)} z${zRef.toFixed(1)}`;
+          return true;
+        }
       }
       return false;
     };
@@ -2104,11 +2130,11 @@ L.wallBand(98, 198, 96, 186, 126, "tentBlock");
 L.wallAt(137, 270, Z_TOP, 0.9, 0.9, "post");
 L.wallAt(30, 275, 82, 1.2, 1.2, "tentSL");
 L.wallAt(238, 270, 125, 1.2, 1.2, "tentSR");
-var chuteA = L.strip(146, 342, 100, 172, 402, 70, 3, "chuteA");
-L.rails(chuteA);
-var chuteB = L.strip(172, 402, 70, 198, 462, 40, 3, "chuteB");
-L.rails(chuteB);
-L.strip(196, 460, 40, 30, 542, 38, 2.6, "goalCorridor");
+var chuteA = L.band(124, 188, 316, 14, 100, -2.15, -0.5, "chuteA");
+L.bandRails(chuteA);
+var chuteB = L.band(140, 216, 402, 7.5, 70, -4, -1, "chuteB");
+L.bandRails(chuteB);
+L.strip(200, 452, 40, 30, 542, 38, 3.2, "goalCorridor");
 L.strip(232, 318, 100, 268, 336, 61, 3.2, "rampRight");
 var start = L.uv(145, 62, 136);
 L.start(start.u, start.v);
@@ -2140,8 +2166,272 @@ L.zone("bonus", goal.u - 3, goal.v - 3, goal.u + 3, goal.v + 3, 1e3, "goalflags"
 L.zone("goal", goal.u - 3.5, goal.v - 3.5, goal.u + 3.5, goal.v + 3.5, void 0, "goal", 25, 55);
 var stage1 = L.build();
 
+// src/levels/stage2.ts
+var L2 = new LevelBuilder({
+  id: 2,
+  name: "BEGINNER RACE",
+  music: "beginner",
+  image: "stages/stage2.png",
+  width: 288,
+  height: 1160,
+  timeAdd: 65,
+  carryTime: false
+});
+L2.strip(214, 190, 100, 44, 372, -10, 2.8, "rampA");
+L2.strip(120, 200, 100, 146, 234, 52, 2.8, "rampB1");
+L2.strip(146, 234, 52, 218, 372, -10, 2.8, "rampB");
+L2.wallAt(123, 402, -10, 1.4, 1.4, "coneM");
+L2.wallAt(35, 420, -10, 1.4, 1.4, "coneL");
+L2.wallAt(211, 420, -10, 1.4, 1.4, "coneR");
+var stairs = L2.strip(170, 545, -10, 124, 600, -43, 2.4, "stairs");
+L2.rails(stairs);
+L2.pipe({ u0: 0, v0: 0, u1: 0, v1: 0, exit: { u: 0, v: 0, vu: -3, vv: 3 }, duration: 1.6, bonus: 4e3 });
+var funnel = L2.uv(245, 612, -43);
+L2.rect(funnel.u - 2.2, funnel.v - 2.2, funnel.u + 2.2, funnel.v + 2.2, -43, 0, 0, "funnelFloor");
+var pathExit = L2.uv(204, 704, -140);
+L2.def.pipes[0] = {
+  u0: funnel.u - 1.4,
+  v0: funnel.v - 1.4,
+  u1: funnel.u + 1.4,
+  v1: funnel.v + 1.4,
+  zMin: -60,
+  zMax: -30,
+  exit: { u: pathExit.u, v: pathExit.v, vu: -2, vv: 4 },
+  duration: 1.6,
+  bonus: 4e3
+};
+var yOut = L2.uv(236, 892, -305);
+for (const [ix, iy] of [[125, 803], [178, 786]]) {
+  const yIn = L2.uv(ix, iy, -140);
+  L2.rect(yIn.u - 2.2, yIn.v - 2.2, yIn.u + 2.2, yIn.v + 2.2, -140, 0, 0, "inletFloor");
+  L2.pipe({
+    u0: yIn.u - 1.5,
+    v0: yIn.v - 1.5,
+    u1: yIn.u + 1.5,
+    v1: yIn.v + 1.5,
+    zMin: -160,
+    zMax: -120,
+    exit: { u: yOut.u, v: yOut.v, vu: 2, vv: 3 },
+    duration: 1.5,
+    bonus: 2e3
+  });
+}
+var ice = L2.strip(232, 950, -305, 120, 1060, -395, 6, "ice");
+var start2 = L2.uv(64, 70, 100);
+L2.start(start2.u, start2.v);
+L2.checkpoint(start2.u, start2.v);
+var c1 = L2.uv(127, 430, -10);
+L2.checkpoint(c1.u, c1.v);
+L2.zone("checkpoint", c1.u - 8, c1.v - 8, c1.u + 8, c1.v + 8, 1, "cp1", -20, 0);
+var c2 = L2.uv(228, 560, -43);
+L2.checkpoint(c2.u, c2.v);
+L2.zone("checkpoint", c2.u - 6, c2.v - 6, c2.u + 6, c2.v + 6, 2, "cp2", -55, -30);
+var c3 = L2.uv(200, 720, -140);
+L2.checkpoint(c3.u, c3.v);
+L2.zone("checkpoint", c3.u - 4, c3.v - 4, c3.u + 4, c3.v + 4, 3, "cp3", -150, -130);
+var c4 = L2.uv(240, 910, -305);
+L2.checkpoint(c4.u, c4.v);
+L2.zone("checkpoint", c4.u - 4, c4.v - 4, c4.u + 4, c4.v + 4, 4, "cp4", -320, -290);
+var signC = L2.uv(150, 1094, -395);
+L2.rect(signC.u - 3.5, signC.v - 3.5, signC.u + 3.5, signC.v + 3.5, -395, 0, 0, "goalSign");
+var goal2 = L2.uv(184, 1108, -395);
+L2.zone("goal", goal2.u - 3.5, goal2.v - 3.5, goal2.u + 3.5, goal2.v + 3.5, void 0, "goal", -410, -380);
+L2.hazard({ kind: "steelie", u: L2.uv(90, 400, -10).u, v: L2.uv(90, 400, -10).v });
+L2.hazard({ kind: "worm", u: L2.uv(150, 120, 100).u, v: L2.uv(150, 120, 100).v, range: 6 });
+L2.hazard({ kind: "worm", u: L2.uv(200, 150, 100).u, v: L2.uv(200, 150, 100).v, range: 5 });
+var stage2 = L2.build();
+
+// src/levels/stage3.ts
+var L3 = new LevelBuilder({
+  id: 3,
+  name: "INTERMEDIATE RACE",
+  music: "intermediate",
+  image: "stages/stage3.png",
+  width: 288,
+  height: 1080,
+  timeAdd: 35,
+  carryTime: true
+});
+{
+  const a = L3.uv(150, 300, 40), b = L3.uv(150, 380, 40);
+  L3.zone("kill", Math.min(a.u, b.u) - 6, Math.min(a.v, b.v) - 6, Math.max(a.u, b.u) + 6, Math.max(a.v, b.v) + 6, void 0, "pit", -100, 80);
+}
+var funnel2 = L3.uv(162, 645, 100);
+L3.rect(funnel2.u - 2.4, funnel2.v - 2.4, funnel2.u + 2.4, funnel2.v + 2.4, 100, 0, 0, "funnelFloor");
+var pipeOut = L3.uv(150, 752, -25);
+L3.pipe({
+  u0: funnel2.u - 1.4,
+  v0: funnel2.v - 1.4,
+  u1: funnel2.u + 1.4,
+  v1: funnel2.v + 1.4,
+  zMin: 88,
+  zMax: 112,
+  exit: { u: pipeOut.u, v: pipeOut.v, vu: 1, vv: 3 },
+  duration: 1.5,
+  bonus: 2e3
+});
+L3.band(64, 272, 812, 12, -40, 0, 0, "plate");
+L3.strip(120, 880, -40, 60, 1e3, -100, 3, "waveL");
+L3.strip(210, 880, -40, 140, 1e3, -100, 3, "waveR");
+L3.strip(80, 1e3, -100, 230, 1040, -120, 4, "goalRun");
+var signC2 = L3.uv(232, 1036, -120);
+L3.rect(signC2.u - 3.5, signC2.v - 3.5, signC2.u + 3.5, signC2.v + 3.5, -120, 0, 0, "goalSign");
+var start3 = L3.uv(146, 100, 100);
+L3.start(start3.u, start3.v);
+L3.checkpoint(start3.u, start3.v);
+var c12 = L3.uv(150, 500, 100);
+L3.checkpoint(c12.u, c12.v);
+L3.zone("checkpoint", c12.u - 8, c12.v - 8, c12.u + 8, c12.v + 8, 1, "cp1", 90, 110);
+var c22 = L3.uv(150, 760, -25);
+L3.checkpoint(c22.u, c22.v);
+L3.zone("checkpoint", c22.u - 5, c22.v - 5, c22.u + 5, c22.v + 5, 2, "cp2", -40, -10);
+var c32 = L3.uv(160, 850, -40);
+L3.checkpoint(c32.u, c32.v);
+L3.zone("checkpoint", c32.u - 6, c32.v - 6, c32.u + 6, c32.v + 6, 3, "cp3", -55, -25);
+var goal3 = L3.uv(232, 1036, -120);
+L3.zone("goal", goal3.u - 3.5, goal3.v - 3.5, goal3.u + 3.5, goal3.v + 3.5, void 0, "goal", -135, -105);
+for (const [x, y] of [[40, 300], [235, 300], [120, 560]]) {
+  const p = L3.uv(x, y, 100);
+  L3.hazard({ kind: "slime", u: p.u, v: p.v, range: 2 });
+}
+L3.hazard({ kind: "wand", u: 0, v: 0, band: [40, 120] });
+{
+  const p = L3.uv(200, 520, 100);
+  L3.hazard({ kind: "worm", u: p.u, v: p.v, range: 5 });
+}
+var stage3 = L3.build();
+
+// src/levels/stage4.ts
+var L4 = new LevelBuilder({
+  id: 4,
+  name: "AERIAL RACE",
+  music: "aerial",
+  image: "stages/stage4.png",
+  width: 288,
+  height: 1024,
+  timeAdd: 30,
+  carryTime: true
+});
+L4.strip(86, 238, 191, 124, 300, 100, 3, "slidePink");
+L4.strip(198, 254, 130, 186, 300, 100, 3, "slideYellow");
+L4.strip(122, 640, 100, 96, 700, 15, 3, "downLeft");
+L4.strip(176, 560, 100, 214, 660, 8, 3, "downRight");
+L4.strip(110, 790, 15, 112, 848, -80, 3, "toBlueL");
+L4.strip(206, 732, 8, 206, 756, -80, 3, "toBlueR");
+L4.strip(86, 950, -80, 86, 998, -112, 3, "toGoal");
+var start4 = L4.uv(60, 215, 215);
+L4.start(start4.u, start4.v);
+L4.checkpoint(start4.u, start4.v);
+var c13 = L4.uv(100, 300, 100);
+L4.checkpoint(c13.u, c13.v);
+L4.zone("checkpoint", c13.u - 6, c13.v - 6, c13.u + 6, c13.v + 6, 1, "cp1", 90, 110);
+var c23 = L4.uv(160, 540, 100);
+L4.checkpoint(c23.u, c23.v);
+L4.zone("checkpoint", c23.u - 6, c23.v - 6, c23.u + 6, c23.v + 6, 2, "cp2", 90, 110);
+var c33 = L4.uv(150, 700, 15);
+L4.checkpoint(c33.u, c33.v);
+L4.zone("checkpoint", c33.u - 6, c33.v - 6, c33.u + 6, c33.v + 6, 3, "cp3", 0, 30);
+var c42 = L4.uv(180, 890, -80);
+L4.checkpoint(c42.u, c42.v);
+L4.zone("checkpoint", c42.u - 6, c42.v - 6, c42.u + 6, c42.v + 6, 4, "cp4", -95, -65);
+var signC3 = L4.uv(88, 972, -112);
+L4.rect(signC3.u - 3.5, signC3.v - 3.5, signC3.u + 3.5, signC3.v + 3.5, -112, 0, 0, "goalSign");
+L4.zone("bonus", signC3.u - 4, signC3.v - 4, signC3.u + 4, signC3.v + 4, 4e3, "goalflags", -130, -95);
+L4.zone("goal", signC3.u - 3.5, signC3.v - 3.5, signC3.u + 3.5, signC3.v + 3.5, void 0, "goal", -130, -95);
+for (const [x, y, f] of [[120, 330, 1], [190, 470, -1]]) {
+  const p = L4.uv(x, y, 100);
+  L4.hazard({ kind: "hammer", u: p.u, v: p.v, period: 2.4, phase: Math.random() * 2, facing: f });
+}
+for (const [x, y] of [[26, 516], [90, 568], [122, 640]]) {
+  const p = L4.uv(x, y, 100);
+  L4.hazard({ kind: "vacuum", u: p.u, v: p.v, period: 6, phase: Math.random() * 6 });
+}
+var stage4 = L4.build();
+
+// src/levels/stage5.ts
+var L5 = new LevelBuilder({
+  id: 5,
+  name: "SILLY RACE",
+  music: "silly",
+  image: "stages/stage5.png",
+  width: 288,
+  height: 1144,
+  timeAdd: 20,
+  carryTime: true,
+  progressDir: -1
+});
+L5.strip(176, 830, 100, 206, 636, 235, 3.2, "climbA");
+L5.strip(110, 578, 235, 60, 520, 339, 3.2, "climbB");
+L5.strip(270, 304, 339, 270, 268, 356, 3.2, "climbC");
+L5.strip(150, 104, 356, 150, 62, 385, 3.2, "climbD");
+var start5 = L5.uv(146, 1060, 100);
+L5.start(start5.u, start5.v);
+L5.checkpoint(start5.u, start5.v);
+{
+  const a = L5.uv(60, 990, 100), b = L5.uv(230, 1080, 100);
+  L5.zone("timezone", Math.min(a.u, b.u), Math.min(a.v, b.v), Math.max(a.u, b.u), Math.max(a.v, b.v), void 0, "plaza", 90, 110);
+}
+var c14 = L5.uv(150, 860, 100);
+L5.checkpoint(c14.u, c14.v);
+L5.zone("checkpoint", c14.u - 6, c14.v - 6, c14.u + 6, c14.v + 6, 1, "cp1", 85, 130);
+var c24 = L5.uv(160, 700, 201);
+L5.checkpoint(c24.u, c24.v);
+L5.zone("checkpoint", c24.u - 6, c24.v - 6, c24.u + 6, c24.v + 6, 2, "cp2", 185, 250);
+var c34 = L5.uv(60, 440, 339);
+L5.checkpoint(c34.u, c34.v);
+L5.zone("checkpoint", c34.u - 6, c34.v - 6, c34.u + 6, c34.v + 6, 3, "cp3", 325, 365);
+var goalC = L5.uv(150, 62, 385);
+L5.rect(goalC.u - 3.5, goalC.v - 3.5, goalC.u + 3.5, goalC.v + 3.5, 385, 0, 0, "goalSign");
+L5.zone("bonus", goalC.u - 4, goalC.v - 4, goalC.u + 4, goalC.v + 4, 2e3, "goalflags", 370, 400);
+L5.zone("goal", goalC.u - 3.5, goalC.v - 3.5, goalC.u + 3.5, goalC.v + 3.5, void 0, "goal", 370, 400);
+for (const [x, y] of [[100, 1010], [190, 1020], [150, 1050]]) {
+  const p = L5.uv(x, y, 100);
+  L5.hazard({ kind: "slime", u: p.u, v: p.v, range: 2 });
+}
+L5.hazard({ kind: "birds", u: 0, v: 0, band: [40, 140], period: 7, count: 4 });
+L5.hazard({ kind: "wand", u: 0, v: 0, band: [150, 260] });
+var stage5 = L5.build();
+
+// src/levels/stage6.ts
+var L6 = new LevelBuilder({
+  id: 6,
+  name: "ULTIMATE RACE",
+  music: "ultimate",
+  image: "stages/stage6.png",
+  width: 288,
+  height: 864,
+  timeAdd: 20,
+  carryTime: true
+});
+var start6 = L6.uv(120, 96, 100);
+L6.start(start6.u, start6.v);
+L6.checkpoint(start6.u, start6.v);
+L6.strip(60, 236, 65, 96, 276, 65, 2.4, "glassA");
+L6.strip(136, 270, 65, 170, 316, 65, 2.4, "glassB");
+var c15 = L6.uv(150, 300, 65);
+L6.checkpoint(c15.u, c15.v);
+L6.zone("checkpoint", c15.u - 6, c15.v - 6, c15.u + 6, c15.v + 6, 1, "cp1", 50, 80);
+L6.zone("bonus", c15.u - 3, c15.v - 3, c15.u + 3, c15.v + 3, 2e3, "glassBonus", 50, 80);
+var c25 = L6.uv(150, 520, -124);
+L6.checkpoint(c25.u, c25.v);
+L6.zone("checkpoint", c25.u - 6, c25.v - 6, c25.u + 6, c25.v + 6, 2, "cp2", -140, -110);
+var goalC2 = L6.uv(156, 706, -277);
+L6.rect(goalC2.u - 3.5, goalC2.v - 3.5, goalC2.u + 3.5, goalC2.v + 3.5, -277, 0, 0, "goalSign");
+L6.zone("bonus", goalC2.u - 4, goalC2.v - 4, goalC2.u + 4, goalC2.v + 4, 6e3, "goalflags", -292, -262);
+L6.zone("goal", goalC2.u - 3.5, goalC2.v - 3.5, goalC2.u + 3.5, goalC2.v + 3.5, void 0, "goal", -292, -262);
+{
+  const p = L6.uv(150, 600, -188);
+  L6.hazard({ kind: "steelie", u: p.u, v: p.v });
+}
+{
+  const p = L6.uv(60, 340, 16);
+  L6.hazard({ kind: "slime", u: p.u, v: p.v, range: 2 });
+}
+L6.hazard({ kind: "birds", u: 0, v: 0, band: [60, 200], period: 8, count: 4 });
+var stage6 = L6.build();
+
 // src/levels/index.ts
-var STAGES = [stage1];
+var STAGES = [stage1, stage2, stage3, stage4, stage5, stage6];
 
 // src/game/hazards.ts
 var Hazard = class {
@@ -2598,7 +2888,7 @@ var Screens = class {
     if (screen === "gameover") {
       void this.g.submitScore();
     }
-    this.showConnect(screen === "connect");
+    this.showConnect(screen === "connect" && !this.g.isAgentPage);
   }
   update(dt) {
     const g = this.g;
@@ -2630,6 +2920,7 @@ var Screens = class {
           if (p === "Enter" || p === "Space" || p === "Mouse" || p === "Touch") {
             g.mode = ["1p", "ai", "multi"][this.cursor];
             g.sound.sfx("item");
+            g.beginMode();
             g.go("name");
           }
           if (p === "Escape") g.go("title");
@@ -2796,7 +3087,7 @@ var Screens = class {
       const rank = `#${i + 1}`;
       r.textR(rank, 70, y, variant);
       if (e) {
-        r.text(e.name.slice(0, 6), 78, y, variant);
+        r.text(e.name.replace(/\[(NI|AI)\]\s*/i, "").slice(0, 6), 78, y, variant);
         r.textR(fmtScore(e.score), 232, y, variant);
       }
     }
@@ -2846,10 +3137,17 @@ var Screens = class {
     const r = g.r;
     r.textC("PLAYER 1", VIEW_W / 2, 30, "lavender");
     r.textC("SELECT CONTROL TYPE", VIEW_W / 2, 46, "lavender");
-    const opts = ["A   SCREEN", "B   45\xB0"];
+    const opts = ["A   SCREEN", "B   45"];
     opts.forEach((o, i) => {
       const y = 130 + i * 20;
       r.text(o, 110, y, "white");
+      if (i === 1) {
+        r.ctx.strokeStyle = "#fff";
+        r.ctx.lineWidth = 1;
+        r.ctx.beginPath();
+        r.ctx.arc(110 + 8 * 6 + 2.5, y + 1.5, 1.5, 0, Math.PI * 2);
+        r.ctx.stroke();
+      }
       if (this.cursor === i) drawFrame(r.ctx, g.assets.sheets.marble, FRAMES.marble.roll[Math.floor(this.blink * 6) % 6], 94, y + 4);
     });
     r.textC("ARROWS/WASD  MOUSE=TRACKBALL", VIEW_W / 2, 200, "orange");
@@ -2857,6 +3155,15 @@ var Screens = class {
   renderConnect() {
     const g = this.g;
     const r = g.r;
+    if (g.isAgentPage) {
+      r.textC("PLAYER VS AI", VIEW_W / 2, 30, "lavender");
+      r.textC("AGENT MARBLE", VIEW_W / 2, 46, "orange");
+      r.textC("LOBBY " + g.lobbyId.slice(0, 8).toUpperCase(), VIEW_W / 2, 90, "cyan");
+      const dots2 = ".".repeat(1 + Math.floor(this.blink * 2) % 3);
+      r.textC(g.net.connected ? `WAITING FOR HUMAN TO START${dots2}` : `CONNECTING${dots2}`, VIEW_W / 2, 130, "white");
+      r.textC("USE WEBMCP TOOLS TO STEER", VIEW_W / 2, 170, "lavender");
+      return;
+    }
     r.textC("PLAYER VS AI", VIEW_W / 2, 30, "lavender");
     r.textC("CONNECT YOUR AGENT", VIEW_W / 2, 46, "lavender");
     r.textC("LOBBY", VIEW_W / 2, 90, "white");
@@ -2934,6 +3241,352 @@ var Screens = class {
   }
 };
 
+// src/game/net.ts
+var Net = class {
+  ws = null;
+  id = "";
+  lobby = "";
+  role = "human";
+  players = /* @__PURE__ */ new Map();
+  connected = false;
+  sendAcc = 0;
+  reconnectT = null;
+  wantName = "";
+  onJoined;
+  onLeft;
+  onStart;
+  onBump;
+  onLeaderboard;
+  connect(lobby, role, name) {
+    this.lobby = lobby;
+    this.role = role;
+    this.wantName = name;
+    this.close();
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const url = `${proto}://${location.host}/ws?lobby=${encodeURIComponent(lobby)}&role=${role}`;
+    try {
+      this.ws = new WebSocket(url);
+    } catch {
+      this.scheduleReconnect();
+      return;
+    }
+    this.ws.onopen = () => {
+      this.connected = true;
+      this.send({ type: "join", lobby, role, name });
+    };
+    this.ws.onmessage = (ev) => this.handle(JSON.parse(String(ev.data)));
+    this.ws.onclose = () => {
+      this.connected = false;
+      this.players.clear();
+      this.scheduleReconnect();
+    };
+    this.ws.onerror = () => {
+    };
+  }
+  scheduleReconnect() {
+    if (this.reconnectT !== null || !this.lobby) return;
+    this.reconnectT = window.setTimeout(() => {
+      this.reconnectT = null;
+      this.connect(this.lobby, this.role, this.wantName);
+    }, 3e3);
+  }
+  close() {
+    if (this.reconnectT !== null) {
+      clearTimeout(this.reconnectT);
+      this.reconnectT = null;
+    }
+    if (this.ws) {
+      const w = this.ws;
+      this.ws = null;
+      w.onclose = null;
+      try {
+        w.close();
+      } catch {
+      }
+    }
+    this.connected = false;
+    this.players.clear();
+  }
+  /** disconnect for good (leaving the lobby) */
+  leave() {
+    this.lobby = "";
+    this.close();
+  }
+  handle(m) {
+    switch (m.type) {
+      case "welcome":
+        this.id = String(m.id);
+        for (const p of m.players ?? []) this.upsert(p);
+        break;
+      case "joined": {
+        const p = { id: String(m.id), role: m.role, name: String(m.name) };
+        this.onJoined?.(p);
+        break;
+      }
+      case "left": {
+        const id = String(m.id);
+        this.players.delete(id);
+        this.onLeft?.({ id, role: m.role, name: String(m.name) });
+        break;
+      }
+      case "tick": {
+        const seen = /* @__PURE__ */ new Set();
+        for (const p of m.players ?? []) {
+          if (p.id === this.id) continue;
+          seen.add(p.id);
+          this.upsert(p);
+        }
+        for (const id of [...this.players.keys()]) if (!seen.has(id)) this.players.delete(id);
+        break;
+      }
+      case "start":
+        this.onStart?.(Number(m.stage) || 1, String(m.by));
+        break;
+      case "bump":
+        this.onBump?.(Number(m.iu) || 0, Number(m.iv) || 0, String(m.from));
+        break;
+      case "leaderboard":
+        this.onLeaderboard?.(m.top50 ?? []);
+        break;
+    }
+  }
+  upsert(p) {
+    const cur = this.players.get(p.id);
+    if (cur) {
+      Object.assign(cur, p, { tu: p.u, tv: p.v, tz: p.z, lastSeen: performance.now() });
+    } else {
+      this.players.set(p.id, { ...p, tu: p.u, tv: p.v, tz: p.z, lastSeen: performance.now() });
+    }
+  }
+  /** smooth remote marbles toward their latest state */
+  update(dt) {
+    for (const p of this.players.values()) {
+      p.tu += p.vu * dt * 0.5;
+      p.tv += p.vv * dt * 0.5;
+      const k = Math.min(1, dt * 14);
+      p.u += (p.tu - p.u) * k;
+      p.v += (p.tv - p.v) * k;
+      p.z += (p.tz - p.z) * k;
+    }
+  }
+  send(obj) {
+    if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(obj));
+  }
+  /** ≤ 30 Hz state broadcast */
+  sendState(dt, s) {
+    this.sendAcc += dt;
+    if (this.sendAcc < 1 / 30) return;
+    this.sendAcc = 0;
+    this.send({ type: "state", ...s, u: +s.u.toFixed(3), v: +s.v.toFixed(3), z: +s.z.toFixed(1), vu: +s.vu.toFixed(2), vv: +s.vv.toFixed(2) });
+  }
+  sendStart(stage) {
+    this.send({ type: "start", stage });
+  }
+  sendBump(targetId, iu, iv) {
+    this.send({ type: "bump", targetId, iu, iv });
+  }
+  /** the first remote player with the given role (2P lobbies have exactly one opponent) */
+  opponent(role) {
+    for (const p of this.players.values()) if (!role || p.role === role) return p;
+    return void 0;
+  }
+};
+
+// src/game/webmcp.ts
+var DIRS = {
+  N: [0, -1],
+  NE: [1, -1],
+  E: [1, 0],
+  SE: [1, 1],
+  S: [0, 1],
+  SW: [-1, 1],
+  W: [-1, 0],
+  NW: [-1, -1],
+  UP: [0, -1],
+  DOWN: [0, 1],
+  LEFT: [-1, 0],
+  RIGHT: [1, 0]
+};
+var WebMCP = class {
+  constructor(game) {
+    this.game = game;
+    this.tools = [
+      {
+        name: "get_game_state",
+        description: "Marble Madness: current screen, race, timer, score and the marble's position/velocity in map pixels (x right, y down), plus the opponent marble if any. Call this every few hundred ms while racing. The course descends toward larger y (except the Silly Race which ascends).",
+        inputSchema: { type: "object", properties: {} },
+        execute: () => this.state()
+      },
+      {
+        name: "steer_trackball",
+        description: "Push the trackball. direction: N/NE/E/SE/S/SW/W/NW (screen directions, S = down the screen) or degrees 0-360 (0 = right, 90 = down). impulse 0.1-1.0, duration_ms 50-600. Momentum carries: short pushes and counter-steering are needed near edges.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            direction: { type: "string", description: "N, NE, E, SE, S, SW, W, NW or a number of degrees" },
+            impulse: { type: "number", minimum: 0.1, maximum: 1, default: 0.7 },
+            duration_ms: { type: "number", minimum: 50, maximum: 600, default: 200 }
+          },
+          required: ["direction"]
+        },
+        execute: (a) => this.steer(String(a.direction ?? "S"), Number(a.impulse ?? 0.7), Number(a.duration_ms ?? 200))
+      },
+      {
+        name: "apply_brake",
+        description: "Stop pushing and let friction slow the marble for duration_ms (50-800). Use before edges and turns.",
+        inputSchema: { type: "object", properties: { duration_ms: { type: "number", minimum: 50, maximum: 800, default: 250 } } },
+        execute: (a) => {
+          this.mark();
+          this.game.input.setAI(0, 0, Number(a.duration_ms ?? 250));
+          return { ok: true };
+        }
+      },
+      {
+        name: "start_or_respawn",
+        description: "Advance from any menu screen (title, menu, name entry) into a race, or start a new game after game over. In a Player-vs-AI lobby the human starts the race; this just confirms you are ready.",
+        inputSchema: { type: "object", properties: {} },
+        execute: () => this.startOrRespawn()
+      },
+      {
+        name: "submit_leaderboard_score",
+        description: "Submit the current score to the High Rollers leaderboard under a 1-6 letter name (tagged as AI).",
+        inputSchema: { type: "object", properties: { initials: { type: "string", maxLength: 6 } }, required: ["initials"] },
+        execute: async (a) => {
+          const g = this.game;
+          g.playerName = String(a.initials ?? "AI").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) || "AI";
+          g.isAI = true;
+          g.scoreSubmitted = false;
+          await g.submitScore();
+          return { ok: true, name: g.playerName, score: g.score };
+        }
+      }
+    ];
+    this.register();
+  }
+  tools;
+  used = false;
+  mark() {
+    if (!this.used) {
+      this.used = true;
+      this.game.isAI = true;
+      this.game.onAgentDetected?.();
+    }
+  }
+  register() {
+    const w = window;
+    const surfaces = [];
+    const nav = navigator;
+    const doc = document;
+    if (nav.modelContext?.registerTool) surfaces.push(nav.modelContext);
+    if (doc.modelContext?.registerTool) surfaces.push(doc.modelContext);
+    for (const s of surfaces) for (const t of this.tools) {
+      try {
+        s.registerTool(t);
+      } catch (e) {
+        console.warn("[webmcp] register failed", t.name, e);
+      }
+    }
+    w.webmcp = {
+      listTools: () => this.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+      callTool: async (name, args = {}) => {
+        const t = this.tools.find((x) => x.name === name);
+        if (!t) throw new Error(`unknown tool ${name}`);
+        return t.execute(args ?? {});
+      }
+    };
+    console.log(`[webmcp] ${this.tools.length} tools registered (${surfaces.length} modelContext surface(s), window.webmcp fallback)`);
+  }
+  state() {
+    const g = this.game;
+    const m = g.marble;
+    const mx = (m.u - m.v) * 8, my = (m.u + m.v) * 4 - m.z;
+    const opp = g.others[0];
+    return {
+      screen: g.screen,
+      mode: g.mode,
+      lobby: g.lobbyId || null,
+      agentJoined: g.agentJoined,
+      race: { stage: g.stageIdx + 1, name: g.stage.name, direction: g.stage.progressDir > 0 ? "descend (+y)" : "ascend (-y)", timeLeft: Math.round(g.timeLeft * 10) / 10, score: g.score, deaths: g.deaths },
+      marble: {
+        x: Math.round(mx),
+        y: Math.round(my),
+        height: Math.round(m.z),
+        vx: Math.round((m.vu - m.vv) * 8),
+        vy: Math.round((m.vu + m.vv) * 4),
+        speed: +m.speed.toFixed(2),
+        grounded: m.grounded,
+        phase: m.phase,
+        dizzy: m.dizzyT > 0,
+        frozen: m.frozenT > 0,
+        inPipe: m.inPipe,
+        supportedBy: m.support ? m.support.s.name ?? "floor" : null
+      },
+      opponent: opp ? { x: Math.round((opp.u - opp.v) * 8), y: Math.round((opp.u + opp.v) * 4 - opp.z), phase: opp.phase } : null,
+      camera: { y: Math.round(g.r.cam.y), viewHeight: 240 },
+      hint: "y increases down the screen; hold S to roll down the course, use E/W to line up with ramps. Avoid dark voids; walls bounce you."
+    };
+  }
+  steer(direction, impulse, duration) {
+    this.mark();
+    let ax = 0, ay = 0;
+    const d = DIRS[direction.toUpperCase()];
+    if (d) {
+      ax = d[0];
+      ay = d[1];
+    } else {
+      const deg = Number(direction);
+      if (Number.isFinite(deg)) {
+        ax = Math.cos(deg * Math.PI / 180);
+        ay = Math.sin(deg * Math.PI / 180);
+      } else {
+        ay = 1;
+      }
+    }
+    const m = Math.hypot(ax, ay) || 1;
+    const k = Math.max(0.1, Math.min(1, impulse));
+    this.game.input.setAI(ax / m * k, ay / m * k, Math.max(50, Math.min(600, duration)));
+    return { ok: true, direction, impulse: k, duration_ms: duration };
+  }
+  startOrRespawn() {
+    const g = this.game;
+    this.mark();
+    switch (g.screen) {
+      case "highrollers":
+      case "title":
+        g.go("menu");
+        g.sound.init();
+        return { ok: true, screen: g.screen };
+      case "menu":
+        g.mode = g.mode === "ai" ? "ai" : "1p";
+        g.playerName = g.playerName || "AGENT";
+        g.go("control");
+        return { ok: true, screen: g.screen };
+      case "name":
+        g.playerName = g.playerName || "AGENT";
+        g.go("control");
+        return { ok: true, screen: g.screen };
+      case "control":
+        if (g.mode === "ai" && g.net.lobby) {
+          g.agentReady = true;
+          return { ok: true, waitingForHuman: true };
+        }
+        g.newGame(0);
+        return { ok: true, screen: "intro" };
+      case "connect":
+        return { ok: true, waitingForHuman: true };
+      case "gameover":
+      case "congrats":
+        g.go("highrollers");
+        return { ok: true, screen: g.screen };
+      case "race":
+        if (g.marble.phase === "dead" || g.marble.phase === "dying") return { ok: true, respawning: true };
+        return { ok: true, screen: "race", note: "already racing" };
+      default:
+        return { ok: true, screen: g.screen, stages: STAGES.length };
+    }
+  }
+};
+
 // src/game/game.ts
 var DEFAULT_ROLLERS = [
   { name: "ALEX", score: 152730 },
@@ -2954,6 +3607,40 @@ var Game = class {
     this.input = input;
     this.sound = sound;
     this.screens = new Screens(this);
+    const mm = window.__MM__;
+    if (mm) {
+      this.lobbyId = mm.lobby;
+      this.isAgentPage = mm.fromPath;
+      this.publicOrigin = mm.publicOrigin || location.origin;
+    }
+    if (!this.lobbyId) this.lobbyId = crypto.randomUUID();
+    this.net.onJoined = (p) => {
+      if (this.mode === "ai" && !this.isAgentPage && p.role === "ai" && !this.agentJoined) {
+        this.agentJoined = true;
+        this.screens.setConnectStatus("Agent connected! Starting the race...");
+        window.setTimeout(() => {
+          if (this.screen === "connect") {
+            this.net.sendStart(1);
+            this.newGame(0);
+          }
+        }, 1200);
+      }
+    };
+    this.net.onStart = (stage) => {
+      if (this.isAgentPage) {
+        this.sound.init();
+        this.newGame(Math.max(0, stage - 1));
+      }
+    };
+    this.net.onBump = (iu, iv) => {
+      this.marble.impU += iu;
+      this.marble.impV += iv;
+      this.sound.sfx("bounce", 0.6);
+    };
+    this.net.onLeaderboard = (top) => {
+      if (top.length) this.rollers = top.slice(0, 10).map((e) => ({ name: e.name.toUpperCase(), score: e.score }));
+    };
+    this.webmcp = new WebMCP(this);
   }
   screen = "boot";
   t = 0;
@@ -2997,7 +3684,17 @@ var Game = class {
   lobbyId = "";
   publicOrigin = location.origin;
   agentJoined = false;
+  agentReady = false;
+  /** true on the agent's page (opened via /<uuid>) */
+  isAgentPage = false;
   scoreSubmitted = false;
+  net = new Net();
+  webmcp;
+  onAgentDetected;
+  /** remote marbles keyed by network id */
+  remote = /* @__PURE__ */ new Map();
+  remoteInfo = /* @__PURE__ */ new Map();
+  teleportCooldown = 0;
   /** debug: what is under map pixel (mx,my) assuming height z */
   probe(mx, my, z) {
     const w = toWorld(mx, my, z);
@@ -3005,7 +3702,7 @@ var Game = class {
     const hb = highestBelow(this.stage, w.u, w.v, z);
     const hm = this.stage.heightmap;
     const lab = hm ? hm.labels[Math.round(my) * hm.width + Math.round(mx)] : -1;
-    const cands = this.stage.surfaces.filter((s) => s.hm && hm && hm.hit(s.hm.comp, w.u, w.v, hm.zOf(s.hm.comp, w.u, w.v))).map((s) => `${s.name}@${hm.zOf(s.hm.comp, w.u, w.v).toFixed(1)}`);
+    const cands = this.stage.surfaces.filter((s) => inRect(s, w.u, w.v)).map((s) => `${s.name}${s.kind === "wall" ? "[wall]" : ""}@${heightOn(s, w.u, w.v).toFixed(1)}`);
     return { u: +w.u.toFixed(2), v: +w.v.toFixed(2), label: lab, sup: sup ? `${sup.s.name}@${sup.z.toFixed(1)}` : null, hb: hb ? `${hb.s.name}@${hb.z.toFixed(1)}` : null, cands };
   }
   /* ---------------------------------------------------------------------- */
@@ -3014,7 +3711,21 @@ var Game = class {
   go(screen) {
     this.screen = screen;
     this.t = 0;
+    if (screen === "connect" && !this.isAgentPage) {
+      this.agentJoined = false;
+      this.net.connect(this.lobbyId, "human", this.playerName || "PLAYER");
+    }
+    if (screen === "menu" || screen === "title" || screen === "highrollers") {
+      if (!this.isAgentPage) this.net.leave();
+      this.remote.clear();
+      this.remoteInfo.clear();
+      this.others = [];
+    }
     this.screens.enter(screen);
+  }
+  /** called when the player picks a mode; multi-marble joins the shared world right away */
+  beginMode() {
+    if (this.mode === "multi") this.net.connect("world", "multi", this.playerName || "PLAYER");
   }
   async start() {
     void this.fetchRollers();
@@ -3023,6 +3734,14 @@ var Game = class {
     if (stage) {
       this.playerName = "TEST";
       this.newGame(Math.max(1, Math.min(STAGES.length, +stage)) - 1);
+      return;
+    }
+    if (this.isAgentPage) {
+      this.mode = "ai";
+      this.isAI = true;
+      this.playerName = "AGENT";
+      this.net.connect(this.lobbyId, "ai", "AGENT");
+      this.go("connect");
       return;
     }
     this.go("highrollers");
@@ -3175,10 +3894,74 @@ var Game = class {
         break;
     }
   }
+  updateNet(dt) {
+    if (!this.net.lobby) return;
+    this.net.update(dt);
+    const m = this.marble;
+    this.net.sendState(dt, { stage: this.stageIdx + 1, u: m.u, v: m.v, z: m.z, vu: m.vu, vv: m.vv, phase: m.phase, score: this.score, time: this.timeLeft, progress: (m.u + m.v) * this.stage.progressDir });
+    const seen = /* @__PURE__ */ new Set();
+    for (const p of this.net.players.values()) {
+      if (p.stage !== this.stageIdx + 1) continue;
+      seen.add(p.id);
+      let rm = this.remote.get(p.id);
+      if (!rm) {
+        rm = new Marble();
+        this.remote.set(p.id, rm);
+      }
+      rm.u = p.u;
+      rm.v = p.v;
+      rm.z = p.z;
+      rm.vu = p.vu;
+      rm.vv = p.vv;
+      rm.phase = p.phase === "alive" || p.phase === "dying" || p.phase === "dead" || p.phase === "hidden" ? p.phase : "alive";
+      rm.rollDist += Math.hypot(p.vu, p.vv) * dt;
+      this.remoteInfo.set(p.id, p);
+    }
+    for (const id of [...this.remote.keys()]) if (!seen.has(id)) {
+      this.remote.delete(id);
+      this.remoteInfo.delete(id);
+    }
+    this.others = [...this.remote.values()];
+    if (m.phase === "alive" && !m.inPipe) {
+      for (const [id, rm] of this.remote) {
+        if (rm.phase !== "alive") continue;
+        const before = { vu: m.vu, vv: m.vv };
+        if (m.collideBall(rm.u, rm.v, rm.z, rm.vu, rm.vv, 1, 1.1)) {
+          this.sound.sfx("bounce", 0.7);
+          this.net.sendBump(id, -(m.vu - before.vu) * 0.8, -(m.vv - before.vv) * 0.8);
+        }
+      }
+    }
+  }
+  /** Player-vs-AI: camera follows whoever is further along; the trailing marble is teleported up with a penalty */
+  twoPlayerRule(dt) {
+    if (this.mode !== "ai") return;
+    const opp = this.others[0];
+    if (!opp || opp.phase !== "alive") return;
+    this.teleportCooldown = Math.max(0, this.teleportCooldown - dt);
+    const m = this.marble;
+    const myY = (m.u + m.v) * 4 - m.z, oppY = (opp.u + opp.v) * 4 - opp.z;
+    const dir = this.stage.progressDir;
+    const leadY = dir > 0 ? Math.max(myY, oppY) : Math.min(myY, oppY);
+    const camTarget = clamp2(leadY - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+    this.camOverride = camTarget;
+    const behind = dir > 0 ? myY < this.r.cam.y - TWO_PLAYER_TRAIL_MARGIN : myY > this.r.cam.y + VIEW_H + TWO_PLAYER_TRAIL_MARGIN;
+    if (behind && m.phase === "alive" && this.teleportCooldown <= 0) {
+      const top = topAt(this.stage, opp.u - 1.5, opp.v + 1.5) ?? topAt(this.stage, opp.u, opp.v);
+      m.place(opp.u - 1.5, opp.v + 1.5, top ? top.z : opp.z);
+      this.score = Math.max(0, this.score - TWO_PLAYER_TELEPORT_PENALTY);
+      this.popups.push({ text: `-${TWO_PLAYER_TELEPORT_PENALTY}`, u: m.u, v: m.v, z: m.z, t: 0 });
+      this.sound.sfx("fall", 0.8);
+      this.teleportCooldown = 4;
+    }
+  }
+  camOverride = null;
   updateRace(dt) {
     if (this.paused) return;
     const s = this.stage;
     this.raceTime += dt;
+    this.updateNet(dt);
+    this.twoPlayerRule(dt);
     if (this.marble.phase === "alive" || this.marble.phase === "dying") {
       this.timeLeft -= dt;
       if (this.timeLeft <= 0) {
@@ -3372,7 +4155,10 @@ var Game = class {
     if (!this.stageImg) return;
     const m = this.marble;
     const my = (m.u + m.v) * 4 - m.z;
-    const targetY = clamp2(my - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+    let targetY = clamp2(my - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+    if (this.camOverride !== null && this.screen === "race") {
+      targetY = this.camOverride;
+    }
     const targetX = clamp2(this.stage.viewX0, 0, Math.max(0, this.stage.width - VIEW_W));
     if (snap) {
       this.r.cam.y = targetY;
@@ -3409,9 +4195,30 @@ var Game = class {
     const sprites = [];
     const ctx = this.hazardCtx(0);
     for (const h of this.hazards) h.sprites(ctx, sprites);
-    this.marbleSprites(this.marble, this.assets.sheets.marble, sprites);
-    for (const o of this.others) this.marbleSprites(o, this.assets.sheets.marbleRed, sprites);
+    this.marbleSprites(this.marble, this.isAI ? this.assets.sheets.marbleRed : this.assets.sheets.marble, sprites);
+    for (const [id, o] of this.remote) {
+      const info = this.remoteInfo.get(id);
+      this.marbleSprites(o, info?.role === "ai" ? this.assets.sheets.marbleRed : this.assets.sheets.marble, sprites);
+    }
     r.drawSprites(sprites);
+    for (const [id, o] of this.remote) {
+      if (o.phase === "hidden") continue;
+      const info = this.remoteInfo.get(id);
+      const p = r.project(o.u, o.v, o.z);
+      const tag = info?.role === "ai" ? "AI" : (info?.name ?? "P2").slice(0, 6);
+      const w = r.font.width(tag) + 4;
+      const bx = Math.round(p.x - w / 2), by = p.y - 34;
+      r.ctx.strokeStyle = info?.role === "ai" ? "#ff5a5a" : "#8a90e6";
+      r.ctx.lineWidth = 1;
+      r.ctx.beginPath();
+      r.ctx.moveTo(p.x + 0.5, by + 10);
+      r.ctx.lineTo(p.x + 0.5, p.y - 14);
+      r.ctx.stroke();
+      r.ctx.fillStyle = "#000";
+      r.ctx.fillRect(bx, by, w, 10);
+      r.ctx.strokeRect(bx + 0.5, by + 0.5, w - 1, 9);
+      r.font.draw(r.ctx, tag, bx + 2, by + 1, info?.role === "ai" ? "orange" : "lavender");
+    }
     const labels = [];
     for (const p of this.popups) labels.push({ text: p.text, u: p.u, v: p.v, z: p.z, dy: -20 - Math.min(6, p.t * 6) });
     if (this.timezoneTag && this.marble.phase === "alive") {

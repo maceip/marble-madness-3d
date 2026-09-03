@@ -3,7 +3,7 @@ import { Renderer, Sprite, Label } from '../render/renderer';
 import { Input } from '../engine/input';
 import { Sound } from '../engine/audio';
 import { Marble, MarbleEvent } from '../engine/physics';
-import { StageDef, zonesAt, pipeAt, topAt, HeightMap, attachHeightMap, HmComponent, supportAt, highestBelow } from '../engine/level';
+import { StageDef, zonesAt, pipeAt, topAt, HeightMap, attachHeightMap, HmComponent, supportAt, highestBelow, inRect, heightOn } from '../engine/level';
 import { toWorld } from '../engine/iso';
 import { STAGES } from '../levels';
 import {
@@ -13,6 +13,9 @@ import {
 import { fmtScore, fmtTime } from '../engine/font';
 import { Hazard, makeHazard, HazardContext, HazardEvent } from './hazards';
 import { Screens } from './screens';
+import { Net, RemotePlayer } from './net';
+import { WebMCP } from './webmcp';
+import { TWO_PLAYER_TELEPORT_PENALTY, TWO_PLAYER_TRAIL_MARGIN } from '../engine/constants';
 
 export type Mode = '1p' | 'ai' | 'multi';
 export type Screen = 'boot' | 'highrollers' | 'title' | 'menu' | 'name' | 'control' | 'connect' | 'intro' | 'race' | 'timebonus' | 'gameover' | 'congrats';
@@ -69,10 +72,34 @@ export class Game {
   lobbyId = '';
   publicOrigin = location.origin;
   agentJoined = false;
+  agentReady = false;
+  /** true on the agent's page (opened via /<uuid>) */
+  isAgentPage = false;
   scoreSubmitted = false;
+  net = new Net();
+  webmcp!: WebMCP;
+  onAgentDetected?: () => void;
+  /** remote marbles keyed by network id */
+  remote = new Map<string, Marble>();
+  remoteInfo = new Map<string, RemotePlayer>();
+  teleportCooldown = 0;
 
   constructor(readonly assets: Assets, readonly r: Renderer, readonly input: Input, readonly sound: Sound) {
     this.screens = new Screens(this);
+    const mm = (window as unknown as { __MM__?: { lobby: string; fromPath: boolean; publicOrigin: string } }).__MM__;
+    if (mm) { this.lobbyId = mm.lobby; this.isAgentPage = mm.fromPath; this.publicOrigin = mm.publicOrigin || location.origin; }
+    if (!this.lobbyId) this.lobbyId = crypto.randomUUID();
+    this.net.onJoined = (p) => {
+      if (this.mode === 'ai' && !this.isAgentPage && p.role === 'ai' && !this.agentJoined) {
+        this.agentJoined = true;
+        this.screens.setConnectStatus('Agent connected! Starting the race...');
+        window.setTimeout(() => { if (this.screen === 'connect') { this.net.sendStart(1); this.newGame(0); } }, 1200);
+      }
+    };
+    this.net.onStart = (stage) => { if (this.isAgentPage) { this.sound.init(); this.newGame(Math.max(0, stage - 1)); } };
+    this.net.onBump = (iu, iv) => { this.marble.impU += iu; this.marble.impV += iv; this.sound.sfx('bounce', 0.6); };
+    this.net.onLeaderboard = (top) => { if (top.length) this.rollers = top.slice(0, 10).map((e) => ({ name: e.name.toUpperCase(), score: e.score })); };
+    this.webmcp = new WebMCP(this);
   }
 
   /** debug: what is under map pixel (mx,my) assuming height z */
@@ -82,7 +109,7 @@ export class Game {
     const hb = highestBelow(this.stage, w.u, w.v, z);
     const hm = this.stage.heightmap;
     const lab = hm ? hm.labels[Math.round(my) * hm.width + Math.round(mx)] : -1;
-    const cands = this.stage.surfaces.filter((s) => s.hm && hm && hm.hit(s.hm.comp, w.u, w.v, hm.zOf(s.hm.comp, w.u, w.v))).map((s) => `${s.name}@${hm!.zOf(s.hm!.comp, w.u, w.v).toFixed(1)}`);
+    const cands = this.stage.surfaces.filter((s) => inRect(s, w.u, w.v)).map((s) => `${s.name}${s.kind === 'wall' ? '[wall]' : ''}@${heightOn(s, w.u, w.v).toFixed(1)}`);
     return { u: +w.u.toFixed(2), v: +w.v.toFixed(2), label: lab, sup: sup ? `${sup.s.name}@${sup.z.toFixed(1)}` : null, hb: hb ? `${hb.s.name}@${hb.z.toFixed(1)}` : null, cands };
   }
 
@@ -92,7 +119,20 @@ export class Game {
 
   go(screen: Screen): void {
     this.screen = screen; this.t = 0;
+    if (screen === 'connect' && !this.isAgentPage) {
+      this.agentJoined = false;
+      this.net.connect(this.lobbyId, 'human', this.playerName || 'PLAYER');
+    }
+    if (screen === 'menu' || screen === 'title' || screen === 'highrollers') {
+      if (!this.isAgentPage) this.net.leave();
+      this.remote.clear(); this.remoteInfo.clear(); this.others = [];
+    }
     this.screens.enter(screen);
+  }
+
+  /** called when the player picks a mode; multi-marble joins the shared world right away */
+  beginMode(): void {
+    if (this.mode === 'multi') this.net.connect('world', 'multi', this.playerName || 'PLAYER');
   }
 
   async start(): Promise<void> {
@@ -102,6 +142,13 @@ export class Game {
     if (stage) {
       this.playerName = 'TEST';
       this.newGame(Math.max(1, Math.min(STAGES.length, +stage)) - 1);
+      return;
+    }
+    if (this.isAgentPage) {
+      // an agent opened the lobby link: join as the AI marble and wait for the human to start
+      this.mode = 'ai'; this.isAI = true; this.playerName = 'AGENT';
+      this.net.connect(this.lobbyId, 'ai', 'AGENT');
+      this.go('connect');
       return;
     }
     this.go('highrollers');
@@ -233,10 +280,68 @@ export class Game {
     }
   }
 
+  private updateNet(dt: number): void {
+    if (!this.net.lobby) return;
+    this.net.update(dt);
+    const m = this.marble;
+    this.net.sendState(dt, { stage: this.stageIdx + 1, u: m.u, v: m.v, z: m.z, vu: m.vu, vv: m.vv, phase: m.phase, score: this.score, time: this.timeLeft, progress: (m.u + m.v) * this.stage.progressDir });
+    // mirror remote players into Marble objects (same stage only)
+    const seen = new Set<string>();
+    for (const p of this.net.players.values()) {
+      if (p.stage !== this.stageIdx + 1) continue;
+      seen.add(p.id);
+      let rm = this.remote.get(p.id);
+      if (!rm) { rm = new Marble(); this.remote.set(p.id, rm); }
+      rm.u = p.u; rm.v = p.v; rm.z = p.z; rm.vu = p.vu; rm.vv = p.vv;
+      rm.phase = (p.phase === 'alive' || p.phase === 'dying' || p.phase === 'dead' || p.phase === 'hidden') ? p.phase : 'alive';
+      rm.rollDist += Math.hypot(p.vu, p.vv) * dt;
+      this.remoteInfo.set(p.id, p);
+    }
+    for (const id of [...this.remote.keys()]) if (!seen.has(id)) { this.remote.delete(id); this.remoteInfo.delete(id); }
+    this.others = [...this.remote.values()];
+    // marble-marble bumps
+    if (m.phase === 'alive' && !m.inPipe) {
+      for (const [id, rm] of this.remote) {
+        if (rm.phase !== 'alive') continue;
+        const before = { vu: m.vu, vv: m.vv };
+        if (m.collideBall(rm.u, rm.v, rm.z, rm.vu, rm.vv, 1, 1.1)) {
+          this.sound.sfx('bounce', 0.7);
+          this.net.sendBump(id, -(m.vu - before.vu) * 0.8, -(m.vv - before.vv) * 0.8);
+        }
+      }
+    }
+  }
+
+  /** Player-vs-AI: camera follows whoever is further along; the trailing marble is teleported up with a penalty */
+  private twoPlayerRule(dt: number): void {
+    if (this.mode !== 'ai') return;
+    const opp = this.others[0];
+    if (!opp || opp.phase !== 'alive') return;
+    this.teleportCooldown = Math.max(0, this.teleportCooldown - dt);
+    const m = this.marble;
+    const myY = (m.u + m.v) * 4 - m.z, oppY = (opp.u + opp.v) * 4 - opp.z;
+    const dir = this.stage.progressDir;
+    const leadY = dir > 0 ? Math.max(myY, oppY) : Math.min(myY, oppY);
+    const camTarget = clamp(leadY - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+    this.camOverride = camTarget;
+    const behind = dir > 0 ? myY < this.r.cam.y - TWO_PLAYER_TRAIL_MARGIN : myY > this.r.cam.y + VIEW_H + TWO_PLAYER_TRAIL_MARGIN;
+    if (behind && m.phase === 'alive' && this.teleportCooldown <= 0) {
+      const top = topAt(this.stage, opp.u - 1.5, opp.v + 1.5) ?? topAt(this.stage, opp.u, opp.v);
+      m.place(opp.u - 1.5, opp.v + 1.5, top ? top.z : opp.z);
+      this.score = Math.max(0, this.score - TWO_PLAYER_TELEPORT_PENALTY);
+      this.popups.push({ text: `-${TWO_PLAYER_TELEPORT_PENALTY}`, u: m.u, v: m.v, z: m.z, t: 0 });
+      this.sound.sfx('fall', 0.8);
+      this.teleportCooldown = 4;
+    }
+  }
+  camOverride: number | null = null;
+
   private updateRace(dt: number): void {
     if (this.paused) return;
     const s = this.stage;
     this.raceTime += dt;
+    this.updateNet(dt);
+    this.twoPlayerRule(dt);
     // timer
     if (this.marble.phase === 'alive' || this.marble.phase === 'dying') {
       this.timeLeft -= dt;
@@ -409,7 +514,8 @@ export class Game {
     if (!this.stageImg) return;
     const m = this.marble;
     const my = (m.u + m.v) * 4 - m.z;
-    const targetY = clamp(my - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+    let targetY = clamp(my - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+    if (this.camOverride !== null && this.screen === 'race') { targetY = this.camOverride; }
     const targetX = clamp(this.stage.viewX0, 0, Math.max(0, this.stage.width - VIEW_W));
     if (snap) { this.r.cam.y = targetY; this.r.cam.x = targetX; return; }
     const k = Math.min(1, dt * 5);
@@ -440,9 +546,26 @@ export class Game {
     const sprites: Sprite[] = [];
     const ctx = this.hazardCtx(0);
     for (const h of this.hazards) h.sprites(ctx, sprites);
-    this.marbleSprites(this.marble, this.assets.sheets.marble, sprites);
-    for (const o of this.others) this.marbleSprites(o, this.assets.sheets.marbleRed, sprites);
+    this.marbleSprites(this.marble, this.isAI ? this.assets.sheets.marbleRed : this.assets.sheets.marble, sprites);
+    for (const [id, o] of this.remote) {
+      const info = this.remoteInfo.get(id);
+      this.marbleSprites(o, info?.role === 'ai' ? this.assets.sheets.marbleRed : this.assets.sheets.marble, sprites);
+    }
     r.drawSprites(sprites);
+    // 2D callouts anchored to the (3D) marble positions
+    for (const [id, o] of this.remote) {
+      if (o.phase === 'hidden') continue;
+      const info = this.remoteInfo.get(id);
+      const p = r.project(o.u, o.v, o.z);
+      const tag = info?.role === 'ai' ? 'AI' : (info?.name ?? 'P2').slice(0, 6);
+      const w = r.font.width(tag) + 4;
+      const bx = Math.round(p.x - w / 2), by = p.y - 34;
+      r.ctx.strokeStyle = info?.role === 'ai' ? '#ff5a5a' : '#8a90e6'; r.ctx.lineWidth = 1;
+      r.ctx.beginPath(); r.ctx.moveTo(p.x + 0.5, by + 10); r.ctx.lineTo(p.x + 0.5, p.y - 14); r.ctx.stroke();
+      r.ctx.fillStyle = '#000'; r.ctx.fillRect(bx, by, w, 10);
+      r.ctx.strokeRect(bx + 0.5, by + 0.5, w - 1, 9);
+      r.font.draw(r.ctx, tag, bx + 2, by + 1, info?.role === 'ai' ? 'orange' : 'lavender');
+    }
 
     const labels: Label[] = [];
     for (const p of this.popups) labels.push({ text: p.text, u: p.u, v: p.v, z: p.z, dy: -20 - Math.min(6, p.t * 6) });

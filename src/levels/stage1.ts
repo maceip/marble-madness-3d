@@ -32,10 +32,11 @@ L.wallAt(238, 270, 125, 1.2, 1.2, 'tentSR');
 
 // --- chute, goal ramp, side ramp (hand authored; height map cut there) -------
 // the chute is a steep half-pipe from the plateau opening down-right to the lip by the goal corridor
-const chuteA = L.strip(146, 342, 100, 172, 402, 70, 3.0, 'chuteA'); L.rails(chuteA);
-const chuteB = L.strip(172, 402, 70, 198, 462, 40, 3.0, 'chuteB'); L.rails(chuteB);
+// screen-aligned half-pipe bands: straight down the screen with rails on both sides
+const chuteA = L.band(124, 188, 316, 14, 100, -2.15, -0.5, 'chuteA'); L.bandRails(chuteA);
+const chuteB = L.band(140, 216, 402, 7.5, 70, -4.0, -1.0, 'chuteB'); L.bandRails(chuteB);
 // goal corridor (dark shaded, with the GOAL sign) runs down-left from the lip to the goal
-L.strip(196, 460, 40, 30, 542, 38, 2.6, 'goalCorridor');
+L.strip(200, 452, 40, 30, 542, 38, 3.2, 'goalCorridor');
 L.strip(232, 318, 100, 268, 336, 61, 3.2, 'rampRight');          // plateau -> right floor
 
 // --- start & checkpoints -----------------------------------------------------

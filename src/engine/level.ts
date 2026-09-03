@@ -77,6 +77,8 @@ export interface Surface {
   name?: string;
   /** set for surfaces backed by the pixel height map */
   hm?: { map: HeightMap; comp: HmComponent };
+  /** walls only block marbles whose height is within [wall floor - 30, wall floor + wallH] */
+  wallH?: number;
 }
 
 export type ZoneKind = 'goal' | 'bonus' | 'timezone' | 'checkpoint' | 'kill';
@@ -172,9 +174,14 @@ export function inRect(r: { u0: number; v0: number; u1: number; v1: number; sd?:
 }
 
 /** Highest surface at (u,v) whose height is at most zRef + stepUp. */
-export function supportAt(level: StageDef, u: number, v: number, zRef: number, stepUp = STEP_UP): Support | null {
-  let best: Support | null = null;
+export function supportAt(level: StageDef, u: number, v: number, zRef: number, stepUp = STEP_UP, prefer?: Surface | null): Support | null {
   const lim = zRef + stepUp;
+  // hysteresis: keep standing on the current surface while it is still under the marble
+  if (prefer && prefer.kind !== 'wall' && inRect(prefer, u, v)) {
+    const zp = heightOn(prefer, u, v);
+    if (zp <= lim && zp >= zRef - 6) return { z: zp, s: prefer };
+  }
+  let best: Support | null = null;
   for (const s of level.surfaces) {
     if (s.kind === 'wall') continue;
     if (!inRect(s, u, v)) continue;
@@ -191,7 +198,12 @@ export function highestBelow(level: StageDef, u: number, v: number, zRef: number
   for (const s of level.surfaces) {
     if (ignore && ignore.has(s.id)) continue;
     if (!inRect(s, u, v)) continue;
-    if (s.kind === 'wall') return { z: zRef + wallMax, s };   // solid obstacle: always blocks
+    if (s.kind === 'wall') {
+      const zw = heightOn(s, u, v);
+      const h = s.wallH ?? 300;
+      if (zRef <= zw + h && zRef >= zw - 8) return { z: zRef + wallMax, s };   // solid obstacle in the marble's height band
+      continue;
+    }
     const z = heightOn(s, u, v);
     if (z <= lim && (!best || z > best.z)) best = { z, s };
   }
@@ -296,34 +308,46 @@ export class LevelBuilder {
    * Axis-aligned strip between two map points (with heights): a ramp/corridor `width` tiles wide
    * whose height varies linearly along its long axis (u or v, whichever changes more).
    */
-  strip(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, width: number, name?: string): Surface {
+  strip(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, width: number, name?: string, ext = 0.35): Surface {
     const a = toWorld(x0, y0, z0), b = toWorld(x1, y1, z1);
     const du = b.u - a.u, dv = b.v - a.v;
     const half = width / 2;
+    // `ext` tiles of overlap at both ends so the marble never finds a gap at the junctions
     if (Math.abs(du) >= Math.abs(dv)) {
-      const u0 = Math.min(a.u, b.u), u1 = Math.max(a.u, b.u);
-      const vc = (a.v + b.v) / 2;
       const gu = (z1 - z0) / (b.u - a.u);
-      const zAtU0 = a.u <= b.u ? z0 : z1;
+      const u0 = Math.min(a.u, b.u) - ext, u1 = Math.max(a.u, b.u) + ext;
+      const vc = (a.v + b.v) / 2;
+      const zAtU0 = (a.u <= b.u ? z0 : z1) - gu * ext;
       return this.rect(u0, vc - half, u1, vc + half, zAtU0, gu, 0, name);
     }
-    const v0 = Math.min(a.v, b.v), v1 = Math.max(a.v, b.v);
-    const uc = (a.u + b.u) / 2;
     const gv = (z1 - z0) / (b.v - a.v);
-    const zAtV0 = a.v <= b.v ? z0 : z1;
+    const v0 = Math.min(a.v, b.v) - ext, v1 = Math.max(a.v, b.v) + ext;
+    const uc = (a.u + b.u) / 2;
+    const zAtV0 = (a.v <= b.v ? z0 : z1) - gv * ext;
     return this.rect(uc - half, v0, uc + half, v1, zAtV0, 0, gv, name);
   }
 
   /** Solid rails along both long edges of a strip (so the marble stays in the chute). */
-  rails(s: Surface, thickness = 0.6): void {
+  rails(s: Surface, thickness = 0.6, wallH = 14): void {
     const alongU = (s.u1 - s.u0) >= (s.v1 - s.v0);
+    const mk = (u0: number, v0: number, u1: number, v1: number, name: string) => {
+      const r = this.rect(u0, v0, u1, v1, heightOn(s, u0, v0), s.gu, s.gv, name, 'wall');
+      r.wallH = wallH;
+    };
     if (alongU) {
-      this.rect(s.u0, s.v0 - thickness, s.u1, s.v0, 0, 0, 0, `${s.name ?? 'strip'}-railA`, 'wall');
-      this.rect(s.u0, s.v1, s.u1, s.v1 + thickness, 0, 0, 0, `${s.name ?? 'strip'}-railB`, 'wall');
+      mk(s.u0, s.v0 - thickness, s.u1, s.v0, `${s.name ?? 'strip'}-railA`);
+      mk(s.u0, s.v1, s.u1, s.v1 + thickness, `${s.name ?? 'strip'}-railB`);
     } else {
-      this.rect(s.u0 - thickness, s.v0, s.u0, s.v1, 0, 0, 0, `${s.name ?? 'strip'}-railA`, 'wall');
-      this.rect(s.u1, s.v0, s.u1 + thickness, s.v1, 0, 0, 0, `${s.name ?? 'strip'}-railB`, 'wall');
+      mk(s.u0 - thickness, s.v0, s.u0, s.v1, `${s.name ?? 'strip'}-railA`);
+      mk(s.u1, s.v0, s.u1 + thickness, s.v1, `${s.name ?? 'strip'}-railB`);
     }
+  }
+
+  /** Solid rails along both D edges of a screen-aligned band (half-pipe walls). */
+  bandRails(b: Surface, thickness = 0.6, wallH = 14): void {
+    // same plane as the band (S/D gradients), offset in D
+    this.def.surfaces.push({ id: this.nextId++, u0: b.u0, v0: b.v0 - thickness, u1: b.u1, v1: b.v0, z0: b.z0 - b.gv * thickness, gu: b.gu, gv: b.gv, kind: 'wall', sd: true, name: `${b.name ?? 'band'}-railA`, wallH });
+    this.def.surfaces.push({ id: this.nextId++, u0: b.u0, v0: b.v1, u1: b.u1, v1: b.v1 + thickness, z0: b.z0 + b.gv * (b.v1 - b.v0), gu: b.gu, gv: b.gv, kind: 'wall', sd: true, name: `${b.name ?? 'band'}-railB`, wallH });
   }
 
   /** Solid obstacle (tent, post, cube cluster): blocks the marble at any height. Map-pixel screen rectangle. */
@@ -381,8 +405,8 @@ export class LevelBuilder {
     // invisible boundary walls just outside the map's left/right edges
     const dMax = this.def.width / HALF_W;
     const sMax = (this.def.height + 400) / HALF_H;
-    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: -6, u1: sMax, v1: -0.4, z0: 0, gu: 0, gv: 0, kind: 'wall', sd: true, name: 'edgeL' });
-    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: dMax + 0.4, u1: sMax, v1: dMax + 6, z0: 0, gu: 0, gv: 0, kind: 'wall', sd: true, name: 'edgeR' });
+    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: -6, u1: sMax, v1: -0.4, z0: -3000, gu: 0, gv: 0, kind: 'wall', sd: true, name: 'edgeL', wallH: 6000 });
+    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: dMax + 0.4, u1: sMax, v1: dMax + 6, z0: -3000, gu: 0, gv: 0, kind: 'wall', sd: true, name: 'edgeR', wallH: 6000 });
     this.def.manualSurfaces = [...this.def.surfaces];
     computeFloorMin(this.def);
     return this.def;

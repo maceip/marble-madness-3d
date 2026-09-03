@@ -35,7 +35,7 @@ await page.screenshot({ path: `${outDir}/s${stage}_race0.png` });
 
 const snap = () => page.evaluate(() => {
   const g = window.game; const m = g.marble;
-  return { scr: g.screen, u: +m.u.toFixed(1), v: +m.v.toFixed(1), z: +m.z.toFixed(0), mx: Math.round((m.u - m.v) * 8), my: Math.round((m.u + m.v) * 4 - m.z), sp: +m.speed.toFixed(1), gnd: m.grounded, ph: m.phase, dz: +m.dizzyT.toFixed(1), score: g.score, time: +g.timeLeft.toFixed(1), deaths: g.deaths, sup: m.support ? m.support.s.name : null };
+  return { scr: g.screen, u: +m.u.toFixed(1), v: +m.v.toFixed(1), z: +m.z.toFixed(0), mx: Math.round((m.u - m.v) * 8), my: Math.round((m.u + m.v) * 4 - m.z), sp: +m.speed.toFixed(1), gnd: m.grounded, ph: m.phase, dz: +m.dizzyT.toFixed(1), score: g.score, time: +g.timeLeft.toFixed(1), deaths: g.deaths, sup: m.support ? m.support.s.name : null, blk: m.lastBlock };
 });
 const startAt = opt('--start', '');
 if (startAt) {
@@ -48,14 +48,17 @@ console.log('start', JSON.stringify(await snap()));
 if (path) {
   let k = 0;
   for (const seg of path.split(',')) {
-    const [key, ms] = seg.split(':');
-    if (key !== 'wait') await page.keyboard.down(key);
+    const parts = seg.split(':');
+    const key = parts[0]; const ms = +parts[parts.length - 1];
+    const keys = (key === 'wait' || key === 'ai') ? [] : key.split('+');
+    if (key === 'ai') { const [ax, ay] = parts[1].split('/').map(Number); await page.evaluate(([ax, ay, ms]) => window.game.input.setAI(ax, ay, ms), [ax, ay, ms]); }
+    for (const kk of keys) await page.keyboard.down(kk);
     if (args.includes('--trace')) {
-      for (let t = 0; t < +ms; t += 100) { await page.waitForTimeout(100); const s = await snap(); console.log(`   ${key} +${t + 100}ms`, `mx=${s.mx} my=${s.my} z=${s.z} u=${s.u} v=${s.v} sup=${s.sup} gnd=${s.gnd} sp=${s.sp}`); if (s.ph !== 'alive') break; }
-    } else await page.waitForTimeout(+ms);
-    if (key !== 'wait') await page.keyboard.up(key);
+      for (let t = 0; t < ms; t += 100) { await page.waitForTimeout(100); const s = await snap(); console.log(`   ${key} +${t + 100}ms`, `mx=${s.mx} my=${s.my} z=${s.z} u=${s.u} v=${s.v} sup=${s.sup} gnd=${s.gnd} sp=${s.sp}`); if (s.ph !== 'alive') break; }
+    } else await page.waitForTimeout(ms);
+    for (const kk of keys) await page.keyboard.up(kk);
     const s = await snap();
-    console.log(`p${k} ${key}:${ms}`, JSON.stringify(s));
+    console.log(`p${k} ${seg}`, JSON.stringify(s));
     if (shots) await page.screenshot({ path: `${outDir}/s${stage}_p${k}.png` });
     k++;
     if (s.scr !== 'race') break;

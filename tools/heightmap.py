@@ -41,9 +41,9 @@ def rect_mask(shape, r):
     return m
 
 
-def label_class(mask, min_area):
+def label_class(mask, min_area, closing=True):
     """8-connected components after a 1px closing (bridges thin grid/shadow lines)."""
-    closed = ndimage.binary_closing(mask, structure=np.ones((3, 3)))
+    closed = ndimage.binary_closing(mask, structure=np.ones((3, 3))) if closing else mask.copy()
     closed |= mask
     lab, n = ndimage.label(closed, structure=np.ones((3, 3)))
     out = np.zeros_like(lab)
@@ -151,8 +151,8 @@ def main():
     slope_grow = ndimage.binary_dilation(slope, iterations=cfg.get('slopeGrow', 2))
     slope = slope | (grid & slope_grow)
     flat = flat & ~slope
-    lab_f, nf = label_class(flat, min_area)
-    lab_s, ns = label_class(slope, min_area)
+    lab_f, nf = label_class(flat, min_area, cfg.get('closing', True))
+    lab_s, ns = label_class(slope, min_area, cfg.get('closing', True))
     # unified labels: flats 1..nf, slopes nf+1..nf+ns
     labels = lab_f.copy()
     labels[lab_s > 0] = lab_s[lab_s > 0] + nf
@@ -160,8 +160,19 @@ def main():
     kind.update({nf + j: 'slope' for j in range(1, ns + 1)})
 
     # manual splits: pixels of a component below a row become a new component
+    def comp_near(x, y, radius=8):
+        cid = int(labels[y, x])
+        if cid:
+            return cid
+        best, bd = 0, 1e9
+        for yy in range(max(0, y - radius), min(H, y + radius + 1)):
+            for xx in range(max(0, x - radius), min(W, x + radius + 1)):
+                c = int(labels[yy, xx])
+                if c and (xx - x) ** 2 + (yy - y) ** 2 < bd:
+                    best, bd = c, (xx - x) ** 2 + (yy - y) ** 2
+        return best
     for sp in cfg.get('split', []):
-        cid = int(labels[sp['at'][1], sp['at'][0]])
+        cid = comp_near(sp['at'][0], sp['at'][1])
         if cid == 0:
             print('split: reference pixel has no component', sp); continue
         newid = max(kind) + 1
@@ -254,6 +265,11 @@ def main():
 
     # ---- solve flat heights -------------------------------------------------
     z = {}
+    if cfg.get('anchorLargest') is not None and not cfg.get('anchors'):
+        best = max((c for c in kind if kind[c] == 'flat'), key=lambda c: (labels == c).sum())
+        ys_, xs_ = np.where(labels == best)
+        cfg['anchors'] = [{'x': int(xs_[0]), 'y': int(ys_[0]), 'z': cfg['anchorLargest']}]
+        print(f"anchorLargest: comp #{best} area {len(xs_)} centroid ({int(xs_.mean())},{int(ys_.mean())})")
     for anc in cfg['anchors']:
         cid = int(labels[anc['y'], anc['x']])
         if cid == 0:
@@ -430,6 +446,47 @@ def main():
                 if c and (xx - x) ** 2 + (yy - y) ** 2 < bd:
                     best, bd = c, (xx - x) ** 2 + (yy - y) ** 2
         return best
+
+    # ---- raised blocks whose top touches the parent floor (maze bars) ---------
+    rs = cfg.get('raisedStrips')
+    if rs:
+        depth = rs.get('depth', 16); lo_, hi_ = rs.get('minL', 8), rs.get('maxL', 28)
+        raised = np.zeros((H, W), bool); raiseL = np.zeros((H, W), np.int32)
+        for x in range(W):
+            col = floor_any[:, x]; y = 0
+            while y < H:
+                if col[y]:
+                    y += 1; continue
+                y0 = y
+                while y < H and not col[y]:
+                    y += 1
+                if y0 == 0 or y >= H:
+                    continue
+                L = y - y0
+                if L < lo_ or L > hi_ or wall[y0:y, x].sum() < L * 0.3:
+                    continue
+                ca = int(labels[y0 - 1, x]); cb = int(labels[y, x])
+                if ca and ca == cb and kind[ca] == 'flat':
+                    top = max(0, y0 - depth)
+                    raised[top:y0, x] = True; raiseL[top:y0, x] = L
+        raised &= (labels > 0)
+        rlab, rn = ndimage.label(raised, structure=np.ones((3, 3)))
+        made = 0
+        for i in range(1, rn + 1):
+            m = rlab == i
+            if m.sum() < rs.get('minArea', 60):
+                continue
+            parent = int(np.bincount(labels[m]).argmax())
+            if parent == 0 or kind.get(parent) != 'flat':
+                continue
+            newid = max(kind) + 1
+            Lmed = int(np.median(raiseL[m][raiseL[m] > 0]))
+            labels[m] = newid; kind[newid] = 'flat'
+            if parent in z:
+                z[newid] = z[parent] + Lmed
+            made += 1
+        print(f'raisedStrips: {made} raised blocks split off')
+        floor_any = labels > 0
 
     # ---- manual overrides (win over the automatic solve) -------------------
     overridden = set()

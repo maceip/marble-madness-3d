@@ -27,7 +27,7 @@ export class Screens {
       for (let i = 0; i < 26; i++) this.rain.push({ x: Math.random() * VIEW_W, y: -Math.random() * VIEW_H, vy: 30 + Math.random() * 50, c: Math.floor(Math.random() * 6) });
     }
     if (screen === 'gameover') { void this.g.submitScore(); }
-    this.showConnect(screen === 'connect');
+    this.showConnect(screen === 'connect' && !this.g.isAgentPage);
   }
 
   update(dt: number): void {
@@ -51,6 +51,7 @@ export class Screens {
           if (p === 'Enter' || p === 'Space' || p === 'Mouse' || p === 'Touch') {
             g.mode = (['1p', 'ai', 'multi'] as const)[this.cursor];
             g.sound.sfx('item');
+            g.beginMode();
             g.go('name');
           }
           if (p === 'Escape') g.go('title');
@@ -167,7 +168,7 @@ export class Screens {
       const rank = `#${i + 1}`;
       r.textR(rank, 70, y, variant);
       if (e) {
-        r.text(e.name.slice(0, 6), 78, y, variant);
+        r.text(e.name.replace(/\[(NI|AI)\]\s*/i, '').slice(0, 6), 78, y, variant);
         r.textR(fmtScore(e.score), 232, y, variant);
       }
     }
@@ -218,10 +219,11 @@ export class Screens {
     const g = this.g; const r = g.r;
     r.textC('PLAYER 1', VIEW_W / 2, 30, 'lavender');
     r.textC('SELECT CONTROL TYPE', VIEW_W / 2, 46, 'lavender');
-    const opts = ['A   SCREEN', 'B   45°'];
+    const opts = ['A   SCREEN', 'B   45'];
     opts.forEach((o, i) => {
       const y = 130 + i * 20;
       r.text(o, 110, y, 'white');
+      if (i === 1) { r.ctx.strokeStyle = '#fff'; r.ctx.lineWidth = 1; r.ctx.beginPath(); r.ctx.arc(110 + 8 * 6 + 2.5, y + 1.5, 1.5, 0, Math.PI * 2); r.ctx.stroke(); }
       if (this.cursor === i) drawFrame(r.ctx, g.assets.sheets.marble, FRAMES.marble.roll[Math.floor(this.blink * 6) % 6], 94, y + 4);
     });
     r.textC('ARROWS/WASD  MOUSE=TRACKBALL', VIEW_W / 2, 200, 'orange');
@@ -229,6 +231,15 @@ export class Screens {
 
   private renderConnect(): void {
     const g = this.g; const r = g.r;
+    if (g.isAgentPage) {
+      r.textC('PLAYER VS AI', VIEW_W / 2, 30, 'lavender');
+      r.textC('AGENT MARBLE', VIEW_W / 2, 46, 'orange');
+      r.textC('LOBBY ' + g.lobbyId.slice(0, 8).toUpperCase(), VIEW_W / 2, 90, 'cyan');
+      const dots = '.'.repeat(1 + (Math.floor(this.blink * 2) % 3));
+      r.textC(g.net.connected ? `WAITING FOR HUMAN TO START${dots}` : `CONNECTING${dots}`, VIEW_W / 2, 130, 'white');
+      r.textC('USE WEBMCP TOOLS TO STEER', VIEW_W / 2, 170, 'lavender');
+      return;
+    }
     r.textC('PLAYER VS AI', VIEW_W / 2, 30, 'lavender');
     r.textC('CONNECT YOUR AGENT', VIEW_W / 2, 46, 'lavender');
     r.textC('LOBBY', VIEW_W / 2, 90, 'white');

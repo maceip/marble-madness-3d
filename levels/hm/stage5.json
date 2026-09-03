@@ -82,14 +82,9 @@
    0
   ]
  ],
- "anchors": [
-  {
-   "x": 144,
-   "y": 1100,
-   "z": 100
-  }
- ],
+ "anchors": [],
  "minArea": 120,
  "minWall": 8,
- "diag": true
+ "anchorLargest": 100,
+ "stripeFilter": true
 }
