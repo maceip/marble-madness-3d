@@ -8,7 +8,16 @@
   <style>
     html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
     body { display: flex; align-items: center; justify-content: center; font-family: "Courier New", monospace; color: #cfd2ff; }
-    canvas#game { image-rendering: pixelated; image-rendering: crisp-edges; background: #000; cursor: crosshair; }
+    canvas#game {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      background: #000;
+      cursor: crosshair;
+    }
     #overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; pointer-events: none; }
     #overlay.show { display: flex; }
     .panel { pointer-events: auto; background: #000; border: 4px double #9aa0ff; padding: 20px 26px; max-width: min(90vw, 720px); color: #cfd2ff; font-size: 18px; line-height: 1.5; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 0 0 4px #000; }
@@ -22,11 +31,11 @@
     #settings:hover { opacity: 1; }
     #settings input { width: 90px; }
 
-    /* 3D Bowling Ball Trackball Dock */
+    /* 3D Bowling Ball Trackball Dock (Bottom Right on Mobile & Desktop) */
     #trackball-container {
       position: fixed;
       bottom: 16px;
-      right: 24px;
+      right: 18px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -38,8 +47,8 @@
       z-index: 25;
     }
     #trackball {
-      width: 170px;
-      height: 170px;
+      width: 160px;
+      height: 160px;
       cursor: grab;
       border-radius: 50%;
       box-shadow: 0 10px 30px rgba(0,0,0,0.85), inset 0 0 16px rgba(0,0,0,0.9);
@@ -49,26 +58,18 @@
       cursor: grabbing;
     }
     #trackball-label {
-      margin-top: 6px;
+      margin-top: 5px;
       font-size: 10px;
       letter-spacing: 2px;
-      color: #7b84b8;
+      color: #9aa0ff;
+      background: rgba(10, 12, 24, 0.85);
+      border: 1px solid #3a4078;
+      border-radius: 4px;
+      padding: 3px 8px;
       text-transform: uppercase;
       font-weight: bold;
       pointer-events: none;
-    }
-
-    @media (pointer: coarse), (max-width: 768px) {
-      #trackball-container {
-        right: auto;
-        left: 50%;
-        transform: translateX(-50%);
-        bottom: 12px;
-      }
-      #trackball {
-        width: 185px;
-        height: 185px;
-      }
+      box-shadow: 0 2px 8px rgba(0,0,0,0.6);
     }
   </style>
 </head>

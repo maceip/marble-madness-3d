@@ -1894,14 +1894,18 @@ var Renderer = class {
   scale = 3;
   cam = { x: 0, y: 0 };
   font;
+  viewW = VIEW_W;
+  viewH = VIEW_H;
   resize() {
     const w = window.innerWidth, h = window.innerHeight;
-    const s = Math.max(1, Math.floor(Math.min(w / VIEW_W, h / VIEW_H)));
-    this.scale = s;
-    this.canvas.width = VIEW_W * s;
-    this.canvas.height = VIEW_H * s;
-    this.canvas.style.width = `${VIEW_W * s}px`;
-    this.canvas.style.height = `${VIEW_H * s}px`;
+    this.viewW = VIEW_W;
+    this.viewH = Math.max(VIEW_H, Math.min(640, Math.round(VIEW_W * (h / w))));
+    this.off.width = this.viewW;
+    this.off.height = this.viewH;
+    this.canvas.width = w;
+    this.canvas.height = h;
+    this.canvas.style.width = "100vw";
+    this.canvas.style.height = "100vh";
     this.screenCtx.imageSmoothingEnabled = false;
   }
   /** world → view pixel */
@@ -1911,14 +1915,14 @@ var Renderer = class {
   }
   clear(color = "#000") {
     this.ctx.fillStyle = color;
-    this.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    this.ctx.fillRect(0, 0, this.viewW, this.viewH);
   }
   drawStage(img, stage) {
     const sx = this.cam.x, sy = this.cam.y;
     this.ctx.fillStyle = "#000";
-    this.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    this.ctx.fillRect(0, 0, this.viewW, this.viewH);
     const x0 = Math.max(0, sx), y0 = Math.max(0, sy);
-    const x1 = Math.min(img.width, sx + VIEW_W), y1 = Math.min(img.height, sy + VIEW_H);
+    const x1 = Math.min(img.width, sx + this.viewW), y1 = Math.min(img.height, sy + this.viewH);
     if (x1 > x0 && y1 > y0) {
       this.ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0, x0 - sx, y0 - sy, x1 - x0, y1 - y0);
     }
@@ -1961,7 +1965,7 @@ var Renderer = class {
     const ctx = this.ctx;
     this.font.draw(ctx, scoreText, 12, 22, opts?.scoreColor ?? "lavender");
     const tw = this.font.bigWidth(timeText);
-    const bx = Math.round(VIEW_W / 2 - tw / 2) - 3;
+    const bx = Math.round(this.viewW / 2 - tw / 2) - 3;
     ctx.fillStyle = "#7d7d7d";
     ctx.fillRect(bx, 5, tw + 6, 18);
     this.font.drawBig(ctx, timeText, bx + 3, 7);
@@ -2005,10 +2009,10 @@ var Renderer = class {
     this.drawBigTinted(p1.time, 87, 7, blue);
     const w2 = this.font.bigWidth(p2.time);
     ctx.fillStyle = "#7d7d7d";
-    ctx.fillRect(VIEW_W - 90 - w2, 5, w2 + 6, 18);
-    this.drawBigTinted(p2.time, VIEW_W - 87 - w2, 7, red);
-    this.textTinted("SCORE", VIEW_W - 8 - this.font.width("SCORE"), 4, red);
-    this.textTinted(p2.score, VIEW_W - 8 - this.font.width(p2.score), 14, red);
+    ctx.fillRect(this.viewW - 90 - w2, 5, w2 + 6, 18);
+    this.drawBigTinted(p2.time, this.viewW - 87 - w2, 7, red);
+    this.textTinted("SCORE", this.viewW - 8 - this.font.width("SCORE"), 4, red);
+    this.textTinted(p2.score, this.viewW - 8 - this.font.width(p2.score), 14, red);
   }
   /** black banner box with text lines (used for TIME TO FINISH / TIME BONUS) */
   drawBox(x, y, w, h) {
@@ -2031,7 +2035,7 @@ var Renderer = class {
   }
   present() {
     this.screenCtx.imageSmoothingEnabled = false;
-    this.screenCtx.drawImage(this.off, 0, 0, VIEW_W, VIEW_H, 0, 0, VIEW_W * this.scale, VIEW_H * this.scale);
+    this.screenCtx.drawImage(this.off, 0, 0, this.viewW, this.viewH, 0, 0, this.canvas.width, this.canvas.height);
   }
 };
 
@@ -2309,8 +2313,18 @@ var Input = class {
     window.addEventListener("keyup", (e) => this.keys.delete(e.code));
     window.addEventListener("blur", () => this.keys.clear());
   }
+  // Desktop left-click + scroll wheel aim vector
+  leftMouseDown = false;
+  dragStartX = 0;
+  dragStartY = 0;
+  aimVector = { dx: 0, dy: 1 };
   setupGameCanvasMouse() {
     this.canvas.addEventListener("mousedown", (e) => {
+      if (e.button === 0) {
+        this.leftMouseDown = true;
+        this.dragStartX = e.clientX;
+        this.dragStartY = e.clientY;
+      }
       this.mouseDown = true;
       this.anyPress = true;
       this.pressedQueue.push("Mouse");
@@ -2319,7 +2333,10 @@ var Input = class {
       this.trackball.startDrag();
       e.preventDefault();
     });
-    window.addEventListener("mouseup", () => {
+    window.addEventListener("mouseup", (e) => {
+      if (e.button === 0) {
+        this.leftMouseDown = false;
+      }
       if (this.mouseDown) {
         this.mouseDown = false;
         this.trackball.endDrag();
@@ -2328,6 +2345,10 @@ var Input = class {
     window.addEventListener("mousemove", (e) => {
       if (this.pointerLocked) {
         this.trackball.dragDelta(e.movementX * 1.2, e.movementY * 1.2);
+        const len = Math.hypot(e.movementX, e.movementY);
+        if (len > 1) {
+          this.aimVector = { dx: e.movementX / len, dy: e.movementY / len };
+        }
         return;
       }
       if (!this.mouseDown) return;
@@ -2335,8 +2356,26 @@ var Input = class {
       const dy = e.clientY - this.lastMouseY;
       this.lastMouseX = e.clientX;
       this.lastMouseY = e.clientY;
-      this.trackball.dragDelta(dx * 1.4, dy * 1.4);
+      if (this.leftMouseDown) {
+        const ddx = e.clientX - this.dragStartX;
+        const ddy = e.clientY - this.dragStartY;
+        const len = Math.hypot(ddx, ddy);
+        if (len > 4) {
+          this.aimVector = { dx: ddx / len, dy: ddy / len };
+        }
+      }
+      this.trackball.dragDelta(dx * 0.8, dy * 0.8);
     });
+    window.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      if (Math.abs(delta) < 0.5) return;
+      const sign = Math.sign(delta);
+      const speed = Math.min(100, Math.abs(delta) * 0.85);
+      const dirX = this.aimVector.dx * sign;
+      const dirY = this.aimVector.dy * sign;
+      this.trackball.spin(dirX, dirY, speed);
+    }, { passive: false });
     document.addEventListener("pointerlockchange", () => {
       this.pointerLocked = document.pointerLockElement === this.canvas;
     });
@@ -5895,11 +5934,13 @@ var Game = class {
     if (!this.stageImg) return;
     const m = this.marble;
     const my = (m.u + m.v) * 4 - m.z;
-    let targetY = clamp(my - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+    const vh = this.r.viewH;
+    const vw = this.r.viewW;
+    let targetY = clamp(my - vh * 0.45, 0, Math.max(0, this.stage.height - vh));
     if (this.camOverride !== null && this.screen === "race") {
       targetY = this.camOverride;
     }
-    const targetX = clamp(this.stage.viewX0, 0, Math.max(0, this.stage.width - VIEW_W));
+    const targetX = clamp(this.stage.viewX0, 0, Math.max(0, this.stage.width - vw));
     if (snap) {
       this.r.cam.y = targetY;
       this.r.cam.x = targetX;

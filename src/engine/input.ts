@@ -58,8 +58,19 @@ export class Input {
     window.addEventListener('blur', () => this.keys.clear());
   }
 
+  // Desktop left-click + scroll wheel aim vector
+  private leftMouseDown = false;
+  private dragStartX = 0;
+  private dragStartY = 0;
+  private aimVector: { dx: number; dy: number } = { dx: 0, dy: 1 };
+
   private setupGameCanvasMouse(): void {
     this.canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0) {
+        this.leftMouseDown = true;
+        this.dragStartX = e.clientX;
+        this.dragStartY = e.clientY;
+      }
       this.mouseDown = true;
       this.anyPress = true;
       this.pressedQueue.push('Mouse');
@@ -69,7 +80,10 @@ export class Input {
       e.preventDefault();
     });
 
-    window.addEventListener('mouseup', () => {
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 0) {
+        this.leftMouseDown = false;
+      }
       if (this.mouseDown) {
         this.mouseDown = false;
         this.trackball.endDrag();
@@ -79,6 +93,10 @@ export class Input {
     window.addEventListener('mousemove', (e) => {
       if (this.pointerLocked) {
         this.trackball.dragDelta(e.movementX * 1.2, e.movementY * 1.2);
+        const len = Math.hypot(e.movementX, e.movementY);
+        if (len > 1) {
+          this.aimVector = { dx: e.movementX / len, dy: e.movementY / len };
+        }
         return;
       }
       if (!this.mouseDown) return;
@@ -86,8 +104,33 @@ export class Input {
       const dy = e.clientY - this.lastMouseY;
       this.lastMouseX = e.clientX;
       this.lastMouseY = e.clientY;
-      this.trackball.dragDelta(dx * 1.4, dy * 1.4);
+
+      // When left-click is held, moving the mouse steers the roll direction vector
+      if (this.leftMouseDown) {
+        const ddx = e.clientX - this.dragStartX;
+        const ddy = e.clientY - this.dragStartY;
+        const len = Math.hypot(ddx, ddy);
+        if (len > 4) {
+          this.aimVector = { dx: ddx / len, dy: ddy / len };
+        }
+      }
+      this.trackball.dragDelta(dx * 0.8, dy * 0.8);
     });
+
+    // Scroll wheel rolling: wheel is the accelerator; holding left click + moving mouse sets direction
+    window.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY;
+      if (Math.abs(delta) < 0.5) return;
+
+      const sign = Math.sign(delta);
+      const speed = Math.min(100, Math.abs(delta) * 0.85);
+
+      // Scroll forward/down pushes in aim direction; scroll backward reverses/brakes
+      const dirX = this.aimVector.dx * sign;
+      const dirY = this.aimVector.dy * sign;
+      this.trackball.spin(dirX, dirY, speed);
+    }, { passive: false });
 
     document.addEventListener('pointerlockchange', () => {
       this.pointerLocked = document.pointerLockElement === this.canvas;

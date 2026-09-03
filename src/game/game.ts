@@ -682,9 +682,11 @@ export class Game {
     if (!this.stageImg) return;
     const m = this.marble;
     const my = (m.u + m.v) * 4 - m.z;
-    let targetY = clamp(my - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+    const vh = this.r.viewH;
+    const vw = this.r.viewW;
+    let targetY = clamp(my - vh * 0.45, 0, Math.max(0, this.stage.height - vh));
     if (this.camOverride !== null && this.screen === 'race') { targetY = this.camOverride; }
-    const targetX = clamp(this.stage.viewX0, 0, Math.max(0, this.stage.width - VIEW_W));
+    const targetX = clamp(this.stage.viewX0, 0, Math.max(0, this.stage.width - vw));
     if (snap) { this.r.cam.y = targetY; this.r.cam.x = targetX; return; }
     const k = Math.min(1, dt * 5);
     this.r.cam.y += (targetY - this.r.cam.y) * k;

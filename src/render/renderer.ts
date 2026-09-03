@@ -38,6 +38,9 @@ export class Renderer {
   cam: Camera = { x: 0, y: 0 };
   font: BitmapFont;
 
+  viewW = VIEW_W;
+  viewH = VIEW_H;
+
   constructor(readonly canvas: HTMLCanvasElement, readonly assets: Assets) {
     this.off = document.createElement('canvas');
     this.off.width = VIEW_W; this.off.height = VIEW_H;
@@ -51,10 +54,16 @@ export class Renderer {
 
   resize(): void {
     const w = window.innerWidth, h = window.innerHeight;
-    const s = Math.max(1, Math.floor(Math.min(w / VIEW_W, h / VIEW_H)));
-    this.scale = s;
-    this.canvas.width = VIEW_W * s; this.canvas.height = VIEW_H * s;
-    this.canvas.style.width = `${VIEW_W * s}px`; this.canvas.style.height = `${VIEW_H * s}px`;
+    this.viewW = VIEW_W;
+    // Adapt viewH to match aspect ratio so game fills the whole screen without black borders
+    this.viewH = Math.max(VIEW_H, Math.min(640, Math.round(VIEW_W * (h / w))));
+    this.off.width = this.viewW;
+    this.off.height = this.viewH;
+
+    this.canvas.width = w;
+    this.canvas.height = h;
+    this.canvas.style.width = '100vw';
+    this.canvas.style.height = '100vh';
     this.screenCtx.imageSmoothingEnabled = false;
   }
 
@@ -66,16 +75,16 @@ export class Renderer {
 
   clear(color = '#000'): void {
     this.ctx.fillStyle = color;
-    this.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    this.ctx.fillRect(0, 0, this.viewW, this.viewH);
   }
 
   drawStage(img: HTMLImageElement, stage: StageDef): void {
     const sx = this.cam.x, sy = this.cam.y;
     this.ctx.fillStyle = '#000';
-    this.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    this.ctx.fillRect(0, 0, this.viewW, this.viewH);
     // clamp source rect to the image
     const x0 = Math.max(0, sx), y0 = Math.max(0, sy);
-    const x1 = Math.min(img.width, sx + VIEW_W), y1 = Math.min(img.height, sy + VIEW_H);
+    const x1 = Math.min(img.width, sx + this.viewW), y1 = Math.min(img.height, sy + this.viewH);
     if (x1 > x0 && y1 > y0) {
       this.ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0, x0 - sx, y0 - sy, x1 - x0, y1 - y0);
     }
@@ -119,7 +128,7 @@ export class Renderer {
     const ctx = this.ctx;
     this.font.draw(ctx, scoreText, 12, 22, opts?.scoreColor ?? 'lavender');
     const tw = this.font.bigWidth(timeText);
-    const bx = Math.round(VIEW_W / 2 - tw / 2) - 3;
+    const bx = Math.round(this.viewW / 2 - tw / 2) - 3;
     ctx.fillStyle = '#7d7d7d';
     ctx.fillRect(bx, 5, tw + 6, 18);
     this.font.drawBig(ctx, timeText, bx + 3, 7);
@@ -161,10 +170,10 @@ export class Renderer {
     ctx.fillStyle = '#7d7d7d'; ctx.fillRect(84, 5, w1 + 6, 18);
     this.drawBigTinted(p1.time, 87, 7, blue);
     const w2 = this.font.bigWidth(p2.time);
-    ctx.fillStyle = '#7d7d7d'; ctx.fillRect(VIEW_W - 90 - w2, 5, w2 + 6, 18);
-    this.drawBigTinted(p2.time, VIEW_W - 87 - w2, 7, red);
-    this.textTinted('SCORE', VIEW_W - 8 - this.font.width('SCORE'), 4, red);
-    this.textTinted(p2.score, VIEW_W - 8 - this.font.width(p2.score), 14, red);
+    ctx.fillStyle = '#7d7d7d'; ctx.fillRect(this.viewW - 90 - w2, 5, w2 + 6, 18);
+    this.drawBigTinted(p2.time, this.viewW - 87 - w2, 7, red);
+    this.textTinted('SCORE', this.viewW - 8 - this.font.width('SCORE'), 4, red);
+    this.textTinted(p2.score, this.viewW - 8 - this.font.width(p2.score), 14, red);
   }
 
   /** black banner box with text lines (used for TIME TO FINISH / TIME BONUS) */
@@ -193,6 +202,6 @@ export class Renderer {
 
   present(): void {
     this.screenCtx.imageSmoothingEnabled = false;
-    this.screenCtx.drawImage(this.off, 0, 0, VIEW_W, VIEW_H, 0, 0, VIEW_W * this.scale, VIEW_H * this.scale);
+    this.screenCtx.drawImage(this.off, 0, 0, this.viewW, this.viewH, 0, 0, this.canvas.width, this.canvas.height);
   }
 }
