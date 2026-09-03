@@ -70,6 +70,7 @@ await page.goto(`${BASE}/?stage=${stage}`, { waitUntil: 'load' });
 // Wait for race screen
 await page.waitForFunction(() => window.game && window.game.screen === 'race', null, { timeout: 25000 });
 console.log('Game reached race screen.');
+await page.evaluate(() => window.mmDebug.hazards && window.mmDebug.hazards(false));
 await page.waitForTimeout(1000);
 
 // Waypoints for navigation per stage
@@ -94,28 +95,58 @@ const WAYPOINTS = {
     { name: 'goal', sx: 45, sy: 535 },
   ],
   2: [
+    // plateau: thread between the raised blocks to the white ramp's head
     { name: 'plateau_start', sx: 105, sy: 80 },
-    { name: 'center_corridor1', sx: 130, sy: 110 },
-    { name: 'center_corridor2', sx: 130, sy: 140 },
-    { name: 'center_corridor3', sx: 140, sy: 175 },
-    { name: 'rampA_approach', sx: 180, sy: 185 },
-    { name: 'rampA_entry', sx: 215, sy: 190 },
-    { name: 'rampA_1', sx: 175, sy: 230 },
-    { name: 'rampA_2', sx: 135, sy: 275 },
-    { name: 'rampA_3', sx: 95, sy: 320 },
-    { name: 'rampA_exit', sx: 55, sy: 365 },
-    { name: 'cones_floor_entry', sx: 100, sy: 420 },
-    { name: 'cones_floor_mid', sx: 140, sy: 460 },
-    { name: 'stairs_approach', sx: 170, sy: 520 },
-    { name: 'stairs_top', sx: 170, sy: 545 },
-    { name: 'funnel_approach', sx: 235, sy: 580 },
-    { name: 'funnel_pipe', sx: 245, sy: 612 },
-    { name: 'pipe_exit_run', sx: 185, sy: 750 },
-    { name: 'y_pipe_inlet', sx: 178, sy: 786 },
-    { name: 'teal_plaza', sx: 236, sy: 892 },
-    { name: 'ice_slope_top', sx: 232, sy: 950 },
-    { name: 'ice_slope_down', sx: 160, sy: 1020 },
-    { name: 'goal_sign', sx: 184, sy: 1108 },
+    { name: 'p1', sx: 116, sy: 100 },
+    { name: 'p2', sx: 133, sy: 114 },
+    { name: 'p3', sx: 155, sy: 114 },
+    { name: 'p4', sx: 177, sy: 114 },
+    { name: 'p5', sx: 199, sy: 119 },
+    { name: 'p6', sx: 215, sy: 135 },
+    { name: 'p7', sx: 220, sy: 157 },
+    { name: 'p8', sx: 220, sy: 179 },
+    { name: 'ramp_head', sx: 228, sy: 190, r: 10 },
+    // white ramp 240 -> 150 (steep: brake so the tent floor is not overshot)
+    { name: 'r1', sx: 213, sy: 208, r: 10, speed: 40 },
+    { name: 'r2', sx: 201, sy: 227, r: 10, speed: 40 },
+    { name: 'r3', sx: 189, sy: 247, r: 10, speed: 40 },
+    { name: 'r4', sx: 179, sy: 262, r: 10, speed: 40 },
+    { name: 'r5', sx: 158, sy: 271, r: 10, speed: 40 },
+    { name: 'r6', sx: 136, sy: 278, r: 10, speed: 40 },
+    { name: 'r7', sx: 116, sy: 289, r: 10, speed: 40, brake: 2 },
+    { name: 'r8', sx: 104, sy: 309, r: 10, speed: 40, brake: 2 },
+    { name: 'r9', sx: 90, sy: 330, r: 10, speed: 40, brake: 2 },
+    { name: 'r10', sx: 69, sy: 337, r: 10, speed: 40, brake: 2 },
+    { name: 'r11', sx: 56, sy: 357, r: 10, speed: 40, brake: 2 },
+    // tent floor 150, then roll off the 32 px ledge onto the mid floor 118
+    { name: 'tent1', sx: 94, sy: 388 },
+    { name: 'tent2', sx: 119, sy: 426 },
+    { name: 'tent3', sx: 128, sy: 462, r: 10 },
+    { name: 'ledge', sx: 140, sy: 482, r: 10 },              // between the pillars on the mid floor
+    { name: 'mid1', sx: 150, sy: 530, r: 12 },
+    { name: 'mid2', sx: 190, sy: 560, r: 10 },
+    { name: 'mid3', sx: 215, sy: 582, r: 10 },
+    { name: 'funnel', sx: 235, sy: 600, r: 6 },
+    // funnel pipe -> catwalk landing -> long diagonal -> Y pipe inlet
+    { name: 'catwalk_landing', sx: 212, sy: 722, r: 10, speed: 40 },
+    { name: 'cw1', sx: 180, sy: 745, r: 8, speed: 40 },
+    { name: 'cw2', sx: 140, sy: 752, r: 8, speed: 40 },
+    { name: 'cw3', sx: 100, sy: 760, r: 8, speed: 40 },
+    { name: 'cw4', sx: 108, sy: 766, r: 6, speed: 35 },
+    { name: 'cw5', sx: 118, sy: 772, r: 6, speed: 35 },
+    { name: 'cw6', sx: 128, sy: 778, r: 6, speed: 35 },
+    { name: 'y_platform', sx: 147, sy: 782, r: 6, speed: 35 },
+    { name: 'y_inlet', sx: 156, sy: 790, r: 6, speed: 35 },
+    // Y pipe -> lower floor 70 -> across the teal -> drop onto the goal floor 40
+    { name: 'pipe_out', sx: 250, sy: 905, r: 10 },
+    { name: 't1', sx: 236, sy: 945 },
+    { name: 't2', sx: 204, sy: 977 },
+    { name: 't3', sx: 172, sy: 1009 },
+    { name: 'grey_step', sx: 112, sy: 1030, r: 10, speed: 35 },   // ~20 px step down off the teal onto the grey goal floor
+    { name: 'grey_mid', sx: 110, sy: 1058, r: 10, speed: 30, brake: 2 },
+    { name: 'pad_in', sx: 118, sy: 1080, r: 8, speed: 30, brake: 2 },
+    { name: 'pad_mid', sx: 150, sy: 1095, r: 8, speed: 30, brake: 2 },
+    { name: 'goal', sx: 184, sy: 1108, r: 10, speed: 30 },
   ],
   3: [
     { name: 'tower_slide', sx: 45, sy: 52 },
@@ -173,7 +204,7 @@ let lastPos = null;
 
 console.log(`Navigating through ${wps.length} waypoints using mmDebug...`);
 
-for (let tick = 0; tick < 400 && !reachedGoal; tick++) {
+for (let tick = 0; tick < 600 && !reachedGoal; tick++) {
   const m = await page.evaluate(() => {
     const d = window.mmDebug ? window.mmDebug.marble() : null;
     return d;
@@ -234,10 +265,19 @@ for (let tick = 0; tick < 400 && !reachedGoal; tick++) {
 
   // advance when within reach, or when the marble has already passed it (closer to the next one than the
   // waypoint itself is) so a fast section cannot make it turn around and push back up the course
+  // teleported (pipe exit, respawn): resync to the closest waypoint ahead when the current one is far away
+  {
+    const dCur = Math.hypot(wps[wpIdx].sx - m.sx, wps[wpIdx].sy - m.sy);
+    if (dCur > 60) {
+      let best = wpIdx, bd = dCur;
+      for (let k = wpIdx + 1; k < wps.length; k++) { const d = Math.hypot(wps[k].sx - m.sx, wps[k].sy - m.sy); if (d < bd) { bd = d; best = k; } }
+      if (best !== wpIdx && bd < 40) { console.log(`↷ resync: marble at (${m.sx}, ${m.sy}) is ${bd.toFixed(0)} px from #${best} (${wps[best].name}); skipping ${best - wpIdx} waypoint(s)`); wpIdx = best; }
+    }
+  }
   while (wpIdx < wps.length - 1) {
     const t = wps[wpIdx], n = wps[wpIdx + 1];
     const dT = Math.hypot(t.sx - m.sx, t.sy - m.sy), dN = Math.hypot(n.sx - m.sx, n.sy - m.sy), seg = Math.hypot(n.sx - t.sx, n.sy - t.sy);
-    if (dT < (t.r ?? 18) || (dN < seg * 0.5 && dT < seg)) {
+    if (dT < (t.r ?? 18) || (dN < seg * 0.5 && dT < seg) || (dN < dT && dN < 30)) {
       console.log(`✓ Reached waypoint #${wpIdx} (${t.name}) at (${m.sx}, ${m.sy}). Next: ${n.name}`);
       wpIdx++;
     } else break;
@@ -256,7 +296,6 @@ for (let tick = 0; tick < 400 && !reachedGoal; tick++) {
   const sp = Math.hypot(m.vu ?? 0, m.vv ?? 0);
   let speed = currTarget.speed ?? (tdist < 30 ? 55 : 80);
   if (sp > 6) speed = Math.min(speed, 40);
-  if (stage === 2 && m.sy > 180 && m.sy < 370) speed = Math.min(speed, 40);
 
   // Apply trackball spin via mmDebug. Waypoints with `brake` counter-spin while the marble is faster than
   // that many tiles/s (there are no brakes on the cabinet: reverse the ball).

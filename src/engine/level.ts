@@ -154,6 +154,16 @@ export class HeightMap {
               if (y < 0 || y >= H || labels[y * W + x] === 0) ok = false;
             }
             if (ok) for (let k = last + 1; k < s; k++) z1[k * W + x] = flat ? za : za + (zb - za) * (k - last) / (s - last);
+          } else if (za - zb > OCCLUSION_FILL_DZ) {
+            // near end higher (a cliff edge), far end the lower floor, and every would-be pixel of that lower floor
+            // in the gap is painted WALL: a post / tent / pillar standing on the low floor in front of the cliff
+            // hides its base strip. (Open air behind a cliff edge would be void pixels, so it is not this case.)
+            let ok = true;
+            for (let k = last + 1; k < s && ok; k++) {
+              const y = Math.round(k - zb);
+              if (y < 0 || y >= H || this.kindOf[labels[y * W + x]] !== 2) ok = false;
+            }
+            if (ok) for (let k = last + 1; k < s; k++) z1[k * W + x] = zb;
           }
         }
         last = s;
@@ -217,10 +227,12 @@ export class HeightMap {
         const above = floorZ(x, y0 - 1), below = floorZ(x, y1);
         const run = y1 - y0;
         if (Number.isNaN(below)) continue;                   // face into void / image edge: nothing stands there
+        if (!Number.isNaN(above) && run < 4 && Math.abs(above - below) <= OBSTACLE_DZ) continue;   // tile seam between two floors, not a rail
         if (Number.isNaN(above) || Math.abs(above - below) <= OBSTACLE_DZ) {
-          // obstacle standing on the floor in front of it (rail, post, block face): base line at the run's bottom,
-          // given some depth (taller things are thicker) so a marble cannot slip inside a post from behind
-          mark(Math.round(y1 + below), x, below, below + run, Math.max(1, Math.min(6, Math.round(run / 6))));
+          // obstacle standing on the floor in front of it (rail, post, block): base line at the run's bottom. Its
+          // painted silhouette above the base is the thing itself seen from the front, so the footprint reaches
+          // back under the upper half of the run (a raised block's top is drawn there; a post is just a post)
+          mark(Math.round(y1 + below), x, below, below + run, Math.max(1, Math.min(6, Math.round(run / 6))) + (run > 12 ? Math.round(run / 2) - 6 : 0));
         } else if (above > below) {
           // cliff face: the terrain already blocks from below; this catches a face taller than the labels say
           mark(Math.round(y1 + below), x, below, above - 8);
@@ -533,7 +545,9 @@ export interface StageDef {
 export type PixelRef =
   | { kind: 'start' | 'start2'; x: number; y: number }
   | { kind: 'checkpoint'; x: number; y: number; cp?: { r: number; value: number; id: string } }
-  | { kind: 'zone'; zone: ZoneKind; x: number; y: number; r: number; value?: number; id?: string };
+  | { kind: 'zone'; zone: ZoneKind; x: number; y: number; r: number; value?: number; id?: string }
+  | { kind: 'pipe'; x: number; y: number; r: number; exit: { x: number; y: number; vu: number; vv: number }; duration: number; bonus?: number }
+  | { kind: 'hazard'; x: number; y: number; h: Omit<HazardSpawn, 'u' | 'v' | 'z'> };
 
 export interface Support { z: number; s: Surface; /** set when the heightfield answered as an obstacle: which cell / band / height */ why?: string }
 
@@ -834,6 +848,12 @@ export class LevelBuilder {
   checkpointPx(x: number, y: number, cp?: { r: number; value: number; id: string }): void { this.ref({ kind: 'checkpoint', x, y, cp }); }
   /** square zone of half-size r tiles centred on the floor drawn at (x,y), limited to that floor's height band */
   zonePx(zone: ZoneKind, x: number, y: number, r: number, value?: number, id?: string): void { this.ref({ kind: 'zone', zone, x, y, r, value, id }); }
+  /** pipe: entering the floor drawn at (x,y) (half-size r tiles) teleports to the floor drawn at exit (x,y) after `duration` s */
+  pipePx(x: number, y: number, r: number, exit: { x: number; y: number; vu: number; vv: number }, duration: number, bonus?: number): void {
+    this.ref({ kind: 'pipe', x, y, r, exit, duration, bonus });
+  }
+  /** hazard spawned on the floor drawn at (x,y) */
+  hazardPx(x: number, y: number, h: Omit<HazardSpawn, 'u' | 'v' | 'z'>): void { this.ref({ kind: 'hazard', x, y, h }); }
   /** scripted roll through MAP PIXEL points [x, y, z]; returns the slide index for start()/start2() */
   slide(pts: [number, number, number][], delay = 0.5): number {
     this.def.slides.push({ pts: pts.map(([x, y, z]) => { const w = toWorld(x, y, z); return { u: w.u, v: w.v, z }; }), delay });
@@ -918,6 +938,13 @@ function resolvePixelRefs(def: StageDef, hm: HeightMap): void {
       const p = pick(r.x, r.y, `${r.zone} zone`);
       if (!p) continue;
       def.zones.push({ kind: r.zone, u0: p.u - r.r, v0: p.v - r.r, u1: p.u + r.r, v1: p.v + r.r, value: r.value, id: r.id, zMin: p.z - 10, zMax: p.z + 10 });
+    } else if (r.kind === 'pipe') {
+      const p = pick(r.x, r.y, 'pipe mouth'), e = pick(r.exit.x, r.exit.y, 'pipe exit');
+      if (!p || !e) continue;
+      def.pipes.push({ u0: p.u - r.r, v0: p.v - r.r, u1: p.u + r.r, v1: p.v + r.r, zMin: p.z - 60, zMax: p.z + 12, exit: { u: e.u, v: e.v, z: e.z, vu: r.exit.vu, vv: r.exit.vv }, duration: r.duration, bonus: r.bonus });
+    } else if (r.kind === 'hazard') {
+      const p = pick(r.x, r.y, `${r.h.kind} hazard`);
+      if (p) def.hazards.push({ ...r.h, u: p.u, v: p.v, z: p.z });
     }
   }
   def.pixelRefs = undefined;   // resolved once

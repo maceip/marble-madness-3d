@@ -253,6 +253,8 @@ async function boot(): Promise<void> {
     },
     /** ASCII grid of floors / obstacles around the marble at its height (## = blocks it, .. = void) */
     around: (r = 6, step = 2) => { const hm = game.stage.heightmap, m = game.marble; return hm ? hm.around(m.u, m.v, m.z, r, step) : 'no heightfield'; },
+    /** hazards off: collision test runs are not about steelies */
+    hazards: (on: boolean) => { if (!on) game.hazards = []; return game.hazards.length; },
     /** one-line status */
     status: () => { const m = game.marble; const d = (window as any).mmDebug.marble(); return `${d.screen} t=${game.raceTime.toFixed(1)} px(${d.sx},${d.sy}) z${d.z} v(${m.vu.toFixed(1)},${m.vv.toFixed(1)}) ${m.grounded ? 'ground' : 'AIR'} on ${d.sup} ${m.dizzyT > 0 ? 'DIZZY ' : ''}${m.phase !== 'alive' ? m.phase.toUpperCase() + ':' + m.deathKind + ' ' : ''}deaths=${d.deaths} cp=${game.checkpointIdx} block=${m.lastBlock || '-'}`; },
   };

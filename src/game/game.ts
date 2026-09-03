@@ -639,7 +639,7 @@ export class Game {
     while (prog >= this.progressMax + PROGRESS_STEP) { this.progressMax += PROGRESS_STEP; this.score += PROGRESS_POINTS; }
     // pipes
     const pipe = pipeAt(s, m.u, m.v, m.z);
-    if (pipe && m.grounded) {
+    if (pipe) {   // grounded or falling into the mouth: a funnel swallows a marble that rolls off the edge into it
       m.inPipe = true; m.pipeT = pipe.duration; m.pipeExit = pipe.exit;
       this.sound.sfx('springboard', 0.7);
       if (pipe.bonus) {
