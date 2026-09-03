@@ -70,6 +70,47 @@ session makes it one tap, which is why it does not happen inside the WebView.
   `Primitive=TICK` for the confirmation. Wrong nonce → rejected. Provider error → reported.
 - Cookie-state flow for plain web users is unchanged.
 
+## Trackball haptics (native engine)
+
+`Trackball` in `src/engine/trackball.ts` feeds the bridge from its physical events; the Java `TrackballHaptics`
+turns them into actuator primitives. Everything is keyed to angle rolled, never to time:
+
+| event | bridge call | actuator |
+|---|---|---|
+| finger down on a spinning ball | `tbDown(omega)` | two faint LOW_TICKs (skin slipping) then THUD scaled by speed |
+| static friction breaks | `tbBreakout()` | one full LOW_TICK |
+| rolling under the finger | `tbRoll(dAngle, omega)` | TICK every 6° (60 per revolution), amplitude 0.2 → 1.0 with speed; above 35 Hz teeth are skipped and the next tick is slightly stronger |
+| spinning against the ball | `tbBrake(omega)` | LOW_TICK rattle + CLICK |
+| finger lifted | `tbUp()` | `Vibrator.cancel()` at once: the ball is free of the hand |
+
+Without the bridge (browser, PWA) the class keeps its `navigator.vibrate` ratchet.
+
+## Telemetry (authentic, zero dependencies)
+
+Nothing is reachable by crawlers or curl: `/api/telemetry/*` requires the page session cookie, is rate limited, and
+installs need a proof only the signed APK can make.
+
+- **Platform split**: the WebView loads `/?platform=android_apk` (plus `&install=1` on first run); the page sends
+  `app_start` with `platform` = `web` / `pwa` / `android_apk` (bridge present).
+- **Install proof**: the server mints a single-use 60 s nonce into `__MM__.nonce`; the page calls
+  `NativeBridge.signInstallChallenge(nonce)`; Java answers once per device with
+  `sha256(nonce + ":" + sha256(signing certificate))` and anchors the device with a key in the hardware keystore, so a
+  data clear does not recount. The server checks the proof against `APK_CERT_SHA256` (env, comma separated: the
+  debug key locally, Play's app-signing certificate for store builds). Re-signed APKs and scripts fail.
+  Limitation: the certificate hash is derivable from the APK, so this stops accidental and casual inflation, not a
+  determined attacker. The next step up, still dependency-free, is hardware key attestation
+  (`setAttestationChallenge` + chain verification on the server).
+- **Crashes**: the uncaught-exception hook writes the trace synchronously to SharedPreferences and lets the process
+  die; on the next launch the page pulls it with `consumePendingCrash()` and posts it with its own cookies. A dead
+  WebView renderer is reported the same way and the Activity recreates itself instead of the app being killed.
+  Stack frames are R8-obfuscated; `build/mapping.txt` deobfuscates them.
+- **Events**: `navigator.sendBeacon` to `/api/telemetry/event` (`app_start`, `race_start`, `race_end`, `death`,
+  `gameover`, `congrats`, `login`, `js_error`). `GET /api/telemetry/summary` totals them; raw JSONL in
+  `data/telemetry.jsonl`.
+- **Fault injection (test builds only, plain-http server)**:
+  `adb shell am start -n build.secure.marbles/com.example.minweb.MainActivity --ez debug_crash true` and
+  `--ez debug_renderer_crash true`.
+
 ## Notes
 
 - Package visibility: the `<queries>` block is what lets `bindService()` reach Chrome on API 30+; without it
