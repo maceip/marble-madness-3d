@@ -102,7 +102,7 @@ export interface Pipe {
   bonus?: number;
 }
 
-export type HazardKind = 'steelie' | 'worm' | 'slime' | 'hammer' | 'vacuum' | 'birds' | 'wand' | 'risers' | 'wave';
+export type HazardKind = 'steelie' | 'worm' | 'slime' | 'hammer' | 'vacuum' | 'birds' | 'wand' | 'risers' | 'wave' | 'catapult';
 
 export interface HazardSpawn {
   kind: HazardKind;

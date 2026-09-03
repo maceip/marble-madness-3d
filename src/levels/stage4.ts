@@ -46,9 +46,10 @@ L.zone('goal', signC.u - 3.5, signC.v - 3.5, signC.u + 3.5, signC.v + 3.5, undef
 // fields (pistons pop in a wave; one rising under you catapults you along the launch direction),
 // rotating hammers by the goal run, a steelie on the lower floor
 for (const [x, y, f] of [[135, 330, 1], [210, 420, -1], [95, 505, 1]] as const) { const p = L.uv(x, y, 100); L.hazard({ kind: 'vacuum', u: p.u, v: p.v, z: p.z, range: 3.2, facing: f }); }
-for (const [x, y, du, dv] of [[27, 515, 3, -1], [91, 567, 3, -1], [123, 639, 1, 3], [165, 553, 3, 1]] as const) {
+for (const [x, y, du, dv] of [[27, 515, 3, -1], [91, 567, 3, -1], [165, 553, 3, 1]] as const) {
   const p = L.uv(x, y, 100); L.hazard({ kind: 'risers', u: p.u, v: p.v, z: p.z, size: [3, 3], period: 3.2, phase: Math.random() * 3, launch: { du, dv } });
 }
+{ const p = L.uv(130, 632, 100); L.hazard({ kind: 'catapult', u: p.u, v: p.v, z: p.z, launch: { du: 14, dv: 6 } }); }
 for (const [x, y, f] of [[150, 930, 1], [205, 905, -1]] as const) { const p = L.uv(x, y, -80); L.hazard({ kind: 'hammer', u: p.u, v: p.v, z: p.z, period: 2.4, phase: Math.random() * 2, facing: f }); }
 { const p = L.uv(200, 700, 8); L.hazard({ kind: 'steelie', u: p.u, v: p.v, z: p.z }); }
 

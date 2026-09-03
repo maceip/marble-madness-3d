@@ -326,6 +326,21 @@ export class Vacuum extends Hazard {
     const idx = this.pull > 0.2 ? Math.floor(this.t * 8) % frames.length : 0;
     out.push({ img: left ? ctx.assets.sheets.vacuumL : ctx.assets.sheets.vacuumR, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 4, depthBias: 2 });
   }
+
+  drawOverlay(ctx2d: CanvasRenderingContext2D, project: Project, time: number): void {
+    if (this.pull < 0.05) return;
+    const center = project(this.u, this.v, this.z + 4);
+    const facing = this.spawn.facing === -1 ? -1 : 1;
+    ctx2d.fillStyle = `rgba(120, 160, 255, ${(0.3 + this.pull * 0.5).toFixed(2)})`;
+    for (let i = 0; i < 8; i++) {
+      const phase = (time * 4.0 + i * 0.42) % 1.0;
+      const r = (1 - phase) * 26;
+      const angle = (i * 0.785) + (phase * 2.0);
+      const px = center.x + facing * (Math.cos(angle) * r - 4);
+      const py = center.y + Math.sin(angle) * (r * 0.5);
+      ctx2d.fillRect(Math.round(px), Math.round(py), 2, 2);
+    }
+  }
 }
 
 /* ------------------------------------------------------------------------ */
@@ -544,6 +559,85 @@ export class Wand extends Hazard {
   }
 }
 
+export class Catapult extends Hazard {
+  t = 0;
+  flipped = 0;
+  cooldown = 0;
+
+  reset(ctx: HazardContext): void {
+    this.z = spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z);
+    this.flipped = 0;
+    this.cooldown = 0;
+  }
+
+  update(dt: number, ctx: HazardContext): void {
+    this.t += dt;
+    if (this.cooldown > 0) {
+      this.cooldown -= dt;
+      if (this.cooldown < 0.6) {
+        this.flipped = Math.max(0, this.flipped - dt * 2.5);
+      }
+    }
+
+    if (this.cooldown <= 0) {
+      const launch = this.spawn.launch ?? { du: 12, dv: 6 };
+      for (const mb of ctx.marbles) {
+        if (mb.phase !== 'alive' || mb.inPipe) continue;
+        const d = dist(this, mb);
+        if (d < 1.0 && Math.abs(mb.z - this.z) < 10) {
+          this.cooldown = 1.4;
+          this.flipped = 1.0;
+          mb.u = this.u; mb.v = this.v;
+          mb.grounded = false;
+          mb.vz = 175;
+          mb.vu = launch.du;
+          mb.vv = launch.dv;
+          mb.maxZ = mb.z;
+          mb.airT = 0;
+          ctx.onEvent({ type: 'sfx', name: 'springboard' });
+        }
+      }
+    }
+  }
+
+  sprites(): void { /* drawn in drawOverlay */ }
+
+  drawOverlay(ctx2d: CanvasRenderingContext2D, project: Project): void {
+    const base = project(this.u, this.v, this.z);
+    const flip = this.flipped;
+
+    // Pit opening outline
+    ctx2d.fillStyle = '#0a0a0e';
+    ctx2d.fillRect(base.x - 7, base.y - 5, 14, 10);
+    ctx2d.strokeStyle = '#3a3a46';
+    ctx2d.lineWidth = 1;
+    ctx2d.strokeRect(base.x - 7, base.y - 5, 14, 10);
+
+    // Lever arm
+    const armAngle = -0.35 + flip * 0.95;
+    const armLen = 9;
+    const ax = base.x - 4 + Math.cos(armAngle) * armLen;
+    const ay = base.y + 1 - Math.sin(armAngle) * armLen * 0.7 - flip * 8;
+
+    // Copper lever
+    ctx2d.strokeStyle = '#c66c28';
+    ctx2d.lineWidth = 2.5;
+    ctx2d.beginPath();
+    ctx2d.moveTo(base.x - 4, base.y + 1);
+    ctx2d.lineTo(ax, ay);
+    ctx2d.stroke();
+
+    // Spoon cup
+    ctx2d.fillStyle = '#e88e3c';
+    ctx2d.strokeStyle = '#8a3c10';
+    ctx2d.lineWidth = 1;
+    ctx2d.beginPath();
+    ctx2d.ellipse(ax, ay, 4.5, 3.5, -0.2, 0, Math.PI * 2);
+    ctx2d.fill();
+    ctx2d.stroke();
+  }
+}
+
 export function makeHazard(h: HazardSpawn): Hazard {
   switch (h.kind) {
     case 'steelie': return new Steelie(h);
@@ -555,5 +649,6 @@ export function makeHazard(h: HazardSpawn): Hazard {
     case 'wand': return new Wand(h);
     case 'risers': return new Risers(h);
     case 'wave': return new WavePlate(h);
+    case 'catapult': return new Catapult(h);
   }
 }
