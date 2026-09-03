@@ -9,7 +9,7 @@ const L = new LevelBuilder({
 // climbs (the race goes up): bottom (100) -> X ramps -> plaza (177) -> green (201/235) -> orange (339) -> red (356) -> goal (385)
 L.strip(40, 1005, 100, 146, 880, 177, 3, 'xRampL');
 L.strip(250, 1005, 100, 146, 880, 177, 3, 'xRampR');
-L.strip(84, 884, 177, 22, 730, 201, 4.5, 'plazaToGreen');
+L.strip(84, 884, 177, 20, 718, 201, 4.5, 'plazaToGreen');
 L.strip(60, 650, 201, 110, 600, 235, 3.2, 'climbA');
 L.strip(110, 578, 235, 60, 520, 339, 3.2, 'climbB');
 L.strip(270, 304, 339, 270, 268, 356, 3.2, 'climbC');

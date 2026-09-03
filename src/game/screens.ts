@@ -256,7 +256,7 @@ export class Screens {
     for (const m of this.rain) {
       r.ctx.save();
       r.ctx.filter = `hue-rotate(${m.c * 60}deg)`;
-      drawFrame(r.ctx, g.assets.sheets.marble, F[Math.floor((this.blink + m.y) * 0.3) % 6], m.x, m.y);
+      drawFrame(r.ctx, g.assets.sheets.marble, F[((Math.floor((this.blink + m.y) * 0.3) % 6) + 6) % 6], m.x, m.y);
       r.ctx.restore();
     }
     r.textC('CONGRATULATIONS', VIEW_W / 2, 14, 'lavender');

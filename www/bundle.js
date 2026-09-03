@@ -2363,7 +2363,7 @@ var L5 = new LevelBuilder({
 });
 L5.strip(40, 1005, 100, 146, 880, 177, 3, "xRampL");
 L5.strip(250, 1005, 100, 146, 880, 177, 3, "xRampR");
-L5.strip(84, 884, 177, 22, 730, 201, 4.5, "plazaToGreen");
+L5.strip(84, 884, 177, 20, 718, 201, 4.5, "plazaToGreen");
 L5.strip(60, 650, 201, 110, 600, 235, 3.2, "climbA");
 L5.strip(110, 578, 235, 60, 520, 339, 3.2, "climbB");
 L5.strip(270, 304, 339, 270, 268, 356, 3.2, "climbC");
@@ -3183,7 +3183,7 @@ var Screens = class {
     for (const m of this.rain) {
       r.ctx.save();
       r.ctx.filter = `hue-rotate(${m.c * 60}deg)`;
-      drawFrame(r.ctx, g.assets.sheets.marble, F[Math.floor((this.blink + m.y) * 0.3) % 6], m.x, m.y);
+      drawFrame(r.ctx, g.assets.sheets.marble, F[(Math.floor((this.blink + m.y) * 0.3) % 6 + 6) % 6], m.x, m.y);
       r.ctx.restore();
     }
     r.textC("CONGRATULATIONS", VIEW_W / 2, 14, "lavender");
