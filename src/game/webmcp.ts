@@ -140,9 +140,14 @@ export class WebMCP {
     if (!this.used) { this.used = true; this.game.isAI = true; this.game.onAgentDetected?.(); }
   }
 
+  private traffic(phase: 'call' | 'result' | 'error' | 'event' | 'resource', name: string, payload: unknown = {}): void {
+    window.dispatchEvent(new CustomEvent('mm:mcp-traffic', { detail: { phase, name, payload, at: performance.now() } }));
+  }
+
   /** fire a race event: wakes any wait_for_race_event callers and window.webmcp.subscribe listeners */
   emit(event: string, data: unknown = {}): void {
     this.lastEvent = { event, data };
+    this.traffic('event', event, data);
     const waiters = this.eventWaiters; this.eventWaiters = [];
     for (const w of waiters) { try { w({ event, data }); } catch (e) { console.warn('[webmcp] waiter error', e); } }
     for (const sub of this.subscribers) { try { sub(event, data); } catch (e) { console.warn('[webmcp] subscriber error', e); } }
@@ -178,10 +183,17 @@ export class WebMCP {
 
     // wrap each tool: trace it AND return the MCP CallToolResult shape ({content, structuredContent}) agents expect
     const traced: ToolDef[] = this.tools.map((t) => ({ ...t, execute: async (args: Record<string, unknown>) => {
+      this.traffic('call', t.name, args);
       mmTrace('webmcp.call', { tool: t.name, args, screen: this.game.screen });
-      const out = await t.execute(args ?? {});
-      mmTrace('webmcp.done', { tool: t.name, screen: this.game.screen, out: (out && typeof out === 'object') ? out : { v: out } });
-      return toToolResult(out);
+      try {
+        const out = await t.execute(args ?? {});
+        mmTrace('webmcp.done', { tool: t.name, screen: this.game.screen, out: (out && typeof out === 'object') ? out : { v: out } });
+        this.traffic('result', t.name, out);
+        return toToolResult(out);
+      } catch (error) {
+        this.traffic('error', t.name, { message: error instanceof Error ? error.message : String(error) });
+        throw error;
+      }
     } }));
     for (const s of surfaces) {
       try {
@@ -198,14 +210,22 @@ export class WebMCP {
       listTools: () => this.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
       callTool: async (name: string, args: Record<string, unknown> = {}) => {
         const t = this.tools.find((x) => x.name === name);
-        if (!t) { mmTrace('webmcp.unknown', { name }); throw new Error(`unknown tool ${name}`); }
+        if (!t) { mmTrace('webmcp.unknown', { name }); this.traffic('error', name, { message: 'unknown tool' }); throw new Error(`unknown tool ${name}`); }
+        this.traffic('call', name, args);
         mmTrace('webmcp.call', { tool: name, args, screen: this.game.screen });
-        const out = await t.execute(args ?? {});
-        mmTrace('webmcp.done', { tool: name, screen: this.game.screen, out: (out && typeof out === 'object') ? out : { v: out } });
-        return out;
+        try {
+          const out = await t.execute(args ?? {});
+          mmTrace('webmcp.done', { tool: name, screen: this.game.screen, out: (out && typeof out === 'object') ? out : { v: out } });
+          this.traffic('result', name, out);
+          return out;
+        } catch (error) {
+          this.traffic('error', name, { message: error instanceof Error ? error.message : String(error) });
+          throw error;
+        }
       },
       listResources: () => this.resources,
       readResource: async (uri: string) => {
+        this.traffic('resource', uri);
         if (uri === 'game://state') return { contents: [ { uri, mimeType: 'application/json', text: JSON.stringify(this.state()) } ] };
         if (uri === 'game://course') return { contents: [ { uri, mimeType: 'application/json', text: JSON.stringify(this.course()) } ] };
         throw new Error(`unknown resource ${uri}`);

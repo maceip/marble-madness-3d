@@ -78,6 +78,96 @@
       display: flex; flex-direction: column;
     }
     #ui-root[hidden] { display: none !important; }
+    #agent-console {
+      position: fixed; inset: 0; z-index: 200; overflow: hidden;
+      box-sizing: border-box; padding: clamp(22px, 4vh, 48px) clamp(24px, 4vw, 64px);
+      background:
+        radial-gradient(circle at 23% 52%, rgba(22, 81, 170, .22), transparent 25%),
+        linear-gradient(rgba(25, 103, 196, .05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(25, 103, 196, .05) 1px, transparent 1px), #020407;
+      background-size: auto, 24px 24px, 24px 24px, auto;
+      display: grid; grid-template-rows: auto 1fr auto; gap: 22px;
+      color: #8fd8ff;
+    }
+    #agent-console[hidden] { display: none !important; }
+    .agent-console-head, .agent-console-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 24px;
+      min-width: 0;
+    }
+    .agent-console-head { padding-bottom: 14px; border-bottom: 3px solid #134f8c; }
+    .agent-console-foot { padding-top: 12px; border-top: 2px solid #102b49; }
+    .agent-rig {
+      position: relative; min-height: 0; display: grid;
+      grid-template-columns: minmax(270px, 30%) minmax(210px, 22%) minmax(390px, 1fr);
+      align-items: center; gap: clamp(18px, 3vw, 52px);
+    }
+    .agent-ball-bay { position: relative; height: 100%; min-height: 430px; }
+    .agent-ball-ring {
+      position: absolute; left: 50%; top: 50%; width: min(27vw, 330px); aspect-ratio: 1;
+      transform: translate(-50%, -50%); border-radius: 50%;
+      border: 4px solid #174b8d; box-shadow: 0 0 35px #087be866, inset 0 0 35px #087be833;
+    }
+    .agent-ball-ring::before, .agent-ball-ring::after {
+      content: ""; position: absolute; inset: 13%; border: 2px dashed #2b87de; border-radius: 50%; opacity: .65;
+    }
+    .agent-ball-ring::after { inset: -18px; border-style: solid; border-color: #071d36; }
+    .agent-ball-caption { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); white-space: nowrap; }
+    .agent-flux {
+      position: relative; width: 100%; max-width: 290px; aspect-ratio: .72; justify-self: center;
+      filter: drop-shadow(0 0 12px rgba(45, 153, 255, .55));
+    }
+    .agent-flux svg { display: block; width: 100%; height: 100%; overflow: visible; }
+    .agent-flux-arm { stroke: #56bcff; stroke-width: 16; stroke-linecap: round; fill: none; }
+    .agent-flux-arm-core { stroke: #d9f5ff; stroke-width: 4; stroke-linecap: round; fill: none; }
+    .agent-flux-node { fill: #071a33; stroke: #ffe34f; stroke-width: 6; }
+    #agent-flux-core { fill: #fffbd1; stroke: #58c6ff; stroke-width: 8; }
+    .agent-flux-label { position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); white-space: nowrap; }
+    .agent-conduit {
+      position: absolute; z-index: -1; left: 20%; right: 35%; top: 50%; height: 10px;
+      transform: translateY(-50%); border: 2px solid #1d73b8; border-radius: 999px;
+      background: #03101d; box-shadow: 0 0 18px #149cff55;
+    }
+    .agent-energy-dot {
+      position: absolute; top: 50%; left: 50%; width: 24px; height: 24px; border-radius: 50%;
+      background: #fff770; box-shadow: 0 0 8px #fff, 0 0 28px #38bfff, 0 0 54px #168cff;
+      opacity: 0; transform: translate(-50%, -50%);
+    }
+    #agent-console.pulse-to-ball .agent-energy-dot { animation: agentPulseLeft 520ms ease-out; }
+    #agent-console.pulse-to-terminal .agent-energy-dot { animation: agentPulseRight 520ms ease-out; }
+    #agent-console.pulse-spin #agent-flux-core { animation: fluxCore 480ms steps(2, end); }
+    @keyframes agentPulseLeft { 0% { left: 100%; opacity: 0; } 15% { opacity: 1; } 100% { left: 0; opacity: 0; } }
+    @keyframes agentPulseRight { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
+    @keyframes fluxCore { 0%, 100% { fill: #fffbd1; } 35% { fill: #4cf6ff; filter: drop-shadow(0 0 22px #fff); } 70% { fill: #ffea38; } }
+    .agent-terminal {
+      height: min(68vh, 650px); min-height: 410px; display: grid; grid-template-rows: auto 1fr;
+      overflow: hidden; background: #000; border: 5px double #317fc7; border-radius: 8px;
+      box-shadow: 0 0 0 4px #01060d, 0 0 38px #087be844, inset 0 0 28px #06192d;
+    }
+    .agent-terminal-bar {
+      min-height: 38px; padding: 0 14px; display: flex; align-items: center; gap: 10px;
+      background: #07111e; border-bottom: 2px solid #184d7d;
+    }
+    .agent-led { width: 11px; height: 11px; border-radius: 50%; background: #18324d; box-shadow: inset 0 0 3px #000; }
+    .agent-led.on { background: #52e7ff; box-shadow: 0 0 12px #36bdff; }
+    .agent-terminal-title { margin-left: auto; color: #4da4d9; font: 900 15px/1 "Courier New", monospace; letter-spacing: 2px; }
+    #agent-terminal-log {
+      overflow: hidden; padding: 18px 16px; display: flex; flex-direction: column; justify-content: flex-end;
+      gap: 5px; background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(57, 160, 255, .035) 3px 4px);
+    }
+    .agent-log-line { min-height: 16px; flex: 0 0 auto; white-space: nowrap; }
+    .agent-log-line canvas { display: block; max-width: 100%; }
+    body.agent-console-active #game, body.agent-console-active #ui-root,
+    body.agent-console-active #ui-fx, body.agent-console-active #settings,
+    body.agent-console-active #android-app-prompt, body.agent-console-active #desktop-controls-help { display: none !important; }
+    body.agent-console-active #trackball-container {
+      display: flex !important; z-index: 220; left: 15%; right: auto; top: 50%; bottom: auto;
+      transform: translate(-50%, -50%);
+    }
+    body.agent-console-active #trackball { width: min(25vw, 300px); height: min(25vw, 300px); cursor: default; }
+    body.agent-console-active #trackball-label { display: none; }
+    @media (max-width: 900px), (pointer: coarse) {
+      #agent-console { display: none !important; }
+    }
     #ui-fx {
       position: fixed; inset: 0; z-index: 40; pointer-events: none;
       width: 100vw; height: 100dvh;
@@ -367,6 +457,41 @@
 <body>
   <canvas id="game" width="288" height="240"></canvas>
   <canvas id="ui-fx" hidden></canvas>
+  <section id="agent-console" aria-label="WebMCP agent console" hidden>
+    <header class="agent-console-head">
+      <div id="agent-console-title"></div>
+      <div id="agent-console-link"></div>
+    </header>
+    <div class="agent-rig">
+      <div class="agent-conduit"><span class="agent-energy-dot"></span></div>
+      <div class="agent-ball-bay">
+        <div class="agent-ball-ring"></div>
+        <div class="agent-ball-caption" id="agent-ball-caption"></div>
+      </div>
+      <div class="agent-flux" aria-hidden="true">
+        <svg viewBox="0 0 280 390">
+          <path class="agent-flux-arm" d="M140 194 L140 55 M140 194 L42 300 M140 194 L238 300" />
+          <path class="agent-flux-arm-core" d="M140 194 L140 55 M140 194 L42 300 M140 194 L238 300" />
+          <circle class="agent-flux-node" cx="140" cy="42" r="25" />
+          <circle class="agent-flux-node" cx="31" cy="312" r="25" />
+          <circle class="agent-flux-node" cx="249" cy="312" r="25" />
+          <circle id="agent-flux-core" cx="140" cy="194" r="38" />
+        </svg>
+        <div class="agent-flux-label" id="agent-flux-label"></div>
+      </div>
+      <div class="agent-terminal">
+        <div class="agent-terminal-bar">
+          <span class="agent-led on"></span><span class="agent-led"></span><span class="agent-led"></span>
+          <span class="agent-terminal-title">XTERM // LIVE MCP BUS</span>
+        </div>
+        <div id="agent-terminal-log" role="log" aria-live="polite"></div>
+      </div>
+    </div>
+    <footer class="agent-console-foot">
+      <div id="agent-console-status"></div>
+      <div id="agent-console-tools"></div>
+    </footer>
+  </section>
   <div id="ui-root" hidden>
     <section id="ui-title" hidden>
       <div class="ui-spread" id="ui-spread"></div>

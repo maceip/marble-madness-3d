@@ -6,6 +6,7 @@ import { Game } from './game/game';
 import { trackEvent, trackErrors, flushNativeTelemetry } from './engine/telemetry';
 import { mmTrace, mmTraceInit } from './engine/trace';
 import { Trackball3DView } from './render/trackball3d';
+import { agentConsole } from './ui/agent_console';
 import { desktopControlsTutorial } from './ui/desktop_controls';
 import { showAndroidInstallPrompt } from './ui/android_install';
 
@@ -136,6 +137,7 @@ async function boot(): Promise<void> {
 
   await game.start();
 
+  const agentUi = agentConsole(game, assets.font);
   const desktopHelp = desktopControlsTutorial(game, assets.font);
 
   showAndroidInstallPrompt(assets.font, (action) => {
@@ -364,9 +366,10 @@ async function boot(): Promise<void> {
   const loop = (now: number) => {
     pump(now);
     game.render();
+    agentUi.tick();
     if (tbContainer) {
       const isRace = game.screen === 'race' || game.screen === 'intro' || game.screen === 'timebonus';
-      tbContainer.style.display = isRace ? 'flex' : 'none';
+      tbContainer.style.display = agentUi.active || isRace ? 'flex' : 'none';
     }
     trackballView?.render();
     requestAnimationFrame(loop);
