@@ -35,8 +35,11 @@ L.wallAt(238, 270, 125, 1.2, 1.2, 'tentSR');
 // screen-aligned half-pipe bands: straight down the screen with rails on both sides
 const chuteA = L.band(124, 188, 316, 14, 100, -2.15, -0.5, 'chuteA'); L.bandRails(chuteA);
 const chuteB = L.band(140, 216, 402, 7.5, 70, -4.0, -1.0, 'chuteB'); L.bandRails(chuteB);
+// connector: the marble leaves chuteB around map (176,452) z~40 but the goal corridor started too far left, so it
+// dropped into the void. Bridge the chuteB exit to the corridor mouth. (verified by driving the WebMCP controls.)
+L.strip(176, 430, 55, 205, 470, 40, 4.0, 'chuteToGoal', 0.5);
 // goal corridor (dark shaded, with the GOAL sign) runs down-left from the lip to the goal
-L.strip(200, 452, 40, 30, 542, 38, 3.2, 'goalCorridor');
+L.strip(205, 452, 40, 30, 542, 38, 3.6, 'goalCorridor');
 L.strip(232, 318, 100, 268, 336, 61, 3.2, 'rampRight');          // plateau -> right floor
 
 // --- start & checkpoints -----------------------------------------------------

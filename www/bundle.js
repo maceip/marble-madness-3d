@@ -4058,7 +4058,8 @@ var chuteA = L.band(124, 188, 316, 14, 100, -2.15, -0.5, "chuteA");
 L.bandRails(chuteA);
 var chuteB = L.band(140, 216, 402, 7.5, 70, -4, -1, "chuteB");
 L.bandRails(chuteB);
-L.strip(200, 452, 40, 30, 542, 38, 3.2, "goalCorridor");
+L.strip(176, 430, 55, 205, 470, 40, 4, "chuteToGoal", 0.5);
+L.strip(205, 452, 40, 30, 542, 38, 3.6, "goalCorridor");
 L.strip(232, 318, 100, 268, 336, 61, 3.2, "rampRight");
 var start = L.uv(150, 220, 100);
 L.start(start.u, start.v, 100);
@@ -8452,7 +8453,22 @@ async function boot() {
     setMode: (m) => {
       game.mode = m;
       return game.mode;
-    }
+    },
+    teleport: (mx, my) => {
+      const pk = game.pickAtPixel(mx, my)[0];
+      if (!pk) return null;
+      game.marble.place(pk.u, pk.v, pk.z);
+      game.marble.vu = 0;
+      game.marble.vv = 0;
+      return { u: +pk.u.toFixed(2), v: +pk.v.toFixed(2), z: Math.round(pk.z), name: pk.name };
+    },
+    tp: (u, v, z) => {
+      game.marble.place(u, v, z);
+      game.marble.vu = 0;
+      game.marble.vv = 0;
+      return window.mmDebug.marble();
+    },
+    surfaces: () => game.stage.surfaces.map((s) => ({ n: s.name, k: s.kind, z0: Math.round(s.z0) }))
   };
   trackErrors();
   const q = new URLSearchParams(location.search);

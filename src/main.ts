@@ -106,6 +106,9 @@ async function boot(): Promise<void> {
     race: (stageIdx = 0) => { game.sound.init?.(); game.newGame(stageIdx); return 'loading stage ' + (stageIdx + 1); },
     go: (screen: string) => { game.go(screen as never); return game.screen; },
     setMode: (m: string) => { game.mode = m as never; return game.mode; },
+    teleport: (mx: number, my: number) => { const pk = game.pickAtPixel(mx, my)[0]; if (!pk) return null; game.marble.place(pk.u, pk.v, pk.z); game.marble.vu = 0; game.marble.vv = 0; return { u: +pk.u.toFixed(2), v: +pk.v.toFixed(2), z: Math.round(pk.z), name: pk.name }; },
+    tp: (u: number, v: number, z: number) => { game.marble.place(u, v, z); game.marble.vu = 0; game.marble.vv = 0; return (window as any).mmDebug.marble(); },
+    surfaces: () => game.stage.surfaces.map((s) => ({ n: s.name, k: s.kind, z0: Math.round(s.z0) })),
   };
 
   // ---- telemetry (see engine/telemetry.ts): one start event, key screen changes, deaths, login, JS errors
