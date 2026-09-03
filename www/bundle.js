@@ -3314,8 +3314,10 @@ var Marble = class {
     const dir = screenDirToWorld(ax, ay);
     let au = 0, av = 0;
     if (this.grounded) {
-      au += dir.du * ACCEL;
-      av += dir.dv * ACCEL;
+      const isIce = !!this.support?.s.name?.toLowerCase().includes("ice");
+      const accelK = isIce ? 0.35 : 1;
+      au += dir.du * ACCEL * accelK;
+      av += dir.dv * ACCEL * accelK;
       if (this.support) {
         const g = gradientOn(this.support.s, this.u, this.v);
         au -= g.gu * SLOPE_K;
@@ -3331,7 +3333,9 @@ var Marble = class {
     this.vu += au * h;
     this.vv += av * h;
     if (this.grounded) {
-      const f = Math.exp(-FRICTION * h);
+      const isIce = !!this.support?.s.name?.toLowerCase().includes("ice");
+      const frict = isIce ? 0.25 : FRICTION;
+      const f = Math.exp(-frict * h);
       this.vu *= f;
       this.vv *= f;
     }
@@ -3570,6 +3574,8 @@ var ice = L2.strip(232, 950, -305, 120, 1060, -395, 6, "ice");
 var start2 = L2.uv(64, 70, 100);
 L2.start(start2.u, start2.v);
 L2.checkpoint(start2.u, start2.v);
+var start22 = L2.uv(150, 40, 100);
+L2.start2(start22.u, start22.v);
 var c1 = L2.uv(127, 430, -10);
 L2.checkpoint(c1.u, c1.v);
 L2.zone("checkpoint", c1.u - 8, c1.v - 8, c1.u + 8, c1.v + 8, 1, "cp1", -20, 0);
@@ -3642,8 +3648,8 @@ var rampFromRight = L3.slide([[243, 52, TOWER_Z], [230, 62, TOWER_Z], [216, 85, 
 var start3 = L3.uv(45, 52, TOWER_Z);
 L3.start(start3.u, start3.v, TOWER_Z, rampFromLeft);
 L3.checkpoint(start3.u, start3.v);
-var start22 = L3.uv(243, 52, TOWER_Z);
-L3.start2(start22.u, start22.v, TOWER_Z, rampFromRight);
+var start23 = L3.uv(243, 52, TOWER_Z);
+L3.start2(start23.u, start23.v, TOWER_Z, rampFromRight);
 var c12 = L3.uv(150, 500, 100);
 L3.checkpoint(c12.u, c12.v);
 L3.zone("checkpoint", c12.u - 8, c12.v - 8, c12.u + 8, c12.v + 8, 1, "cp1", 90, 110);
@@ -3696,8 +3702,8 @@ L4.strip(86, 950, -80, 86, 998, -112, 3, "toGoal");
 var start4 = L4.uv(250, 55, TOWER_Z2);
 L4.start(start4.u, start4.v, TOWER_Z2, rampFromRight2);
 L4.checkpoint(start4.u, start4.v);
-var start23 = L4.uv(35, 55, TOWER_Z2);
-L4.start2(start23.u, start23.v, TOWER_Z2, rampFromLeft2);
+var start24 = L4.uv(35, 55, TOWER_Z2);
+L4.start2(start24.u, start24.v, TOWER_Z2, rampFromLeft2);
 var c13 = L4.uv(100, 300, 100);
 L4.checkpoint(c13.u, c13.v);
 L4.zone("checkpoint", c13.u - 6, c13.v - 6, c13.u + 6, c13.v + 6, 1, "cp1", 90, 110);
@@ -3753,8 +3759,9 @@ L5.strip(110, 578, 235, 60, 520, 339, 3.2, "climbB");
 L5.strip(270, 304, 339, 270, 268, 356, 3.2, "climbC");
 L5.strip(150, 104, 356, 150, 62, 385, 3.2, "climbD");
 var start5 = L5.uv(146, 1060, 100);
-L5.start(start5.u, start5.v);
+L5.start(start5.u - 1.5, start5.v);
 L5.checkpoint(start5.u, start5.v);
+L5.start2(start5.u + 1.5, start5.v);
 for (const [x, y] of [[110, 800], [190, 800], [150, 780], [120, 845], [180, 845]]) {
   const p = L5.uv(x, y, 177);
   L5.hazard({ kind: "slime", u: p.u, v: p.v, z: p.z, range: 1.6, gift: true });
@@ -3788,8 +3795,9 @@ var L6 = new LevelBuilder({
   carryTime: true
 });
 var start6 = L6.uv(120, 96, 100);
-L6.start(start6.u, start6.v);
+L6.start(start6.u - 1.5, start6.v);
 L6.checkpoint(start6.u, start6.v);
+L6.start2(start6.u + 1.5, start6.v);
 L6.strip(60, 236, 65, 96, 276, 65, 2.4, "glassA");
 L6.strip(136, 270, 65, 170, 316, 65, 2.4, "glassB");
 var c15 = L6.uv(150, 300, 65);

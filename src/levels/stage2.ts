@@ -34,9 +34,11 @@ for (const [ix, iy] of [[125, 803], [178, 786]] as const) {
 // ice slope from the teal floor down to the purple goal floor (z -395)
 const ice = L.strip(232, 950, -305, 120, 1060, -395, 6, 'ice'); void ice;
 
-// start / checkpoints
+// start / checkpoints: P1 in left cup, P2 in right cup (arcade: 2player_longplay.mov t=15)
 const start = L.uv(64, 70, 100);
 L.start(start.u, start.v); L.checkpoint(start.u, start.v);
+const start2 = L.uv(150, 40, 100);
+L.start2(start2.u, start2.v);
 const c1 = L.uv(127, 430, -10); L.checkpoint(c1.u, c1.v); L.zone('checkpoint', c1.u - 8, c1.v - 8, c1.u + 8, c1.v + 8, 1, 'cp1', -20, 0);
 const c2 = L.uv(228, 560, -43); L.checkpoint(c2.u, c2.v); L.zone('checkpoint', c2.u - 6, c2.v - 6, c2.u + 6, c2.v + 6, 2, 'cp2', -55, -30);
 const c3 = L.uv(200, 720, -140); L.checkpoint(c3.u, c3.v); L.zone('checkpoint', c3.u - 4, c3.v - 4, c3.u + 4, c3.v + 4, 3, 'cp3', -150, -130);

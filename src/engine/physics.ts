@@ -160,8 +160,10 @@ export class Marble {
     const dir = screenDirToWorld(ax, ay);
     let au = 0, av = 0;
     if (this.grounded) {
-      au += dir.du * ACCEL;
-      av += dir.dv * ACCEL;
+      const isIce = !!this.support?.s.name?.toLowerCase().includes('ice');
+      const accelK = isIce ? 0.35 : 1.0;
+      au += dir.du * ACCEL * accelK;
+      av += dir.dv * ACCEL * accelK;
       if (this.support) {
         const g = gradientOn(this.support.s, this.u, this.v);
         au -= g.gu * SLOPE_K;   // gravity pulls toward lower z
@@ -178,7 +180,9 @@ export class Marble {
     this.vu += au * h;
     this.vv += av * h;
     if (this.grounded) {
-      const f = Math.exp(-FRICTION * h);
+      const isIce = !!this.support?.s.name?.toLowerCase().includes('ice');
+      const frict = isIce ? 0.25 : FRICTION;
+      const f = Math.exp(-frict * h);
       this.vu *= f; this.vv *= f;
     }
     const sp = this.speed;

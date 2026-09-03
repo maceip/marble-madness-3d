@@ -7,7 +7,8 @@ const L = new LevelBuilder({
 });
 
 const start = L.uv(120, 96, 100);
-L.start(start.u, start.v); L.checkpoint(start.u, start.v);
+L.start(start.u - 1.5, start.v); L.checkpoint(start.u, start.v);
+L.start2(start.u + 1.5, start.v);
 // glass bridges (cyan) are not floor coloured: explicit strips
 L.strip(60, 236, 65, 96, 276, 65, 2.4, 'glassA');
 L.strip(136, 270, 65, 170, 316, 65, 2.4, 'glassB');

@@ -16,7 +16,8 @@ L.strip(270, 304, 339, 270, 268, 356, 3.2, 'climbC');
 L.strip(150, 104, 356, 150, 62, 385, 3.2, 'climbD');
 
 const start = L.uv(146, 1060, 100);
-L.start(start.u, start.v); L.checkpoint(start.u, start.v);
+L.start(start.u - 1.5, start.v); L.checkpoint(start.u, start.v);
+L.start2(start.u + 1.5, start.v);
 // everything you know is wrong: the green slimes on the plaza hand out seconds instead of dissolving the marble
 for (const [x, y] of [[110, 800], [190, 800], [150, 780], [120, 845], [180, 845]] as const) {
   const p = L.uv(x, y, 177);
