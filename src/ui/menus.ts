@@ -80,6 +80,15 @@ export class HtmlMenus {
       flashPress(e.currentTarget as HTMLElement);
       void this.game.screens.copyAgentLink();
     });
+    document.getElementById('ui-chrome-ai')?.addEventListener('click', (e) => {
+      flashPress(e.currentTarget as HTMLElement);
+      this.game.sound.init();
+      void this.game.chromeAgent.start();
+    });
+    window.addEventListener('mm:chrome-agent-status', () => {
+      this.lastSig = '';
+      if (this.game.screen === 'connect') this.sync('connect');
+    });
     document.getElementById('ui-play-again')?.addEventListener('click', (e) => {
       flashPress(e.currentTarget as HTMLElement);
       window.setTimeout(() => this.game.rematch(), 110);
@@ -163,6 +172,7 @@ export class HtmlMenus {
       pxFill(document.getElementById('ui-speech'), font, 'paste this into codex', 'white', 1);
       pxFill(document.getElementById('ui-connect-h'), font, 'CONNECT YOUR AGENT', 'cyan', sc);
       this.paintConnectBody(font, sc);
+      this.paintChromeAgentButton(font, sc);
     }
     if (screen === 'rematch') {
       pxFill(document.getElementById('ui-play-again'), font, 'PLAY AGAIN', 'blue', sc);
@@ -342,6 +352,15 @@ export class HtmlMenus {
     btn.replaceChildren(label);
   }
 
+  private paintChromeAgentButton(font: BitmapFont, sc: number): void {
+    const btn = document.getElementById('ui-chrome-ai') as HTMLButtonElement | null;
+    if (!btn) return;
+    const agent = this.game.chromeAgent;
+    btn.hidden = !agent.optionVisible;
+    btn.disabled = agent.active;
+    if (!btn.hidden) pxFill(btn, font, agent.buttonLabel, agent.phase === 'error' ? 'white' : 'orange', Math.max(1, sc - 1));
+  }
+
   private paintConnectBody(font: BitmapFont, sc: number): void {
     const host = document.getElementById('ui-connect-body');
     if (!host) return;
@@ -365,13 +384,14 @@ export class HtmlMenus {
 
   private syncConnect(font: BitmapFont, sc: number): void {
     const copied = this.game.screens.copiedTimer > 0;
-    const wait = this.game.agentJoined
+    const wait = this.game.chromeAgent.statusText || (this.game.agentJoined
       ? 'AGENT CONNECTED'
-      : 'Waiting for agent to join' + '.'.repeat(1 + (Math.floor(this.game.screens.blink * 2) % 3));
-    const sig = `${copied ? 1 : 0}|${wait}|${sc}`;
+      : 'Waiting for agent to join' + '.'.repeat(1 + (Math.floor(this.game.screens.blink * 2) % 3)));
+    const sig = `${copied ? 1 : 0}|${wait}|${sc}|${this.game.chromeAgent.buttonLabel}|${this.game.chromeAgent.optionVisible}`;
     if (sig === this.lastSig) return;
     this.lastSig = sig;
     this.paintCopy(copied, font, sc);
+    this.paintChromeAgentButton(font, sc);
     pxFill(document.getElementById('ui-connect-wait'), font, wait, 'cyan', Math.max(1, sc - 1));
     this.paintConnectMarble();
   }

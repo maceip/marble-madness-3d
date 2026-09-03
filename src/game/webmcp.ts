@@ -1,6 +1,7 @@
 import type { Game } from './game';
 import { mmTrace } from '../engine/trace';
 import { STAGES } from '../levels';
+import { topAt } from '../engine/level';
 
 /**
  * WebMCP surface for AI agents.
@@ -276,11 +277,24 @@ export class WebMCP {
 
   course(): unknown {
     const g = this.game;
+    const point = (u: number, v: number) => {
+      const floor = topAt(g.stage, u, v);
+      const z = floor?.z ?? 0;
+      return { x: Math.round((u - v) * 8), y: Math.round((u + v) * 4 - z), height: Math.round(z) };
+    };
+    const checkpoints = g.stage.checkpoints.map((p, index) => ({ index, ...point(p.u, p.v) }));
+    const goalZone = g.stage.zones.find((z) => z.kind === 'goal');
+    const goal = goalZone ? point((goalZone.u0 + goalZone.u1) / 2, (goalZone.v0 + goalZone.v1) / 2) : null;
+    const nextCheckpoint = checkpoints[Math.min(g.checkpointIdx + 1, checkpoints.length - 1)] ?? goal;
     return {
       stage: g.stageIdx + 1, name: g.stage.name,
       width: g.stage.width, height: g.stage.height,
       progressDir: g.stage.progressDir > 0 ? 'descend (+y)' : 'ascend (-y)',
       timeAdd: g.stage.timeAdd,
+      currentCheckpoint: g.checkpointIdx,
+      nextTarget: nextCheckpoint ?? goal,
+      route: [...checkpoints, ...(goal ? [{ index: checkpoints.length, ...goal, goal: true }] : [])],
+      goal,
       zones: g.stage.zones.map((z) => ({ kind: z.kind, id: z.id })),
     };
   }

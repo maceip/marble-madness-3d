@@ -17,6 +17,7 @@ import { Hazard, makeHazard, HazardContext, HazardEvent } from './hazards';
 import { Screens } from './screens';
 import { Net, RemotePlayer } from './net';
 import { WebMCP } from './webmcp';
+import { ChromeLocalAgent } from './chrome_agent';
 import { TWO_PLAYER_TELEPORT_PENALTY, TWO_PLAYER_TRAIL_MARGIN, ARCADE_TIME_ADD, WON_RACE_BONUS } from '../engine/constants';
 import { AITrackerOverlay } from '../render/ai_tracker';
 
@@ -97,6 +98,7 @@ export class Game {
   scoreSubmitted = false;
   net = new Net();
   webmcp!: WebMCP;
+  chromeAgent!: ChromeLocalAgent;
   onAgentDetected?: () => void;
   /** remote marbles keyed by network id */
   remote = new Map<string, Marble>();
@@ -144,6 +146,7 @@ export class Game {
     this.net.onLeaderboard = (top) => { if (top.length) this.rollers = top.slice(0, 10).map((e, i) => ({ name: e.name, score: e.score, intelligence: (e as any).intelligence || 'Natural', rank: (e as any).rank ?? (i + 1) })); };
     this.sound.onInit = (s) => { this.input.trackball.audio = s.trackballAudio; };
     this.webmcp = new WebMCP(this);
+    this.chromeAgent = new ChromeLocalAgent(this);
   }
 
   /** inspector overlay (F1 or ?debug=1): shows collision components, marble coordinates, click-to-teleport */
@@ -224,6 +227,9 @@ export class Game {
       screen = 'connect';
     }
     mmTrace('screen', { from: this.screen, to: screen, mode: this.mode, agent: this.isAgentPage });
+    if (!this.isAgentPage && (screen === 'title' || screen === 'menu' || screen === 'name') && this.chromeAgent?.active) {
+      this.chromeAgent.stop();
+    }
     this.screen = screen; this.t = 0;
     if (screen === 'connect' && !this.isAgentPage) {
       this.agentJoined = false;

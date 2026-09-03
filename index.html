@@ -380,6 +380,18 @@
     }
     #ui-connect-marble { width: 56px; height: 56px; image-rendering: pixelated; }
     #ui-connect-wait { margin-top: 8px; }
+    #ui-chrome-ai {
+      min-width: min(88vw, 520px); min-height: 54px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 11px 16px; background: #151b30;
+      border: 4px double #ffe019; border-radius: 7px;
+    }
+    #ui-chrome-ai[hidden] { display: none !important; }
+    #ui-chrome-ai:disabled { opacity: .62; cursor: wait; }
+    .chrome-agent-frame {
+      position: fixed; left: -4px; top: -4px; width: 1px; height: 1px;
+      border: 0; opacity: .001; pointer-events: none; z-index: -1;
+    }
 
     #ui-congrats { justify-content: center; gap: 8px; }
     #ui-win-rows { width: min(94vw, 720px); display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
@@ -407,7 +419,9 @@
       #ui-copy { position: static; align-self: flex-end; margin-bottom: 8px; }
       #ui-connect { justify-content: flex-start; padding-top: 16px; }
       .ui-connect-box { margin-top: 32px; }
+      #ui-chrome-ai { display: none !important; }
     }
+    @media (pointer: coarse) { #ui-chrome-ai { display: none !important; } }
     @media (max-height: 520px) and (orientation: landscape) {
       #ui-title, #ui-name, #ui-connect, #ui-congrats, #ui-menu, #ui-rematch {
         padding: 6px 10px 48px; gap: 4px;
@@ -547,6 +561,7 @@
         </div>
       </div>
       <div id="ui-connect-wait"></div>
+      <button type="button" class="ui-tap" id="ui-chrome-ai" hidden></button>
     </section>
     <section id="ui-congrats" hidden>
       <div id="ui-win-h"></div>

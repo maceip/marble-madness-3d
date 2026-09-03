@@ -136,6 +136,7 @@ async function boot(): Promise<void> {
   });
 
   await game.start();
+  void game.chromeAgent.probe();
 
   const agentUi = agentConsole(game, assets.font);
   const desktopHelp = desktopControlsTutorial(game, assets.font);

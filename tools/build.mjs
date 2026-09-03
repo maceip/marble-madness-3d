@@ -2,11 +2,15 @@ import * as esbuild from 'esbuild';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
-import { readFile, writeFile, readdir, copyFile, unlink } from 'node:fs/promises';
+import { readFile, writeFile, readdir, copyFile, unlink, rm } from 'node:fs/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const watch = process.argv.includes('--watch');
+
+// Dynamic agent-runtime chunks are content hashed. Remove the previous generated set so a deploy never
+// accumulates dead multi-megabyte chunks; the current build recreates exactly the files bundle.js imports.
+await rm(resolve(root, 'www/chunks'), { recursive: true, force: true });
 
 // Collision assets (stageN.labels.png + stageN.comps.json) ship under content-hashed names. The bundle asks
 // for exactly the revision it was built with, so a stale copy on the server or in an HTTP cache
@@ -37,7 +41,10 @@ const collisionRev = {};
 const options = {
   entryPoints: [resolve(root, 'src/main.ts')],
   bundle: true,
-  outfile: resolve(root, 'www/bundle.js'),
+  outdir: resolve(root, 'www'),
+  entryNames: 'bundle',
+  chunkNames: 'chunks/[name]-[hash]',
+  splitting: true,
   format: 'esm',
   sourcemap: true,
   // one-shot builds ship minified; --watch stays readable. NODE_ENV was never set in deploy, so production used to go out fat.
