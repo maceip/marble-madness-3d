@@ -92,6 +92,22 @@ async function boot(): Promise<void> {
 
   await game.start();
 
+  // Debug driver: the same control surface Codex uses over WebMCP, callable from JS/devtools. Lets a headless
+  // browser (or the console) drive deterministically. game.webmcp.callTool is exactly what the agent calls.
+  (window as any).mmDebug = {
+    call: (name: string, args: Record<string, unknown> = {}) => (window as any).webmcp.callTool(name, args),
+    state: () => (window as any).webmcp.callTool('get_game_state', {}),
+    steer: (dir: string | number, impulse = 0.7) => (window as any).webmcp.callTool('steer_trackball', { direction: dir, impulse }),
+    spin: (dx: number, dy: number, speed = 60) => (window as any).webmcp.callTool('spin_trackball', { dx, dy, speed }),
+    brake: (factor = 0.5) => (window as any).webmcp.callTool('apply_brake', { factor }),
+    marble: () => { const m = game.marble; return { u: +m.u.toFixed(2), v: +m.v.toFixed(2), z: +m.z.toFixed(0), sx: Math.round((m.u - m.v) * 8), sy: Math.round((m.u + m.v) * 4 - m.z), grounded: m.grounded, phase: m.phase, sup: m.support ? m.support.s.name : null, deaths: game.deaths, stage: game.stageIdx + 1, screen: game.screen, goal: game.goalReached }; },
+    screen: () => game.screen,
+    // setup helpers WebMCP does not expose (menu-free): jump into a 1P race, or a specific stage
+    race: (stageIdx = 0) => { game.sound.init?.(); game.newGame(stageIdx); return 'loading stage ' + (stageIdx + 1); },
+    go: (screen: string) => { game.go(screen as never); return game.screen; },
+    setMode: (m: string) => { game.mode = m as never; return game.mode; },
+  };
+
   // ---- telemetry (see engine/telemetry.ts): one start event, key screen changes, deaths, login, JS errors
   trackErrors();
   const q = new URLSearchParams(location.search);

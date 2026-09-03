@@ -8428,6 +8428,32 @@ async function boot() {
     game.debugClick((e.clientX - rect.left) / renderer.scale, (e.clientY - rect.top) / renderer.scale);
   });
   await game.start();
+  window.mmDebug = {
+    call: (name, args = {}) => window.webmcp.callTool(name, args),
+    state: () => window.webmcp.callTool("get_game_state", {}),
+    steer: (dir, impulse = 0.7) => window.webmcp.callTool("steer_trackball", { direction: dir, impulse }),
+    spin: (dx, dy, speed = 60) => window.webmcp.callTool("spin_trackball", { dx, dy, speed }),
+    brake: (factor = 0.5) => window.webmcp.callTool("apply_brake", { factor }),
+    marble: () => {
+      const m = game.marble;
+      return { u: +m.u.toFixed(2), v: +m.v.toFixed(2), z: +m.z.toFixed(0), sx: Math.round((m.u - m.v) * 8), sy: Math.round((m.u + m.v) * 4 - m.z), grounded: m.grounded, phase: m.phase, sup: m.support ? m.support.s.name : null, deaths: game.deaths, stage: game.stageIdx + 1, screen: game.screen, goal: game.goalReached };
+    },
+    screen: () => game.screen,
+    // setup helpers WebMCP does not expose (menu-free): jump into a 1P race, or a specific stage
+    race: (stageIdx = 0) => {
+      game.sound.init?.();
+      game.newGame(stageIdx);
+      return "loading stage " + (stageIdx + 1);
+    },
+    go: (screen) => {
+      game.go(screen);
+      return game.screen;
+    },
+    setMode: (m) => {
+      game.mode = m;
+      return game.mode;
+    }
+  };
   trackErrors();
   const q = new URLSearchParams(location.search);
   trackEvent("app_start", { install: q.get("install") === "1", tagged: q.get("platform") || null });
