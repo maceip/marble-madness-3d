@@ -178,7 +178,10 @@ function serveIndex(req, res, lobbyFromPath) {
   if (setCookies.length) headers['Set-Cookie'] = setCookies;
   let html = readFileSync(path.join(root, 'index.html'), 'utf8');
   const origin = PUBLIC_ORIGIN || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
-  html = html.replace('</head>', `<script>window.__MM__=${JSON.stringify({ lobby, fromPath: !!lobbyFromPath, publicOrigin: origin, user, nonce: mintInstallNonce() })};</script></head>`);
+  const mm = JSON.stringify({ lobby, fromPath: !!lobbyFromPath, publicOrigin: origin, user, nonce: mintInstallNonce() });
+  // inline script for the fast path, plus a <meta> copy: a Content-Security-Policy at the edge can block the inline
+  // script (production did), and then the client must still learn its lobby / agent role
+  html = html.replace('</head>', `<meta name="mm-config" content="${mm.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"><script>window.__MM__=${mm};</script></head>`);
   res.writeHead(200, headers);
   res.end(html);
 }

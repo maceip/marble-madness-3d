@@ -2225,11 +2225,11 @@ var Trackball = class {
     return nb && typeof nb.tbRoll === "function" ? nb : null;
   }
   constructor(opts = {}) {
-    this.radius = opts.radius ?? 70;
-    this.friction = opts.friction ?? 3.2;
+    this.radius = opts.radius ?? 65;
+    this.friction = opts.friction ?? 1.35;
     this.maxOmega = opts.maxOmega ?? 32;
-    this.inertia = opts.inertia ?? 3.8;
-    this.stictionPx = opts.stictionPx ?? 14;
+    this.inertia = opts.inertia ?? 2.2;
+    this.stictionPx = opts.stictionPx ?? 3;
     this.hapticStepRad = opts.hapticStepRad ?? 0.35;
     if (opts.enableHaptics !== void 0) this.enableHaptics = opts.enableHaptics;
   }
@@ -2240,7 +2240,7 @@ var Trackball = class {
     this.dragging = true;
     this.dragAccumPx = 0;
     const speed = Math.hypot(this.wx, this.wy);
-    this.brokenOut = speed > 1.5;
+    this.brokenOut = speed > 1.2;
     this.audio?.onGrab(speed);
     try {
       this.engine?.tbDown(speed);
@@ -2270,17 +2270,17 @@ var Trackball = class {
         return;
       }
     }
-    const impulseK = 0.12 / (1 + this.inertia * 0.35);
-    const targetWx = dy / this.radius / Math.max(0.016, dt) * impulseK;
-    const targetWy = dx / this.radius / Math.max(0.016, dt) * impulseK;
-    const dot = this.wx * targetWx + this.wy * targetWy;
+    const effectiveDt = Math.max(8e-3, Math.min(0.064, dt));
+    const targetWx = dy / this.radius / effectiveDt;
+    const targetWy = dx / this.radius / effectiveDt;
     const currentSpeed = Math.hypot(this.wx, this.wy);
     const targetSpeed = Math.hypot(targetWx, targetWy);
+    const dot = targetSpeed > 0.01 && currentSpeed > 0.01 ? (this.wx * targetWx + this.wy * targetWy) / (currentSpeed * targetSpeed) : 0;
     const eng = this.engine;
-    if (currentSpeed > 2.5 && targetSpeed > 1.2 && dot < -0.25 * currentSpeed * targetSpeed) {
+    if (currentSpeed > 2.5 && targetSpeed > 1.2 && dot < -0.25) {
       this.audio?.onBrake(currentSpeed);
-      this.wx *= 0.55;
-      this.wy *= 0.55;
+      this.wx *= 0.45;
+      this.wy *= 0.45;
       if (eng) {
         try {
           eng.tbBrake(currentSpeed);
@@ -2288,9 +2288,9 @@ var Trackball = class {
         }
       } else this.vibrate([8, 12, 8]);
     } else {
-      const accelDamp = 0.18 / (1 + this.inertia * 0.25);
-      this.wx += targetWx * accelDamp;
-      this.wy += targetWy * accelDamp;
+      const blend = Math.min(0.85, effectiveDt * 18 / (1 + this.inertia * 0.15));
+      this.wx += (targetWx - this.wx) * blend;
+      this.wy += (targetWy - this.wy) * blend;
       if (eng) {
         try {
           eng.tbRoll(dist2 / this.radius, Math.hypot(this.wx, this.wy));
@@ -2372,9 +2372,9 @@ var Trackball = class {
    */
   getSteer() {
     const sp = Math.hypot(this.wx, this.wy);
-    if (sp < 0.1) return { ax: 0, ay: 0 };
-    const norm = Math.min(1, sp / (this.maxOmega * 0.85));
-    const mag = Math.pow(norm, 1.35);
+    if (sp < 0.04) return { ax: 0, ay: 0 };
+    const norm = Math.min(1, sp / (this.maxOmega * 0.65));
+    const mag = Math.min(1, Math.pow(norm, 0.85));
     return {
       ax: this.wy / sp * mag,
       ay: this.wx / sp * mag
@@ -2527,6 +2527,59 @@ var Input = class {
     return res;
   }
   setupGameCanvasMouse() {
+    let canvasTouchId = null;
+    let canvasLastTouchX = 0, canvasLastTouchY = 0, canvasLastTouchTime = 0;
+    let canvasTouchMoved = false;
+    this.canvas.addEventListener("touchstart", (e) => {
+      if (e.changedTouches.length === 0) return;
+      const t = e.changedTouches[0];
+      canvasTouchId = t.identifier;
+      canvasLastTouchX = t.clientX;
+      canvasLastTouchY = t.clientY;
+      canvasLastTouchTime = performance.now();
+      canvasTouchMoved = false;
+      this.anyPress = true;
+      this.pressedQueue.push("Touch");
+      this.trackball.startDrag();
+    }, { passive: true });
+    this.canvas.addEventListener("touchmove", (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === canvasTouchId) {
+          const dx = t.clientX - canvasLastTouchX;
+          const dy = t.clientY - canvasLastTouchY;
+          if (Math.hypot(dx, dy) > 3) canvasTouchMoved = true;
+          const now = performance.now();
+          const dt = Math.max(8e-3, Math.min(0.05, (now - canvasLastTouchTime) / 1e3));
+          canvasLastTouchX = t.clientX;
+          canvasLastTouchY = t.clientY;
+          canvasLastTouchTime = now;
+          this.trackball.dragDelta(dx * 1.25, dy * 1.25, dt);
+          break;
+        }
+      }
+    }, { passive: true });
+    const endCanvasTouch = (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === canvasTouchId) {
+          canvasTouchId = null;
+          this.trackball.endDrag();
+          if (!canvasTouchMoved) {
+            const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+            this.clicksQueue.push({
+              x: (t.clientX - rect.left) * scaleX,
+              y: (t.clientY - rect.top) * scaleY
+            });
+          }
+          break;
+        }
+      }
+    };
+    this.canvas.addEventListener("touchend", endCanvasTouch, { passive: true });
+    this.canvas.addEventListener("touchcancel", endCanvasTouch, { passive: true });
     this.canvas.addEventListener("click", (e) => {
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.canvas.width / rect.width;
@@ -2535,18 +2588,6 @@ var Input = class {
         x: (e.clientX - rect.left) * scaleX,
         y: (e.clientY - rect.top) * scaleY
       });
-    });
-    this.canvas.addEventListener("touchend", (e) => {
-      if (e.changedTouches.length > 0) {
-        const t = e.changedTouches[0];
-        const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        this.clicksQueue.push({
-          x: (t.clientX - rect.left) * scaleX,
-          y: (t.clientY - rect.top) * scaleY
-        });
-      }
     });
     this.canvas.addEventListener("mousedown", (e) => {
       if (e.button === 0) {
@@ -2612,11 +2653,13 @@ var Input = class {
     });
   }
   setupTrackballTouch(tb) {
+    let lastTbTouchTime = performance.now();
     tb.addEventListener("pointerdown", (e) => {
       tb.setPointerCapture(e.pointerId);
       this.activeTouchId = e.pointerId;
       this.lastTouchX = e.clientX;
       this.lastTouchY = e.clientY;
+      lastTbTouchTime = performance.now();
       this.anyPress = true;
       this.pressedQueue.push("Touch");
       this.trackball.startDrag();
@@ -2626,9 +2669,12 @@ var Input = class {
       if (this.activeTouchId !== e.pointerId) return;
       const dx = e.clientX - this.lastTouchX;
       const dy = e.clientY - this.lastTouchY;
+      const now = performance.now();
+      const dt = Math.max(8e-3, Math.min(0.05, (now - lastTbTouchTime) / 1e3));
       this.lastTouchX = e.clientX;
       this.lastTouchY = e.clientY;
-      this.trackball.dragDelta(dx * 1.6, dy * 1.6);
+      lastTbTouchTime = now;
+      this.trackball.dragDelta(dx * 1.5, dy * 1.5, dt);
       e.preventDefault();
     });
     const endPointer = (e) => {
@@ -2643,6 +2689,7 @@ var Input = class {
       const t = e.changedTouches[0];
       this.lastTouchX = t.clientX;
       this.lastTouchY = t.clientY;
+      lastTbTouchTime = performance.now();
       this.anyPress = true;
       this.pressedQueue.push("Touch");
       this.trackball.startDrag();
@@ -2652,9 +2699,12 @@ var Input = class {
       const t = e.changedTouches[0];
       const dx = t.clientX - this.lastTouchX;
       const dy = t.clientY - this.lastTouchY;
+      const now = performance.now();
+      const dt = Math.max(8e-3, Math.min(0.05, (now - lastTbTouchTime) / 1e3));
       this.lastTouchX = t.clientX;
       this.lastTouchY = t.clientY;
-      this.trackball.dragDelta(dx * 1.6, dy * 1.6);
+      lastTbTouchTime = now;
+      this.trackball.dragDelta(dx * 1.5, dy * 1.5, dt);
       e.preventDefault();
     }, { passive: false });
     const endTouch = () => {
@@ -5207,6 +5257,31 @@ Instructions for Codex / AI Agent:
           }
         }
         for (const clk of clicks) {
+          const isPortrait = g.r.canvas.height > g.r.canvas.width * 1.15;
+          if (isPortrait) {
+            const cw = g.r.canvas.width, ch = g.r.canvas.height;
+            const cardW = Math.round(cw * 0.86);
+            const cardH = Math.max(70, Math.round(ch * 0.12));
+            const cardX = Math.round((cw - cardW) / 2);
+            const selectImg = g.assets.screenCache.get("select_base") || g.assets.screenCache.get("select");
+            let topY = 40;
+            if (selectImg) {
+              const srcH = Math.round(selectImg.height * 0.35);
+              const drawH = Math.round(cw / selectImg.width * srcH);
+              topY = drawH + 40;
+            }
+            topY += Math.round(ch * 0.06);
+            const y0 = topY;
+            const y1 = y0 + cardH + Math.round(ch * 0.035);
+            if (clk.x >= cardX && clk.x <= cardX + cardW && clk.y >= y0 && clk.y <= y0 + cardH) {
+              this.chooseMode(0);
+              return;
+            }
+            if (clk.x >= cardX && clk.x <= cardX + cardW && clk.y >= y1 && clk.y <= y1 + cardH) {
+              this.chooseMode(1);
+              return;
+            }
+          }
           const img = g.assets.screenCache.get("select_base") || g.assets.screenCache.get("select");
           if (img) {
             const scale = Math.min(g.r.canvas.width / img.width, g.r.canvas.height / img.height);
@@ -5317,7 +5392,64 @@ Instructions for Codex / AI Agent:
     const colX = [366, 507, 647, 787, 927, 1067, 1207];
     const rowY = [383, 508, 632, 759];
     const img = g.assets.screenCache.get("pickname_base") || g.assets.screenCache.get("pickname");
+    const isPortrait = g.r.canvas.height > g.r.canvas.width * 1.15;
     for (const clk of clicks) {
+      if (isPortrait) {
+        const cw = g.r.canvas.width, ch = g.r.canvas.height;
+        const btnW = Math.round(cw * 0.42);
+        const btnH = Math.max(48, Math.round(ch * 0.055));
+        const btnY = Math.round(ch * 0.15);
+        const ghX = Math.round(cw * 0.06);
+        const twX = Math.round(cw * 0.52);
+        if (clk.x >= ghX && clk.x <= ghX + btnW && clk.y >= btnY && clk.y <= btnY + btnH) {
+          g.sound.sfx("item");
+          window.triggerAuth?.("github");
+          return;
+        }
+        if (clk.x >= twX && clk.x <= twX + btnW && clk.y >= btnY && clk.y <= btnY + btnH) {
+          g.sound.sfx("item");
+          window.triggerAuth?.("twitter");
+          return;
+        }
+        const gridTop = Math.round(ch * 0.33);
+        const gridW = Math.round(cw * 0.9);
+        const cellW = Math.round(gridW / 7);
+        const cellH = Math.max(46, Math.round(ch * 0.068));
+        const gridLeft = Math.round((cw - gridW) / 2);
+        let hitGrid = false;
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 7; c++) {
+            const bx = gridLeft + c * cellW;
+            const by = gridTop + r * cellH;
+            if (clk.x >= bx && clk.x <= bx + cellW && clk.y >= by && clk.y <= by + cellH) {
+              hitGrid = true;
+              this.nameCur = { r, c };
+              if (r === 3 && c === 5) {
+                g.playerName = g.playerName.slice(0, -1);
+                g.sound.sfx("tick", 0.4);
+              } else if (r === 3 && c === 6) {
+                if (g.playerName.length > 0) this.finishName();
+                return;
+              } else {
+                const ch2 = LETTERS[r][c];
+                if (ch2 && g.playerName.length < NAME_MAX) {
+                  g.playerName += ch2;
+                  g.sound.sfx("tick", 0.4);
+                }
+              }
+              break;
+            }
+          }
+          if (hitGrid) break;
+        }
+        const startBtnY = Math.round(ch * 0.82);
+        const startBtnH = Math.max(54, Math.round(ch * 0.075));
+        if (!hitGrid && clk.y >= startBtnY && clk.y <= startBtnY + startBtnH && clk.x >= cw * 0.1 && clk.x <= cw * 0.9) {
+          this.finishName();
+          return;
+        }
+        continue;
+      }
       if (img) {
         const scale = Math.min(g.r.canvas.width / img.width, g.r.canvas.height / img.height);
         const rw = img.width * scale, rh = img.height * scale;
@@ -5469,6 +5601,79 @@ Instructions for Codex / AI Agent:
   renderTitle() {
     const g = this.g;
     const r = g.r;
+    const isPortrait = r.canvas.height > r.canvas.width * 1.15;
+    if (isPortrait) {
+      const cw = r.canvas.width, ch = r.canvas.height;
+      r.screenCtx.fillStyle = "#0a0c16";
+      r.screenCtx.fillRect(0, 0, cw, ch);
+      const titleImg = g.assets.screenCache.get("title_base") || g.assets.screenCache.get("title2");
+      let topY = 24;
+      if (titleImg) {
+        const srcH = Math.round(titleImg.height * 0.4);
+        const drawH = Math.round(cw / titleImg.width * srcH);
+        r.screenCtx.drawImage(titleImg, 0, 0, titleImg.width, srcH, 0, 10, cw, drawH);
+        topY = drawH + 18;
+      }
+      r.screenCtx.font = `bold ${Math.round(cw * 0.046)}px "Courier New", monospace`;
+      r.screenCtx.textAlign = "center";
+      r.screenCtx.textBaseline = "middle";
+      r.screenCtx.fillStyle = "#ffe019";
+      r.screenCtx.fillText("\u2605 HIGH ROLLERS LEADERBOARD \u2605", cw / 2, topY);
+      topY += Math.round(ch * 0.035);
+      const rows = g.rollers.slice(0, 10);
+      const rowH = Math.max(36, Math.min(56, Math.round(ch * 0.52 / 11)));
+      const fontSize = Math.max(14, Math.round(rowH * 0.42));
+      r.screenCtx.font = `bold ${fontSize}px "Courier New", monospace`;
+      r.screenCtx.fillStyle = "#8e96b8";
+      r.screenCtx.textAlign = "center";
+      r.screenCtx.fillText("#", cw * 0.1, topY);
+      r.screenCtx.textAlign = "left";
+      r.screenCtx.fillText("PLAYER", cw * 0.22, topY);
+      r.screenCtx.textAlign = "right";
+      r.screenCtx.fillText("INTEL", cw * 0.9, topY);
+      r.screenCtx.strokeStyle = "#272d4a";
+      r.screenCtx.lineWidth = 2;
+      r.screenCtx.beginPath();
+      r.screenCtx.moveTo(cw * 0.06, topY + rowH * 0.4);
+      r.screenCtx.lineTo(cw * 0.94, topY + rowH * 0.4);
+      r.screenCtx.stroke();
+      topY += rowH * 0.8;
+      for (let i = 0; i < 10; i++) {
+        const e = rows[i];
+        if (!e) break;
+        const cy = topY + i * rowH;
+        r.screenCtx.textAlign = "center";
+        r.screenCtx.fillStyle = i === 0 ? "#ffe019" : i < 3 ? "#ffba3b" : "#c5cbdf";
+        r.screenCtx.fillText(String(e.rank ?? i + 1), cw * 0.1, cy);
+        const isUser = e.name === "@MACEIP" || g.playerName && e.name.toUpperCase() === g.playerName.toUpperCase();
+        r.screenCtx.textAlign = "left";
+        r.screenCtx.fillStyle = isUser ? "#79a8ff" : "#ffffff";
+        r.screenCtx.fillText(e.name, cw * 0.22, cy);
+        if (isUser) {
+          const nw = r.screenCtx.measureText(e.name).width;
+          r.screenCtx.strokeStyle = "#79a8ff";
+          r.screenCtx.lineWidth = 2;
+          r.screenCtx.beginPath();
+          r.screenCtx.moveTo(cw * 0.22, cy + fontSize * 0.6);
+          r.screenCtx.lineTo(cw * 0.22 + nw, cy + fontSize * 0.6);
+          r.screenCtx.stroke();
+        }
+        const isAI = (e.intelligence || "").toLowerCase().includes("agent") || (e.intelligence || "").toLowerCase().includes("artificial");
+        r.screenCtx.textAlign = "right";
+        r.screenCtx.fillStyle = isAI ? "#33e0ff" : "#a2b4dc";
+        r.screenCtx.fillText(e.intelligence || "Natural", cw * 0.9, cy);
+      }
+      const btnY = ch - Math.round(ch * 0.09);
+      const pulse = 0.65 + 0.35 * Math.sin(this.blink * 6);
+      r.screenCtx.fillStyle = `rgba(255, 224, 25, ${pulse})`;
+      r.screenCtx.textAlign = "center";
+      r.screenCtx.font = `900 ${Math.max(16, Math.round(cw * 0.048))}px "Courier New", monospace`;
+      r.screenCtx.fillText("\u25B6 TAP TO START / SELECT MODE \u25C0", cw / 2, btnY);
+      r.screenCtx.fillStyle = "#656b88";
+      r.screenCtx.font = `bold ${Math.max(11, Math.round(cw * 0.028))}px "Courier New", monospace`;
+      r.screenCtx.fillText("ATARI ARCADE \xB7 WEBMCP COMPLIANT", cw / 2, btnY + Math.round(ch * 0.035));
+      return;
+    }
     const img = g.assets.screenCache.get("title_base") || g.assets.screenCache.get("title2");
     if (img) {
       const bounds = r.drawFullScreenImage(img);
@@ -5514,6 +5719,72 @@ Instructions for Codex / AI Agent:
   renderMenu() {
     const g = this.g;
     const r = g.r;
+    const isPortrait = r.canvas.height > r.canvas.width * 1.15;
+    if (isPortrait) {
+      const cw = r.canvas.width, ch = r.canvas.height;
+      r.screenCtx.fillStyle = "#0a0c16";
+      r.screenCtx.fillRect(0, 0, cw, ch);
+      const selectImg = g.assets.screenCache.get("select_base") || g.assets.screenCache.get("select");
+      let topY = 40;
+      if (selectImg) {
+        const srcH = Math.round(selectImg.height * 0.35);
+        const drawH = Math.round(cw / selectImg.width * srcH);
+        r.screenCtx.drawImage(selectImg, 0, 0, selectImg.width, srcH, 0, 20, cw, drawH);
+        topY = drawH + 40;
+      }
+      r.screenCtx.font = `bold ${Math.round(cw * 0.052)}px "Courier New", monospace`;
+      r.screenCtx.textAlign = "center";
+      r.screenCtx.textBaseline = "middle";
+      r.screenCtx.fillStyle = "#ffe019";
+      r.screenCtx.fillText("SELECT GAME MODE", cw / 2, topY);
+      topY += Math.round(ch * 0.06);
+      const cardW = Math.round(cw * 0.86);
+      const cardH = Math.max(70, Math.round(ch * 0.12));
+      const cardX = Math.round((cw - cardW) / 2);
+      const y0 = topY;
+      const is0 = this.cursor === 0;
+      r.screenCtx.fillStyle = is0 ? "#1b223d" : "#111524";
+      r.screenCtx.strokeStyle = is0 ? "#ffe019" : "#333b5c";
+      r.screenCtx.lineWidth = is0 ? 3 : 1.5;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(cardX, y0, cardW, cardH, 12);
+      r.screenCtx.fill();
+      r.screenCtx.stroke();
+      r.screenCtx.textAlign = "center";
+      r.screenCtx.fillStyle = is0 ? "#ffe019" : "#ffffff";
+      r.screenCtx.font = `bold ${Math.round(cardH * 0.32)}px "Courier New", monospace`;
+      r.screenCtx.fillText("1 PLAYER", cw / 2, y0 + cardH * 0.38);
+      r.screenCtx.fillStyle = is0 ? "#79a8ff" : "#8892b0";
+      r.screenCtx.font = `bold ${Math.round(cardH * 0.22)}px "Courier New", monospace`;
+      r.screenCtx.fillText("ARCADE TIME ATTACK CHALLENGE", cw / 2, y0 + cardH * 0.72);
+      const y1 = y0 + cardH + Math.round(ch * 0.035);
+      const is1 = this.cursor === 1;
+      r.screenCtx.fillStyle = is1 ? "#1b223d" : "#111524";
+      r.screenCtx.strokeStyle = is1 ? "#ffe019" : "#333b5c";
+      r.screenCtx.lineWidth = is1 ? 3 : 1.5;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(cardX, y1, cardW, cardH, 12);
+      r.screenCtx.fill();
+      r.screenCtx.stroke();
+      r.screenCtx.fillStyle = is1 ? "#ffe019" : "#ffffff";
+      r.screenCtx.font = `bold ${Math.round(cardH * 0.32)}px "Courier New", monospace`;
+      r.screenCtx.fillText("2 PLAYERS", cw / 2, y1 + cardH * 0.38);
+      r.screenCtx.fillStyle = is1 ? "#33e0ff" : "#8892b0";
+      r.screenCtx.font = `bold ${Math.round(cardH * 0.22)}px "Courier New", monospace`;
+      r.screenCtx.fillText("HUMAN VS WEBMCP AGENT", cw / 2, y1 + cardH * 0.72);
+      const curCardY = is0 ? y0 : y1;
+      const marbleSize = Math.round(cardH * 0.45);
+      const marbleFrame = FRAMES.marble.roll[Math.floor(this.blink * 6) % 6];
+      const sheet = g.assets.sheets.marble;
+      if (sheet) {
+        r.screenCtx.drawImage(sheet, marbleFrame.x, marbleFrame.y, marbleFrame.w, marbleFrame.h, cardX + 16, curCardY + (cardH - marbleSize) / 2, marbleSize, marbleSize);
+      }
+      const botY = ch - Math.round(ch * 0.12);
+      r.screenCtx.fillStyle = "#656b88";
+      r.screenCtx.font = `bold ${Math.max(12, Math.round(cw * 0.032))}px "Courier New", monospace`;
+      r.screenCtx.fillText("TAP TO SELECT MODE \xB7 PROCEED TO NAME", cw / 2, botY);
+      return;
+    }
     const img = g.assets.screenCache.get("select_base") || g.assets.screenCache.get("select");
     if (img) {
       const bounds = r.drawFullScreenImage(img);
@@ -5543,6 +5814,119 @@ Instructions for Codex / AI Agent:
   renderName() {
     const g = this.g;
     const r = g.r;
+    const isPortrait = r.canvas.height > r.canvas.width * 1.15;
+    if (isPortrait) {
+      const cw = r.canvas.width, ch = r.canvas.height;
+      r.screenCtx.fillStyle = "#0a0c16";
+      r.screenCtx.fillRect(0, 0, cw, ch);
+      let curY = Math.round(ch * 0.05);
+      r.screenCtx.textAlign = "center";
+      r.screenCtx.textBaseline = "middle";
+      r.screenCtx.font = `bold ${Math.round(cw * 0.046)}px "Courier New", monospace`;
+      r.screenCtx.fillStyle = "#b6b9d6";
+      r.screenCtx.fillText("PLAYER 1", cw / 2, curY);
+      curY += Math.round(ch * 0.035);
+      r.screenCtx.font = `bold ${Math.round(cw * 0.052)}px "Courier New", monospace`;
+      r.screenCtx.fillStyle = "#ffe019";
+      r.screenCtx.fillText("ENTER YOUR NAME", cw / 2, curY);
+      const btnW = Math.round(cw * 0.42);
+      const btnH = Math.max(48, Math.round(ch * 0.055));
+      const btnY = Math.round(ch * 0.15);
+      const ghX = Math.round(cw * 0.06);
+      const twX = Math.round(cw * 0.52);
+      const isGhPending = this.authPending === "github";
+      r.screenCtx.fillStyle = "#161b22";
+      r.screenCtx.strokeStyle = isGhPending ? "#ffe019" : "#30363d";
+      r.screenCtx.lineWidth = isGhPending ? 3 : 1.5;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(ghX, btnY, btnW, btnH, 8);
+      r.screenCtx.fill();
+      r.screenCtx.stroke();
+      r.screenCtx.font = `bold ${Math.max(12, Math.round(btnH * 0.35))}px "Courier New", monospace`;
+      r.screenCtx.fillStyle = isGhPending ? "#ffe019" : "#f0f6fc";
+      r.screenCtx.fillText("\u{1F431} GITHUB", ghX + btnW / 2, btnY + btnH / 2);
+      const isTwPending = this.authPending === "twitter";
+      r.screenCtx.fillStyle = "#0f1419";
+      r.screenCtx.strokeStyle = isTwPending ? "#ffe019" : "#2f3336";
+      r.screenCtx.lineWidth = isTwPending ? 3 : 1.5;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(twX, btnY, btnW, btnH, 8);
+      r.screenCtx.fill();
+      r.screenCtx.stroke();
+      r.screenCtx.fillStyle = isTwPending ? "#ffe019" : "#1d9bf0";
+      r.screenCtx.fillText("\u{1D54F} TWITTER", twX + btnW / 2, btnY + btnH / 2);
+      const nameCardY = Math.round(ch * 0.23);
+      const nameCardH = Math.max(50, Math.round(ch * 0.065));
+      r.screenCtx.fillStyle = "#141828";
+      r.screenCtx.strokeStyle = "#ffe019";
+      r.screenCtx.lineWidth = 2;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(cw * 0.1, nameCardY, cw * 0.8, nameCardH, 10);
+      r.screenCtx.fill();
+      r.screenCtx.stroke();
+      r.screenCtx.font = `900 ${Math.max(20, Math.round(nameCardH * 0.5))}px "Courier New", monospace`;
+      r.screenCtx.fillStyle = "#ffe019";
+      const blinkChar = Math.floor(this.blink * 3) % 2 === 0 ? "_" : " ";
+      const isHandle = g.playerName && g.playerName.startsWith("@");
+      const maxLen = isHandle ? 16 : NAME_MAX;
+      const displayName = (g.playerName || "").toUpperCase().slice(0, maxLen);
+      const padded = isHandle ? displayName : (displayName + blinkChar).padEnd(NAME_MAX, "_");
+      r.screenCtx.fillText(padded, cw / 2, nameCardY + nameCardH / 2);
+      const gridTop = Math.round(ch * 0.33);
+      const gridW = Math.round(cw * 0.9);
+      const cellW = Math.round(gridW / 7);
+      const cellH = Math.max(46, Math.round(ch * 0.068));
+      const gridLeft = Math.round((cw - gridW) / 2);
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 7; col++) {
+          const bx = gridLeft + col * cellW;
+          const by = gridTop + row * cellH;
+          const sel = this.nameCur.r === row && this.nameCur.c === col;
+          r.screenCtx.fillStyle = sel ? "#243054" : "#111524";
+          r.screenCtx.strokeStyle = sel ? "#ffe019" : "#272f48";
+          r.screenCtx.lineWidth = sel ? 2.5 : 1;
+          r.screenCtx.beginPath();
+          r.screenCtx.roundRect(bx + 3, by + 3, cellW - 6, cellH - 6, 6);
+          r.screenCtx.fill();
+          r.screenCtx.stroke();
+          if (sel) {
+            const marbleSize = Math.round(cellH * 0.5);
+            const marbleFrame = FRAMES.marble.roll[Math.floor(this.blink * 6) % 6];
+            const sheet = g.assets.sheets.marble;
+            if (sheet) {
+              r.screenCtx.drawImage(sheet, marbleFrame.x, marbleFrame.y, marbleFrame.w, marbleFrame.h, bx + 6, by + (cellH - marbleSize) / 2, marbleSize, marbleSize);
+            }
+          }
+          if (row === 3 && col === 5) {
+            r.screenCtx.fillStyle = "#ff8844";
+            r.screenCtx.font = `bold ${Math.max(12, Math.round(cellH * 0.32))}px "Courier New", monospace`;
+            r.screenCtx.fillText("RUB", bx + cellW / 2 + (sel ? 8 : 0), by + cellH / 2);
+          } else if (row === 3 && col === 6) {
+            r.screenCtx.fillStyle = "#33ffaa";
+            r.screenCtx.font = `bold ${Math.max(12, Math.round(cellH * 0.32))}px "Courier New", monospace`;
+            r.screenCtx.fillText("END", bx + cellW / 2 + (sel ? 8 : 0), by + cellH / 2);
+          } else {
+            const ch2 = LETTERS[row][col];
+            if (ch2) {
+              r.screenCtx.fillStyle = sel ? "#ffe019" : "#ffffff";
+              r.screenCtx.font = `bold ${Math.max(16, Math.round(cellH * 0.42))}px "Courier New", monospace`;
+              r.screenCtx.fillText(ch2, bx + cellW / 2 + (sel ? 8 : 0), by + cellH / 2);
+            }
+          }
+        }
+      }
+      const startBtnY = Math.round(ch * 0.82);
+      const startBtnH = Math.max(54, Math.round(ch * 0.075));
+      const pulse = 0.75 + 0.25 * Math.sin(this.blink * 8);
+      r.screenCtx.fillStyle = `rgba(255, 210, 63, ${pulse})`;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(cw * 0.1, startBtnY, cw * 0.8, startBtnH, 12);
+      r.screenCtx.fill();
+      r.screenCtx.fillStyle = "#000000";
+      r.screenCtx.font = `900 ${Math.max(16, Math.round(startBtnH * 0.38))}px "Courier New", monospace`;
+      r.screenCtx.fillText("\u25B6 START RACE \u25C0", cw / 2, startBtnY + startBtnH / 2);
+      return;
+    }
     const img = g.assets.screenCache.get("pickname_base") || g.assets.screenCache.get("pickname");
     if (img) {
       const bounds = r.drawFullScreenImage(img);
@@ -7641,7 +8025,7 @@ void main() {
 }
 `;
 var FS_SOURCE = `
-precision highp float;
+precision mediump float;
 varying vec2 v_uv;
 
 uniform mat3 u_rot;
@@ -7649,35 +8033,6 @@ uniform vec3 u_colorBase;
 uniform vec3 u_colorWave;
 uniform vec3 u_colorPearl;
 uniform float u_time;
-
-// Fast 3D hash & noise for procedural bowling ball resin swirls
-float hash(vec3 p) {
-  p = fract(p * 0.3183099 + 0.1);
-  p *= 17.0;
-  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-}
-
-float noise(vec3 x) {
-  vec3 i = floor(x);
-  vec3 f = fract(x);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(
-    mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
-        mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
-    mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
-        mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
-}
-
-float fbm(vec3 p) {
-  float v = 0.0;
-  float a = 0.5;
-  for (int i = 0; i < 4; i++) {
-    v += a * noise(p);
-    p = p * 2.04;
-    a *= 0.5;
-  }
-  return v;
-}
 
 void main() {
   vec2 uv = v_uv; // -1.0 to 1.0
@@ -7696,9 +8051,7 @@ void main() {
     vec3 bezelRim = vec3(0.35, 0.38, 0.45);
     
     // Top-left light direction on the bezel
-    float angle = atan(uv.y, uv.x);
     float angleLight = clamp(dot(normalize(uv), normalize(vec2(-0.7, -0.7))), 0.0, 1.0);
-    
     vec3 bCol = mix(bezelDark, bezelMid, smoothstep(0.0, 0.7, bezelT));
     bCol = mix(bCol, bezelRim, smoothstep(0.7, 1.0, bezelT) * (0.3 + 0.7 * angleLight));
     
@@ -7716,15 +8069,11 @@ void main() {
   // Rotate surface point in 3D using Trackball's orientation matrix
   vec3 P = u_rot * N;
 
-  // Domain warping for cloudy, wavy reactive-resin bowling ball swirls
-  vec3 q = P * 2.6;
-  float n1 = fbm(q);
-  float n2 = fbm(q + vec3(n1 * 1.8, n1 * 1.4, n1 * 2.0));
-  
-  // Wavy marbling flow
-  float swirl = sin(q.x * 2.8 + q.y * 1.6 + 4.5 * n2);
-  float wavePattern = smoothstep(-0.5, 0.65, swirl);
-  float pearlVein = smoothstep(0.62, 0.88, n2);
+  // Ultra-fast analytical 3D resin swirl (locked 60 FPS on mobile GPUs)
+  float w1 = sin(P.x * 3.2 + sin(P.y * 4.2 + P.z * 2.8) * 1.7);
+  float w2 = cos(P.z * 3.6 + sin(P.x * 2.9 + P.y * 3.1) * 1.5);
+  float wavePattern = smoothstep(-0.45, 0.55, w1 * 0.6 + w2 * 0.4);
+  float pearlVein = smoothstep(0.72, 0.96, sin(P.y * 5.5 + P.x * 4.8 + w1 * 2.2));
 
   // Resin color blend
   vec3 resinColor = mix(u_colorBase, u_colorWave, wavePattern);
@@ -7894,6 +8243,15 @@ var Trackball3DView = class {
 
 // src/main.ts
 async function boot() {
+  if (!window.__MM__) {
+    const meta = document.querySelector('meta[name="mm-config"]');
+    if (meta) {
+      try {
+        window.__MM__ = JSON.parse(meta.getAttribute("content") || "");
+      } catch {
+      }
+    }
+  }
   const canvas = document.getElementById("game");
   const trackballCanvas = document.getElementById("trackball");
   const assets = new Assets();

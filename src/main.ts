@@ -26,6 +26,12 @@ declare global {
 }
 
 async function boot(): Promise<void> {
+  // The server injects window.__MM__ (lobby id, agent-page flag, public origin, login, install nonce). If a CSP blocked
+  // that inline script, the same JSON is in <meta name="mm-config">; without it a /<lobby> URL degrades to 1-player.
+  if (!(window as any).__MM__) {
+    const meta = document.querySelector('meta[name="mm-config"]');
+    if (meta) { try { (window as any).__MM__ = JSON.parse(meta.getAttribute('content') || ''); } catch { /* ignore */ } }
+  }
   const canvas = document.getElementById('game') as HTMLCanvasElement;
   const trackballCanvas = document.getElementById('trackball') as HTMLCanvasElement | null;
   const assets = new Assets();
