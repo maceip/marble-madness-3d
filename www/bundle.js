@@ -6919,13 +6919,16 @@ async function boot() {
     game.debugClick((e.clientX - rect.left) / renderer.scale, (e.clientY - rect.top) / renderer.scale);
   });
   await game.start();
-  let last = performance.now();
   const tbContainer = document.getElementById("trackball-container");
-  const twitterBtn = document.getElementById("twitter-btn");
+  const authDock = document.getElementById("auth-dock");
   const twitterHandle = document.getElementById("twitter-handle");
-  if (twitterHandle && window.__MM__?.user) {
-    twitterHandle.textContent = window.__MM__.user;
+  const twitterBtn = document.getElementById("twitter-btn");
+  const user = window.__MM__?.user;
+  if (user) {
+    if (twitterHandle) twitterHandle.textContent = user;
+    twitterBtn?.classList.add("active");
   }
+  let last = performance.now();
   const loop = (now) => {
     const dt = Math.max(0, Math.min(0.05, (now - last) / 1e3));
     last = now;
@@ -6935,9 +6938,9 @@ async function boot() {
       const isRace = game.screen === "race" || game.screen === "intro" || game.screen === "timebonus";
       tbContainer.style.display = isRace ? "flex" : "none";
     }
-    if (twitterBtn) {
+    if (authDock) {
       const isRace = game.screen === "race" || game.screen === "intro" || game.screen === "timebonus";
-      twitterBtn.style.display = isRace ? "none" : "flex";
+      authDock.style.display = isRace ? "none" : "flex";
     }
     trackballView?.render();
     requestAnimationFrame(loop);

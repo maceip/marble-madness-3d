@@ -29,13 +29,29 @@ import { WebSocketServer } from 'ws';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const www = path.join(root, 'www');
+
+if (typeof process.loadEnvFile === 'function') {
+  try { process.loadEnvFile(); } catch {}
+} else if (existsSync(path.join(root, '.env'))) {
+  const lines = readFileSync(path.join(root, '.env'), 'utf8').split('\n');
+  for (const line of lines) {
+    const m = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = (m[2] || '').trim().replace(/^['"]|['"]$/g, '');
+  }
+}
+
 const PORT = +(process.env.PORT || 3000);
 const HOST = process.env.HOST || '127.0.0.1';
 const PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN || '';
 const LEADERBOARD_FILE = process.env.LEADERBOARD_FILE || path.join(root, 'data', 'leaderboard.json');
-const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID || '';
-const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET || '';
+
+const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID || 'ZHdzYWFaOFNQRjlwM0xnSVZKQV86MTpjaQ';
+const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET || 'tZ8QtN6IiElwc4kUCFAo3u02lVow3C74YgYKgRingf0AZhOJ0V';
 const TWITTER_CALLBACK = process.env.TWITTER_CALLBACK || 'https://marbles.secure.build/callback/twitter';
+
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || 'Ov23li0rwXID5O8ZxfGZ';
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || 'bb5f0f61d78d0f11e475b62c4f064e3e61ce06cc';
+const GITHUB_CALLBACK = process.env.GITHUB_CALLBACK || 'https://marbles.secure.build/callback/github';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.mjs': 'application/javascript', '.map': 'application/json',
@@ -130,7 +146,9 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         user: cookies.mm_user ? decodeURIComponent(cookies.mm_user) : null,
         twitterConfigured: !!TWITTER_CLIENT_ID,
-        callback: TWITTER_CALLBACK,
+        githubConfigured: !!GITHUB_CLIENT_ID,
+        twitterCallback: TWITTER_CALLBACK,
+        githubCallback: GITHUB_CALLBACK,
       });
     }
     if (p === '/auth/twitter' || p === '/login/twitter' || p === '/auth/x' || p === '/login/x') {
@@ -277,6 +295,90 @@ const server = http.createServer(async (req, res) => {
         return;
       } catch (err) {
         console.error('[serve] Twitter callback error:', err);
+        res.writeHead(302, { 'Location': '/?auth_error=server_error' });
+        res.end();
+        return;
+      }
+    }
+
+    if (p === '/auth/github' || p === '/login/github') {
+      const state = crypto.randomBytes(16).toString('hex');
+      const authUrl = new URL('https://github.com/login/oauth/authorize');
+      authUrl.searchParams.set('client_id', GITHUB_CLIENT_ID);
+      authUrl.searchParams.set('redirect_uri', GITHUB_CALLBACK);
+      authUrl.searchParams.set('scope', 'read:user');
+      authUrl.searchParams.set('state', state);
+
+      res.writeHead(302, {
+        'Location': authUrl.toString(),
+        'Set-Cookie': `mm_oauth_gh=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`,
+      });
+      res.end();
+      return;
+    }
+
+    if (p === '/callback/github') {
+      const code = url.searchParams.get('code');
+      const state = url.searchParams.get('state');
+      const error = url.searchParams.get('error');
+      if (error || !code) {
+        console.warn('[serve] GitHub OAuth callback error or missing code:', error);
+        res.writeHead(302, { 'Location': `/?auth_error=${encodeURIComponent(error || 'missing_code')}` });
+        res.end();
+        return;
+      }
+
+      const cookies = parseCookies(req);
+      if (!cookies.mm_oauth_gh || cookies.mm_oauth_gh !== state) {
+        console.warn('[serve] GitHub OAuth state mismatch');
+        res.writeHead(302, { 'Location': '/?auth_error=state_mismatch' });
+        res.end();
+        return;
+      }
+
+      try {
+        const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            client_id: GITHUB_CLIENT_ID,
+            client_secret: GITHUB_CLIENT_SECRET,
+            code,
+            redirect_uri: GITHUB_CALLBACK,
+          }),
+        });
+        const tokenData = await tokenRes.json();
+        if (!tokenRes.ok || !tokenData.access_token) {
+          console.warn('[serve] GitHub token exchange failed:', tokenData);
+          res.writeHead(302, { 'Location': '/?auth_error=token_failed' });
+          res.end();
+          return;
+        }
+
+        const userRes = await fetch('https://api.github.com/user', {
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`,
+            'User-Agent': 'MarbleMadness-Game',
+          },
+        });
+        const userData = await userRes.json();
+        const username = userData.login || 'PLAYER';
+        const handle = `@${username}`;
+
+        res.writeHead(302, {
+          'Location': `/?user=${encodeURIComponent(handle)}`,
+          'Set-Cookie': [
+            `mm_user=${encodeURIComponent(handle)}; Path=/; Max-Age=2592000; SameSite=Lax`,
+            `mm_oauth_gh=; Path=/; Max-Age=0; HttpOnly`,
+          ],
+        });
+        res.end();
+        return;
+      } catch (err) {
+        console.error('[serve] GitHub callback error:', err);
         res.writeHead(302, { 'Location': '/?auth_error=server_error' });
         res.end();
         return;
