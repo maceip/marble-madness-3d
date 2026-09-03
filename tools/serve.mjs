@@ -33,6 +33,9 @@ const PORT = +(process.env.PORT || 3000);
 const HOST = process.env.HOST || '127.0.0.1';
 const PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN || '';
 const LEADERBOARD_FILE = process.env.LEADERBOARD_FILE || path.join(root, 'data', 'leaderboard.json');
+const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID || '';
+const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET || '';
+const TWITTER_CALLBACK = process.env.TWITTER_CALLBACK || 'https://marbles.secure.build/callback/twitter';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.mjs': 'application/javascript', '.map': 'application/json',
@@ -93,20 +96,25 @@ function serveFile(res, filePath) {
 }
 function serveIndex(req, res, lobbyFromPath) {
   const cookies = parseCookies(req);
+  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   let lobby = lobbyFromPath || cookies.mm_lobby;
+  const user = url.searchParams.get('user') || cookies.mm_user || null;
   const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' };
   if (!lobby || !/^[0-9a-f-]{36}$/i.test(lobby)) {
     lobby = crypto.randomUUID();
   }
-  if (!lobbyFromPath) headers['Set-Cookie'] = `mm_lobby=${lobby}; Path=/; Max-Age=86400; SameSite=Lax`;
+  const setCookies = [];
+  if (!lobbyFromPath) setCookies.push(`mm_lobby=${lobby}; Path=/; Max-Age=86400; SameSite=Lax`);
+  if (url.searchParams.get('user')) setCookies.push(`mm_user=${encodeURIComponent(user)}; Path=/; Max-Age=2592000; SameSite=Lax`);
+  if (setCookies.length) headers['Set-Cookie'] = setCookies;
   let html = readFileSync(path.join(root, 'index.html'), 'utf8');
   const origin = PUBLIC_ORIGIN || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
-  html = html.replace('</head>', `<script>window.__MM__=${JSON.stringify({ lobby, fromPath: !!lobbyFromPath, publicOrigin: origin })};</script></head>`);
+  html = html.replace('</head>', `<script>window.__MM__=${JSON.stringify({ lobby, fromPath: !!lobbyFromPath, publicOrigin: origin, user })};</script></head>`);
   res.writeHead(200, headers);
   res.end(html);
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const p = url.pathname;
   try {
@@ -117,6 +125,172 @@ const server = http.createServer((req, res) => {
       const cookies = parseCookies(req);
       return sendJson(res, 200, { lobbyId: cookies.mm_lobby || null, publicOrigin: PUBLIC_ORIGIN || `http://${req.headers.host}` });
     }
+    if (p === '/api/user') {
+      const cookies = parseCookies(req);
+      return sendJson(res, 200, {
+        user: cookies.mm_user ? decodeURIComponent(cookies.mm_user) : null,
+        twitterConfigured: !!TWITTER_CLIENT_ID,
+        callback: TWITTER_CALLBACK,
+      });
+    }
+    if (p === '/auth/twitter' || p === '/login/twitter' || p === '/auth/x' || p === '/login/x') {
+      if (!TWITTER_CLIENT_ID) {
+        const cookies = parseCookies(req);
+        const currentUser = cookies.mm_user ? decodeURIComponent(cookies.mm_user) : '@MACEIP';
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Import Twitter / X Username</title>
+  <style>
+    body { background: #000; color: #cfd2ff; font-family: "Courier New", monospace; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    .card { background: #070918; border: 3px double #79a8ff; padding: 32px 36px; max-width: 460px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.9); }
+    h1 { font-size: 22px; color: #ffe019; margin-top: 0; letter-spacing: 1px; }
+    p { font-size: 14px; color: #8d95b8; line-height: 1.5; }
+    .callback-box { background: #02030a; border: 1px solid #283066; padding: 8px 12px; font-size: 12px; color: #79a8ff; word-break: break-all; margin: 12px 0 20px; }
+    input { width: 90%; padding: 12px; font: inherit; font-size: 18px; font-weight: bold; background: #05061a; color: #ffe019; border: 2px solid #79a8ff; border-radius: 4px; text-align: center; margin-bottom: 20px; box-sizing: border-box; }
+    button { width: 90%; padding: 14px; font: inherit; font-size: 16px; font-weight: bold; text-transform: uppercase; background: #ffe019; color: #000; border: none; border-radius: 4px; cursor: pointer; transition: background .15s; }
+    button:hover { background: #fff176; }
+    .cancel { display: inline-block; margin-top: 16px; font-size: 13px; color: #6272a4; text-decoration: none; }
+    .cancel:hover { color: #fff; }
+    .note { font-size: 11px; color: #505c8a; margin-top: 20px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>𝕏 IMPORT USERNAME</h1>
+    <p>Callback URL configured for Twitter OAuth 2.0:</p>
+    <div class="callback-box">${TWITTER_CALLBACK}</div>
+    <form method="POST" action="/auth/twitter/manual">
+      <input type="text" name="handle" value="${currentUser}" placeholder="@username" maxlength="16" autofocus required />
+      <button type="submit">SAVE HANDLE & RETURN</button>
+    </form>
+    <a href="/" class="cancel">&larr; Back to Game</a>
+    <div class="note">When TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET are provided, this endpoint automatically redirects through the live Twitter OAuth 2.0 PKCE consent screen.</div>
+  </div>
+</body>
+</html>`);
+        return;
+      }
+
+      // Live Twitter OAuth 2.0 PKCE Flow
+      const state = crypto.randomBytes(16).toString('hex');
+      const codeVerifier = crypto.randomBytes(32).toString('base64url');
+      const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+      const authUrl = new URL('https://twitter.com/i/oauth2/authorize');
+      authUrl.searchParams.set('response_type', 'code');
+      authUrl.searchParams.set('client_id', TWITTER_CLIENT_ID);
+      authUrl.searchParams.set('redirect_uri', TWITTER_CALLBACK);
+      authUrl.searchParams.set('scope', 'users.read tweet.read');
+      authUrl.searchParams.set('state', state);
+      authUrl.searchParams.set('code_challenge', codeChallenge);
+      authUrl.searchParams.set('code_challenge_method', 'S256');
+
+      res.writeHead(302, {
+        'Location': authUrl.toString(),
+        'Set-Cookie': `mm_oauth_tw=${encodeURIComponent(`${state}:${codeVerifier}`)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`,
+      });
+      res.end();
+      return;
+    }
+
+    if (p === '/auth/twitter/manual' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (c) => { body += c; if (body.length > 2048) req.destroy(); });
+      req.on('end', () => {
+        const params = new URLSearchParams(body);
+        let handle = (params.get('handle') || '').trim();
+        if (handle && !handle.startsWith('@')) handle = '@' + handle;
+        handle = handle.slice(0, 16) || '@PLAYER';
+        res.writeHead(302, {
+          'Location': `/?user=${encodeURIComponent(handle)}`,
+          'Set-Cookie': `mm_user=${encodeURIComponent(handle)}; Path=/; Max-Age=2592000; SameSite=Lax`,
+        });
+        res.end();
+      });
+      return;
+    }
+
+    if (p === '/callback/twitter') {
+      const code = url.searchParams.get('code');
+      const state = url.searchParams.get('state');
+      const error = url.searchParams.get('error');
+      if (error || !code) {
+        console.warn('[serve] Twitter OAuth callback error or missing code:', error);
+        res.writeHead(302, { 'Location': `/?auth_error=${encodeURIComponent(error || 'missing_code')}` });
+        res.end();
+        return;
+      }
+
+      const cookies = parseCookies(req);
+      const oauthCookie = cookies.mm_oauth_tw ? decodeURIComponent(cookies.mm_oauth_tw) : '';
+      const [savedState, codeVerifier] = oauthCookie.split(':');
+
+      if (!savedState || savedState !== state) {
+        console.warn('[serve] Twitter OAuth state mismatch');
+        res.writeHead(302, { 'Location': '/?auth_error=state_mismatch' });
+        res.end();
+        return;
+      }
+
+      try {
+        const tokenParams = new URLSearchParams({
+          code,
+          grant_type: 'authorization_code',
+          client_id: TWITTER_CLIENT_ID,
+          redirect_uri: TWITTER_CALLBACK,
+          code_verifier: codeVerifier,
+        });
+        const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+        if (TWITTER_CLIENT_SECRET) {
+          headers['Authorization'] = 'Basic ' + Buffer.from(`${TWITTER_CLIENT_ID}:${TWITTER_CLIENT_SECRET}`).toString('base64');
+        }
+        const tokenRes = await fetch('https://api.twitter.com/2/oauth2/token', {
+          method: 'POST',
+          headers,
+          body: tokenParams.toString(),
+        });
+        const tokenData = await tokenRes.json();
+        if (!tokenRes.ok || !tokenData.access_token) {
+          console.warn('[serve] Twitter token exchange failed:', tokenData);
+          res.writeHead(302, { 'Location': '/?auth_error=token_failed' });
+          res.end();
+          return;
+        }
+
+        const userRes = await fetch('https://api.twitter.com/2/users/me', {
+          headers: { 'Authorization': `Bearer ${tokenData.access_token}` },
+        });
+        const userData = await userRes.json();
+        const username = userData.data?.username || 'PLAYER';
+        const handle = `@${username}`;
+
+        res.writeHead(302, {
+          'Location': `/?user=${encodeURIComponent(handle)}`,
+          'Set-Cookie': [
+            `mm_user=${encodeURIComponent(handle)}; Path=/; Max-Age=2592000; SameSite=Lax`,
+            `mm_oauth_tw=; Path=/; Max-Age=0; HttpOnly`,
+          ],
+        });
+        res.end();
+        return;
+      } catch (err) {
+        console.error('[serve] Twitter callback error:', err);
+        res.writeHead(302, { 'Location': '/?auth_error=server_error' });
+        res.end();
+        return;
+      }
+    }
+
+    if (p === '/api/user/logout') {
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Set-Cookie': `mm_user=; Path=/; Max-Age=0; SameSite=Lax`,
+      });
+      return res.end(JSON.stringify({ status: 'ok' }));
+    }
+
     if (p === '/api/leaderboard' && req.method === 'GET') return sendJson(res, 200, { status: 'ok', top50: leaderboard });
     if (p === '/api/leaderboard' && req.method === 'POST') {
       const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';

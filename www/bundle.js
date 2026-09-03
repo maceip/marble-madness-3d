@@ -5719,6 +5719,11 @@ var Game = class {
       this.go("connect");
       return;
     }
+    if (window.__MM__?.user) {
+      this.playerName = window.__MM__.user;
+    } else if (!this.playerName) {
+      this.playerName = "@MACEIP";
+    }
     this.go("title");
   }
   async submitScore() {
@@ -5728,7 +5733,14 @@ var Game = class {
       await fetch("/api/leaderboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: this.playerName || "ACE", score: this.score, intelligence: this.isAI ? "AI" : "NI", stage: this.stageIdx + 1, timeRemaining: Math.floor(this.timeLeft), deaths: this.deaths })
+        body: JSON.stringify({
+          name: this.playerName || "@MACEIP",
+          score: this.score,
+          intelligence: this.isAI ? "Artificial" : "Natural",
+          stage: this.stageIdx + 1,
+          timeRemaining: Math.floor(this.timeLeft),
+          deaths: this.deaths
+        })
       });
       await this.fetchRollers();
     } catch {
@@ -6909,6 +6921,11 @@ async function boot() {
   await game.start();
   let last = performance.now();
   const tbContainer = document.getElementById("trackball-container");
+  const twitterBtn = document.getElementById("twitter-btn");
+  const twitterHandle = document.getElementById("twitter-handle");
+  if (twitterHandle && window.__MM__?.user) {
+    twitterHandle.textContent = window.__MM__.user;
+  }
   const loop = (now) => {
     const dt = Math.max(0, Math.min(0.05, (now - last) / 1e3));
     last = now;
@@ -6917,6 +6934,10 @@ async function boot() {
     if (tbContainer) {
       const isRace = game.screen === "race" || game.screen === "intro" || game.screen === "timebonus";
       tbContainer.style.display = isRace ? "flex" : "none";
+    }
+    if (twitterBtn) {
+      const isRace = game.screen === "race" || game.screen === "intro" || game.screen === "timebonus";
+      twitterBtn.style.display = isRace ? "none" : "flex";
     }
     trackballView?.render();
     requestAnimationFrame(loop);

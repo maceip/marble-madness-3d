@@ -226,6 +226,11 @@ export class Game {
       this.go('connect');
       return;
     }
+    if ((window as any).__MM__?.user) {
+      this.playerName = (window as any).__MM__.user;
+    } else if (!this.playerName) {
+      this.playerName = '@MACEIP';
+    }
     this.go('title');
   }
 
@@ -235,7 +240,14 @@ export class Game {
     try {
       await fetch('/api/leaderboard', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: this.playerName || 'ACE', score: this.score, intelligence: this.isAI ? 'AI' : 'NI', stage: this.stageIdx + 1, timeRemaining: Math.floor(this.timeLeft), deaths: this.deaths }),
+        body: JSON.stringify({
+          name: this.playerName || '@MACEIP',
+          score: this.score,
+          intelligence: this.isAI ? 'Artificial' : 'Natural',
+          stage: this.stageIdx + 1,
+          timeRemaining: Math.floor(this.timeLeft),
+          deaths: this.deaths,
+        }),
       });
       await this.fetchRollers();
     } catch { /* offline */ }
