@@ -1,6 +1,7 @@
 package com.example.minweb;
 
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
@@ -64,8 +65,22 @@ public class MainActivity extends Activity {
     private String pendingResult;
     private Vibrator v;
     private boolean tick, lowTick, click, thud;
-    /** our end of the Custom Tabs session (Chrome talks back to it; we ignore what it says) */
-    private final Binder tabsCallback = new Binder();
+    /** Custom Tabs navigation events (ICustomTabsCallback.onNavigationEvent) */
+    private static final int NAV_STARTED = 1, NAV_FINISHED = 2, NAV_FAILED = 3, NAV_ABORTED = 4, TAB_SHOWN = 5, TAB_HIDDEN = 6;
+    /** our end of the Custom Tabs session: Chrome reports tab/navigation events into it (AIDL id 1 -> code 2, oneway) */
+    private final Binder tabsCallback = new Binder() {
+        @Override protected boolean onTransact(int code, Parcel data, Parcel reply, int flags) {
+            if (code == 2) {
+                data.enforceInterface(CUSTOM_TABS_CALLBACK);
+                final int event = data.readInt();
+                System.out.println("[marbles] custom tab event " + event);
+                // let the page know (TAB_HIDDEN with no result following = the user backed out of the login)
+                runOnUiThread(() -> web.evaluateJavascript("window.onAuthTabEvent && window.onAuthTabEvent(" + event + ")", null));
+                return true;                       // oneway: no reply parcel to fill
+            }
+            return false;                          // other callbacks: not handled, Chrome does not mind
+        }
+    };
 
     private Vibrator vibrator() {
         VibratorManager vm = (VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
@@ -176,8 +191,14 @@ public class MainActivity extends Activity {
     }
 
     private void goFullscreen() {
+        getWindow().setDecorFitsSystemWindows(false);            // edge to edge: content spans the glass, bars overlay it
         WindowInsetsController c = getWindow().getInsetsController();
-        if (c != null) { c.hide(WindowInsets.Type.systemBars()); c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE); }
+        if (c != null) {
+            c.hide(WindowInsets.Type.systemBars());
+            c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            // when the bars do peek in, light icons on our black background
+            c.setSystemBarsAppearance(0, WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
+        }
         getWindow().getDecorView().setKeepScreenOn(true);
     }
 
@@ -205,12 +226,31 @@ public class MainActivity extends Activity {
         Intent i = new Intent(Intent.ACTION_VIEW, u);
         Bundle extras = new Bundle();
         extras.putBinder(EXTRA_SESSION, session ? tabsCallback : null);   // our warm session, else a plain Custom Tab
+        // look like a modal of the game, not a browser: black toolbar/nav bar, dark scheme, no share, no page title,
+        // URL bar pinned so the login form does not jump while scrolling
+        extras.putInt("android.support.customtabs.extra.TOOLBAR_COLOR", BG);
+        extras.putInt("androidx.browser.customtabs.extra.NAVIGATION_BAR_COLOR", BG);
+        extras.putInt("androidx.browser.customtabs.extra.NAVIGATION_BAR_DIVIDER_COLOR", BTN_EDGE);
+        extras.putInt("androidx.browser.customtabs.extra.COLOR_SCHEME", 2);              // dark
+        extras.putInt("androidx.browser.customtabs.extra.SHARE_STATE", 2);               // share off
+        extras.putBoolean("android.support.customtabs.extra.ENABLE_URLBAR_HIDING", false);
+        extras.putInt("android.support.customtabs.extra.TITLE_VISIBILITY_STATE", 0);      // domain + padlock only
+        // wide screens (tablets, unfolded foldables): a 480 dp side sheet at the end instead of a stretched bottom sheet
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        if (dm.widthPixels / dm.density >= 840) {
+            extras.putInt("androidx.browser.customtabs.extra.INITIAL_ACTIVITY_WIDTH_PX", (int) (480 * dm.density));
+            extras.putInt("androidx.browser.customtabs.extra.ACTIVITY_SIDE_SHEET_POSITION", 2);
+            extras.putInt("androidx.browser.customtabs.extra.ACTIVITY_SIDE_SHEET_DECORATION_TYPE", 1);
+        }
+        // fade in / fade out instead of Chrome's slide; the exit bundle is applied when the tab closes
+        Bundle anim = ActivityOptions.makeCustomAnimation(this, android.R.anim.fade_in, android.R.anim.fade_out).toBundle();
+        extras.putBundle("android.support.customtabs.extra.EXIT_ANIMATION_BUNDLE", anim);
         i.putExtras(extras);
         i.setPackage("com.android.chrome");
-        try { startActivity(i); }
+        try { startActivity(i, anim); }
         catch (ActivityNotFoundException e) {
             i.setPackage(null);
-            try { startActivity(i); } catch (ActivityNotFoundException e2) { return "no browser installed"; }
+            try { startActivity(i, anim); } catch (ActivityNotFoundException e2) { return "no browser installed"; }
         }
         return "";
     }

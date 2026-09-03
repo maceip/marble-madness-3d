@@ -1906,7 +1906,7 @@ var GRAVITY = 420;
 var STEP_UP = 4;
 var DROP_SNAP = 4;
 var WALL_MAX = 8;
-var BOUNCE = 0.38;
+var BOUNCE = 0.68;
 var BOUNCE_SFX_SPEED = 2.5;
 var DIZZY_FALL = 18;
 var SHATTER_FALL = 46;
@@ -3332,6 +3332,7 @@ var Marble = class {
   /** true while inside a pipe (invisible, uncontrollable) */
   inPipe = false;
   pipeT = 0;
+  cornerTrip = false;
   pipeExit = null;
   /** scripted roll (see Slide): no control, cannot fall off */
   slide = null;
@@ -3497,8 +3498,10 @@ var Marble = class {
     this.vu += au * h;
     this.vv += av * h;
     if (this.grounded) {
-      const isIce = !!this.support?.s.name?.toLowerCase().includes("ice");
-      const frict = isIce ? 0.25 : FRICTION;
+      const isIce = this.support?.s.kind === "ice" || !!this.support?.s.name?.toLowerCase().includes("ice");
+      const isGrate = this.support?.s.kind === "grate" || !!this.support?.s.name?.toLowerCase().includes("grate");
+      let frict = isIce ? 0.25 : FRICTION;
+      if (isGrate) frict = FRICTION * 1.35;
       const f = Math.exp(-frict * h);
       this.vu *= f;
       this.vv *= f;
@@ -3522,6 +3525,12 @@ var Marble = class {
       } else {
         this.grounded = false;
         this.airT = 0;
+        if (this.support) {
+          const s = this.support.s;
+          const uNear = Math.abs(this.u - s.u0) <= 1.5 || Math.abs(this.u - s.u1) <= 1.5;
+          const vNear = Math.abs(this.v - s.v0) <= 1.5 || Math.abs(this.v - s.v1) <= 1.5;
+          if (uNear && vNear) this.cornerTrip = true;
+        }
         const gr = this.support ? gradientOn(this.support.s, this.u, this.v) : { gu: 0, gv: 0 };
         const g = gr.gu * this.vu + gr.gv * this.vv;
         this.vz = Math.max(-40, Math.min(160, g));
@@ -3547,9 +3556,10 @@ var Marble = class {
           events.push({ type: "land", fall });
           return;
         }
-        if (fall > DIZZY_FALL) {
+        if (fall > DIZZY_FALL || this.cornerTrip) {
           this.dizzyT = DIZZY_TIME;
           events.push({ type: "dizzy", fall });
+          this.cornerTrip = false;
         }
         events.push({ type: "land", fall, speed: this.speed });
       } else if (!floor && (this.airT > VOID_FALL_TIME || this.z < level.floorMin - 60)) {
@@ -3698,6 +3708,8 @@ var L2 = new LevelBuilder({
 L2.strip(214, 190, 100, 44, 372, -10, 2.8, "rampA");
 L2.strip(120, 200, 100, 146, 234, 52, 2.8, "rampB1");
 L2.strip(146, 234, 52, 218, 372, -10, 2.8, "rampB");
+var dropLanding = L2.uv(150, 240, 52);
+L2.zone("bonus", dropLanding.u - 3, dropLanding.v - 3, dropLanding.u + 3, dropLanding.v + 3, 2e3, "cornerDropBonus", 35, 65);
 L2.wallAt(123, 402, -10, 1.4, 1.4, "coneM");
 L2.wallAt(35, 420, -10, 1.4, 1.4, "coneL");
 L2.wallAt(211, 420, -10, 1.4, 1.4, "coneR");
@@ -3988,6 +4000,7 @@ L6.zone("goal", goalC2.u - 3.5, goalC2.v - 3.5, goalC2.u + 3.5, goalC2.v + 3.5, 
   L6.hazard({ kind: "slime", u: p.u, v: p.v, z: p.z, range: 2 });
 }
 L6.hazard({ kind: "birds", u: 0, v: 0, band: [60, 200], period: 8, count: 4 });
+L6.hazard({ kind: "shifting", u: goalC2.u, v: goalC2.v, z: goalC2.z });
 var stage6 = L6.build();
 
 // src/levels/index.ts
@@ -4641,6 +4654,96 @@ var Catapult = class extends Hazard {
     ctx2d.stroke();
   }
 };
+var ShiftingTiles = class extends Hazard {
+  kind = "shifting";
+  t = 0;
+  currentStep = 0;
+  blocks = [
+    { name: "rightLedge", u0: 16, v0: 62, u1: 22, v1: 68, baseZ: -285, amp: 16, phase: 0 },
+    { name: "bottomGrate", u0: 10, v0: 56, u1: 16, v1: 62, baseZ: -295, amp: 14, phase: 1 },
+    { name: "leftSteps", u0: 6, v0: 64, u1: 12, v1: 72, baseZ: -290, amp: 12, phase: 2 },
+    { name: "finishThreshold", u0: 13, v0: 70, u1: 18, v1: 75, baseZ: -280, amp: 16, phase: 3 }
+  ];
+  constructor(spawn) {
+    super(spawn);
+    this.z = spawn.z ?? -280;
+  }
+  sprites(ctx, out) {
+    void ctx;
+    void out;
+  }
+  update(dt, ctx) {
+    this.t += dt;
+    const cycle = this.t % 3.8;
+    if (cycle < 2) {
+      const step = Math.min(4, Math.floor(cycle / 0.4));
+      if (step !== this.currentStep) {
+        this.currentStep = step;
+        ctx.onEvent({ type: "sfx", name: "bounce", vol: 0.25 });
+      }
+    }
+    for (const m of ctx.marbles) {
+      if (m.phase === "alive" && m.grounded) {
+        for (const b of this.blocks) {
+          if (m.u >= b.u0 && m.u <= b.u1 && m.v >= b.v0 && m.v <= b.v1) {
+            const shift = this.getShift(b.phase, cycle);
+            const blockZ = b.baseZ + shift;
+            if (Math.abs(m.z - blockZ) < 6) {
+              m.z = blockZ;
+              if (m.support) m.support.z = blockZ;
+            }
+          }
+        }
+      }
+    }
+  }
+  getShift(phase, cycle) {
+    if (cycle >= 2) return phase % 2 === 0 ? 14 : 0;
+    const step = Math.min(4, Math.floor(cycle / 0.4));
+    const active = (step + phase) % 2 === 0;
+    return active ? 14 : 0;
+  }
+  drawOverlay(ctx2d, proj, time) {
+    const cycle = time % 3.8;
+    for (const b of this.blocks) {
+      const shift = this.getShift(b.phase, cycle);
+      const curZ = b.baseZ + shift;
+      const p0 = proj(b.u0, b.v0, curZ);
+      const p1 = proj(b.u1, b.v0, curZ);
+      const p2 = proj(b.u1, b.v1, curZ);
+      const p3 = proj(b.u0, b.v1, curZ);
+      ctx2d.fillStyle = b.name === "bottomGrate" ? "#484b54" : "#6b7280";
+      ctx2d.beginPath();
+      ctx2d.moveTo(p0.x, p0.y);
+      ctx2d.lineTo(p1.x, p1.y);
+      ctx2d.lineTo(p2.x, p2.y);
+      ctx2d.lineTo(p3.x, p3.y);
+      ctx2d.closePath();
+      ctx2d.fill();
+      if (shift > 0) {
+        const b0 = proj(b.u0, b.v0, b.baseZ);
+        const b1 = proj(b.u1, b.v0, b.baseZ);
+        const b2 = proj(b.u1, b.v1, b.baseZ);
+        ctx2d.fillStyle = "#9e4620";
+        ctx2d.beginPath();
+        ctx2d.moveTo(p1.x, p1.y);
+        ctx2d.lineTo(p2.x, p2.y);
+        ctx2d.lineTo(b2.x, b2.y);
+        ctx2d.lineTo(b1.x, b1.y);
+        ctx2d.closePath();
+        ctx2d.fill();
+        ctx2d.fillStyle = "#c85a28";
+        ctx2d.beginPath();
+        ctx2d.moveTo(p0.x, p0.y);
+        ctx2d.lineTo(p1.x, p1.y);
+        ctx2d.lineTo(b1.x, b1.y);
+        ctx2d.lineTo(b0.x, b0.y);
+        ctx2d.closePath();
+        ctx2d.fill();
+      }
+    }
+  }
+};
 function makeHazard(h) {
   switch (h.kind) {
     case "steelie":
@@ -4663,6 +4766,8 @@ function makeHazard(h) {
       return new WavePlate(h);
     case "catapult":
       return new Catapult(h);
+    case "shifting":
+      return new ShiftingTiles(h);
   }
 }
 
@@ -7396,6 +7501,18 @@ async function boot() {
         if (err) console.warn("[auth] could not open browser:", err);
       });
     }
+    window.addEventListener("contextmenu", (e) => e.preventDefault());
+    for (const id of ["twitter-btn", "github-btn"]) {
+      document.getElementById(id)?.addEventListener("pointerdown", () => {
+        try {
+          nb.hapticClick?.();
+        } catch {
+        }
+      }, { passive: true });
+    }
+    window.onAuthTabEvent = (event) => {
+      if (event === 6 && localStorage.getItem("mm_auth_nonce")) console.info("[auth] login tab hidden; waiting for the redirect or the user to retry");
+    };
     window.onAuthComplete = () => {
       const raw = nb.takeAuthResult?.();
       if (!raw) return;

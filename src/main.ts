@@ -117,6 +117,15 @@ async function boot(): Promise<void> {
         if (err) console.warn('[auth] could not open browser:', err);
       });
     }
+    // in-app polish: no long-press copy/share bars, haptic the instant a dock button is touched
+    window.addEventListener('contextmenu', (e) => e.preventDefault());
+    for (const id of ['twitter-btn', 'github-btn']) {
+      document.getElementById(id)?.addEventListener('pointerdown', () => { try { (nb as any).hapticClick?.(); } catch { /* bridge gone */ } }, { passive: true });
+    }
+    // Custom Tab lifecycle from the host (1 started, 2 finished, 3 failed, 4 aborted, 5 shown, 6 hidden)
+    (window as any).onAuthTabEvent = (event: number) => {
+      if (event === 6 && localStorage.getItem('mm_auth_nonce')) console.info('[auth] login tab hidden; waiting for the redirect or the user to retry');
+    };
     (window as any).onAuthComplete = () => {
       const raw = nb.takeAuthResult?.();
       if (!raw) return;
