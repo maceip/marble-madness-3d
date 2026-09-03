@@ -5642,8 +5642,15 @@ Instructions for Codex / AI Agent:
         this.renderConnect();
         break;
       case "gameover":
-        r.textC("GAME OVER", VIEW_W / 2, 100, "lavender");
-        r.textC(`SCORE ${fmtScore(g.score)}`, VIEW_W / 2, 124, "orange");
+        if (this.isPortrait()) {
+          const c = this.pctx(), cw = r.canvas.width, ch = r.canvas.height;
+          this.pline(c, "GAME OVER", cw / 2, ch * 0.42, Math.round(cw * 0.11), "#cfd2ff", "900");
+          this.pline(c, `SCORE ${fmtScore(g.score)}`, cw / 2, ch * 0.52, Math.round(cw * 0.06), "#ffba3b");
+          this.pline(c, "TAP TO CONTINUE", cw / 2, ch * 0.62, Math.round(cw * 0.04), "#656b88");
+        } else {
+          r.textC("GAME OVER", VIEW_W / 2, 100, "lavender");
+          r.textC(`SCORE ${fmtScore(g.score)}`, VIEW_W / 2, 124, "orange");
+        }
         break;
       case "congrats":
         this.renderCongrats();
@@ -5651,6 +5658,23 @@ Instructions for Codex / AI Agent:
       default:
         break;
     }
+  }
+  /** portrait phones letterbox the 288x240 race space into a tiny band; these screens draw at full canvas res */
+  isPortrait() {
+    return this.g.r.canvas.height > this.g.r.canvas.width * 1.15;
+  }
+  pctx() {
+    const c = this.g.r.screenCtx;
+    c.fillStyle = "#0a0c16";
+    c.fillRect(0, 0, this.g.r.canvas.width, this.g.r.canvas.height);
+    return c;
+  }
+  pline(c, text, cx, y, px, color, weight = "bold") {
+    c.font = `${weight} ${px}px "Courier New", monospace`;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillStyle = color;
+    c.fillText(text, cx, y);
   }
   renderHighRollers() {
     this.renderTitle();
@@ -6058,6 +6082,24 @@ Instructions for Codex / AI Agent:
   renderControl() {
     const g = this.g;
     const r = g.r;
+    if (this.isPortrait()) {
+      const c = this.pctx(), cw = r.canvas.width, ch = r.canvas.height;
+      this.pline(c, "PLAYER 1", cw / 2, ch * 0.16, Math.round(cw * 0.06), "#cfd2ff");
+      this.pline(c, "SELECT CONTROL TYPE", cw / 2, ch * 0.21, Math.round(cw * 0.055), "#8e96b8");
+      const opts2 = ["A   SCREEN", "B   45\xB0"];
+      opts2.forEach((o, i) => {
+        const y = ch * 0.42 + i * ch * 0.12;
+        const on = this.cursor === i;
+        this.pline(c, o, cw / 2, y, Math.round(cw * 0.07), on ? "#ffe019" : "#c5cbdf", on ? "900" : "bold");
+        if (on) {
+          c.strokeStyle = "#ffe019";
+          c.lineWidth = 2;
+          c.strokeRect(cw * 0.2, y - ch * 0.05, cw * 0.6, ch * 0.1);
+        }
+      });
+      this.pline(c, "TAP A OR B  \xB7  MOUSE = TRACKBALL", cw / 2, ch * 0.82, Math.round(cw * 0.035), "#656b88");
+      return;
+    }
     r.textC("PLAYER 1", VIEW_W / 2, 30, "lavender");
     r.textC("SELECT CONTROL TYPE", VIEW_W / 2, 46, "lavender");
     const opts = ["A   SCREEN", "B   45"];
@@ -6160,6 +6202,33 @@ Instructions for Codex / AI Agent:
   renderCongrats() {
     const g = this.g;
     const r = g.r;
+    if (this.isPortrait()) {
+      const c = this.pctx(), cw = r.canvas.width, ch = r.canvas.height;
+      this.pline(c, "CONGRATULATIONS", cw / 2, ch * 0.12, Math.round(cw * 0.06), "#cfd2ff", "900");
+      this.pline(c, g.playerName || "LEFT PLAYER", cw / 2, ch * 0.17, Math.round(cw * 0.05), "#79a8ff");
+      this.pline(c, "YOU COMPLETED THE ULTIMATE RACE", cw / 2, ch * 0.22, Math.round(cw * 0.035), "#c5cbdf");
+      const secLeft2 = Math.floor(g.timeLeft);
+      const rows2 = [
+        ["BONUS FOR FINISHING", fmtScore(2e4)],
+        [`${secLeft2} SEC LEFT X 1000`, fmtScore(secLeft2 * 1e3)],
+        [`DIED ${g.deaths} TIMES X -1000`, `-${fmtScore(g.deaths * 1e3)}`],
+        ["TOTAL", fmtScore(Math.max(0, g.finalTally.total - g.finalTally.drained))]
+      ];
+      const fs = Math.round(cw * 0.042);
+      c.font = `bold ${fs}px "Courier New", monospace`;
+      c.textBaseline = "middle";
+      rows2.forEach(([a, bb], i) => {
+        const y = ch * 0.36 + i * ch * 0.07;
+        c.textAlign = "left";
+        c.fillStyle = "#c5cbdf";
+        c.fillText(a, cw * 0.1, y);
+        c.textAlign = "right";
+        c.fillStyle = "#ffba3b";
+        c.fillText(bb, cw * 0.9, y);
+      });
+      this.pline(c, `FINAL SCORE  ${fmtScore(g.score)}`, cw / 2, ch * 0.72, Math.round(cw * 0.055), "#ffe019", "900");
+      return;
+    }
     const F = FRAMES.marble.roll;
     for (const m of this.rain) {
       r.ctx.save();
