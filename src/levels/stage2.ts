@@ -19,17 +19,17 @@ const stairs = L.strip(170, 545, -10, 124, 600, -43, 2.4, 'stairs'); L.rails(sta
 // pipe 1: funnel on the mid floor drops the marble onto the winding path below (z -140)
 L.pipe({ u0: 0, v0: 0, u1: 0, v1: 0, exit: { u: 0, v: 0, vu: -3, vv: 3 }, duration: 1.6, bonus: 4000 });
 const funnel = L.uv(245, 612, -43);
-L.rect(funnel.u - 2.2, funnel.v - 2.2, funnel.u + 2.2, funnel.v + 2.2, -43, 0, 0, 'funnelFloor');
-const pathExit = L.uv(204, 704, -140);
-L.def.pipes[0] = { u0: funnel.u - 1.4, v0: funnel.v - 1.4, u1: funnel.u + 1.4, v1: funnel.v + 1.4, zMin: -60, zMax: -30,
-  exit: { u: pathExit.u, v: pathExit.v, vu: -2, vv: 4 }, duration: 1.6, bonus: 4000 };
+L.rect(funnel.u - 3.6, funnel.v - 3.6, funnel.u + 3.6, funnel.v + 3.6, -43, 0, 0, 'funnelFloor');
+const pathExit = L.uv(200, 712, -140);
+L.def.pipes[0] = { u0: funnel.u - 2, v0: funnel.v - 2, u1: funnel.u + 2, v1: funnel.v + 2, zMin: -60, zMax: -30,
+  exit: { u: pathExit.u, v: pathExit.v, z: -140, vu: 0.5, vv: 1.5 }, duration: 1.6, bonus: 4000 };
 // second pipe (Y) from the path down to the teal floor (z -305): two inlets, one outlet
 const yOut = L.uv(236, 892, -305);
 for (const [ix, iy] of [[125, 803], [178, 786]] as const) {
   const yIn = L.uv(ix, iy, -140);
   L.rect(yIn.u - 2.2, yIn.v - 2.2, yIn.u + 2.2, yIn.v + 2.2, -140, 0, 0, 'inletFloor');
   L.pipe({ u0: yIn.u - 1.5, v0: yIn.v - 1.5, u1: yIn.u + 1.5, v1: yIn.v + 1.5, zMin: -160, zMax: -120,
-    exit: { u: yOut.u, v: yOut.v, vu: 2, vv: 3 }, duration: 1.5, bonus: 2000 });
+    exit: { u: yOut.u, v: yOut.v, z: -305, vu: 2, vv: 3 }, duration: 1.5, bonus: 2000 });
 }
 // ice slope from the teal floor down to the purple goal floor (z -395)
 const ice = L.strip(232, 950, -305, 120, 1060, -395, 6, 'ice'); void ice;

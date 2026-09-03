@@ -96,8 +96,8 @@ export interface Pipe {
   /** entry footprint */
   u0: number; v0: number; u1: number; v1: number;
   zMin?: number; zMax?: number;
-  /** exit point + exit velocity (tiles/s) */
-  exit: { u: number; v: number; vu: number; vv: number };
+  /** exit point (+ height) and exit velocity (tiles/s) */
+  exit: { u: number; v: number; z?: number; vu: number; vv: number };
   duration: number;
   bonus?: number;
 }

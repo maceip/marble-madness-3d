@@ -1925,10 +1925,11 @@ var Marble = class {
       this.pipeT -= dt;
       if (this.pipeT <= 0 && this.pipeExit) {
         const e = this.pipeExit;
-        const sup = supportAt(level, e.u, e.v, 1e9, 0);
+        const sup = e.z !== void 0 ? supportAt(level, e.u, e.v, e.z + 12, 0) : supportAt(level, e.u, e.v, 1e9, 0);
         this.u = e.u;
         this.v = e.v;
-        this.z = sup ? sup.z : this.z;
+        this.z = sup ? sup.z : e.z ?? this.z;
+        this.support = sup;
         this.vu = e.vu;
         this.vv = e.vv;
         this.vz = 0;
@@ -2187,16 +2188,16 @@ var stairs = L2.strip(170, 545, -10, 124, 600, -43, 2.4, "stairs");
 L2.rails(stairs);
 L2.pipe({ u0: 0, v0: 0, u1: 0, v1: 0, exit: { u: 0, v: 0, vu: -3, vv: 3 }, duration: 1.6, bonus: 4e3 });
 var funnel = L2.uv(245, 612, -43);
-L2.rect(funnel.u - 2.2, funnel.v - 2.2, funnel.u + 2.2, funnel.v + 2.2, -43, 0, 0, "funnelFloor");
-var pathExit = L2.uv(204, 704, -140);
+L2.rect(funnel.u - 3.6, funnel.v - 3.6, funnel.u + 3.6, funnel.v + 3.6, -43, 0, 0, "funnelFloor");
+var pathExit = L2.uv(200, 712, -140);
 L2.def.pipes[0] = {
-  u0: funnel.u - 1.4,
-  v0: funnel.v - 1.4,
-  u1: funnel.u + 1.4,
-  v1: funnel.v + 1.4,
+  u0: funnel.u - 2,
+  v0: funnel.v - 2,
+  u1: funnel.u + 2,
+  v1: funnel.v + 2,
   zMin: -60,
   zMax: -30,
-  exit: { u: pathExit.u, v: pathExit.v, vu: -2, vv: 4 },
+  exit: { u: pathExit.u, v: pathExit.v, z: -140, vu: 0.5, vv: 1.5 },
   duration: 1.6,
   bonus: 4e3
 };
@@ -2211,7 +2212,7 @@ for (const [ix, iy] of [[125, 803], [178, 786]]) {
     v1: yIn.v + 1.5,
     zMin: -160,
     zMax: -120,
-    exit: { u: yOut.u, v: yOut.v, vu: 2, vv: 3 },
+    exit: { u: yOut.u, v: yOut.v, z: -305, vu: 2, vv: 3 },
     duration: 1.5,
     bonus: 2e3
   });
@@ -2258,7 +2259,7 @@ var L3 = new LevelBuilder({
 }
 var funnel2 = L3.uv(162, 645, 100);
 L3.rect(funnel2.u - 2.4, funnel2.v - 2.4, funnel2.u + 2.4, funnel2.v + 2.4, 100, 0, 0, "funnelFloor");
-var pipeOut = L3.uv(150, 752, -25);
+var pipeOut = L3.uv(152, 768, -25);
 L3.pipe({
   u0: funnel2.u - 1.4,
   v0: funnel2.v - 1.4,
@@ -2266,7 +2267,7 @@ L3.pipe({
   v1: funnel2.v + 1.4,
   zMin: 88,
   zMax: 112,
-  exit: { u: pipeOut.u, v: pipeOut.v, vu: 1, vv: 3 },
+  exit: { u: pipeOut.u, v: pipeOut.v, z: -25, vu: 1.5, vv: 1.5 },
   duration: 1.5,
   bonus: 2e3
 });
@@ -2360,7 +2361,10 @@ var L5 = new LevelBuilder({
   carryTime: true,
   progressDir: -1
 });
-L5.strip(176, 830, 100, 206, 636, 235, 3.2, "climbA");
+L5.strip(40, 1005, 100, 146, 880, 177, 3, "xRampL");
+L5.strip(250, 1005, 100, 146, 880, 177, 3, "xRampR");
+L5.strip(84, 884, 177, 22, 730, 201, 4.5, "plazaToGreen");
+L5.strip(60, 650, 201, 110, 600, 235, 3.2, "climbA");
 L5.strip(110, 578, 235, 60, 520, 339, 3.2, "climbB");
 L5.strip(270, 304, 339, 270, 268, 356, 3.2, "climbC");
 L5.strip(150, 104, 356, 150, 62, 385, 3.2, "climbD");
@@ -2368,12 +2372,12 @@ var start5 = L5.uv(146, 1060, 100);
 L5.start(start5.u, start5.v);
 L5.checkpoint(start5.u, start5.v);
 {
-  const a = L5.uv(60, 990, 100), b = L5.uv(230, 1080, 100);
-  L5.zone("timezone", Math.min(a.u, b.u), Math.min(a.v, b.v), Math.max(a.u, b.u), Math.max(a.v, b.v), void 0, "plaza", 90, 110);
+  const a = L5.uv(70, 770, 177), b = L5.uv(230, 870, 177);
+  L5.zone("timezone", Math.min(a.u, b.u), Math.min(a.v, b.v), Math.max(a.u, b.u), Math.max(a.v, b.v), void 0, "plaza", 165, 190);
 }
-var c14 = L5.uv(150, 860, 100);
+var c14 = L5.uv(150, 820, 177);
 L5.checkpoint(c14.u, c14.v);
-L5.zone("checkpoint", c14.u - 6, c14.v - 6, c14.u + 6, c14.v + 6, 1, "cp1", 85, 130);
+L5.zone("checkpoint", c14.u - 6, c14.v - 6, c14.u + 6, c14.v + 6, 1, "cp1", 165, 190);
 var c24 = L5.uv(160, 700, 201);
 L5.checkpoint(c24.u, c24.v);
 L5.zone("checkpoint", c24.u - 6, c24.v - 6, c24.u + 6, c24.v + 6, 2, "cp2", 185, 250);
@@ -2384,8 +2388,8 @@ var goalC = L5.uv(150, 62, 385);
 L5.rect(goalC.u - 3.5, goalC.v - 3.5, goalC.u + 3.5, goalC.v + 3.5, 385, 0, 0, "goalSign");
 L5.zone("bonus", goalC.u - 4, goalC.v - 4, goalC.u + 4, goalC.v + 4, 2e3, "goalflags", 370, 400);
 L5.zone("goal", goalC.u - 3.5, goalC.v - 3.5, goalC.u + 3.5, goalC.v + 3.5, void 0, "goal", 370, 400);
-for (const [x, y] of [[100, 1010], [190, 1020], [150, 1050]]) {
-  const p = L5.uv(x, y, 100);
+for (const [x, y] of [[100, 800], [190, 810], [150, 845]]) {
+  const p = L5.uv(x, y, 177);
   L5.hazard({ kind: "slime", u: p.u, v: p.v, range: 2 });
 }
 L5.hazard({ kind: "birds", u: 0, v: 0, band: [40, 140], period: 7, count: 4 });

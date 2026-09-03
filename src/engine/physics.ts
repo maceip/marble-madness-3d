@@ -43,7 +43,7 @@ export class Marble {
   /** true while inside a pipe (invisible, uncontrollable) */
   inPipe = false;
   pipeT = 0;
-  pipeExit: { u: number; v: number; vu: number; vv: number } | null = null;
+  pipeExit: { u: number; v: number; z?: number; vu: number; vv: number } | null = null;
 
   get speed(): number { return Math.hypot(this.vu, this.vv); }
 
@@ -78,8 +78,9 @@ export class Marble {
       this.pipeT -= dt;
       if (this.pipeT <= 0 && this.pipeExit) {
         const e = this.pipeExit;
-        const sup = supportAt(level, e.u, e.v, 1e9, 0);
-        this.u = e.u; this.v = e.v; this.z = sup ? sup.z : this.z;
+        const sup = e.z !== undefined ? supportAt(level, e.u, e.v, e.z + 12, 0) : supportAt(level, e.u, e.v, 1e9, 0);
+        this.u = e.u; this.v = e.v; this.z = sup ? sup.z : (e.z ?? this.z);
+        this.support = sup;
         this.vu = e.vu; this.vv = e.vv; this.vz = 0;
         this.inPipe = false; this.pipeExit = null; this.grounded = true; this.maxZ = this.z;
       }

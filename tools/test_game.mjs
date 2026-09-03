@@ -35,7 +35,7 @@ await page.screenshot({ path: `${outDir}/s${stage}_race0.png` });
 
 const snap = () => page.evaluate(() => {
   const g = window.game; const m = g.marble;
-  return { scr: g.screen, u: +m.u.toFixed(1), v: +m.v.toFixed(1), z: +m.z.toFixed(0), mx: Math.round((m.u - m.v) * 8), my: Math.round((m.u + m.v) * 4 - m.z), sp: +m.speed.toFixed(1), gnd: m.grounded, ph: m.phase, dz: +m.dizzyT.toFixed(1), score: g.score, time: +g.timeLeft.toFixed(1), deaths: g.deaths, sup: m.support ? m.support.s.name : null, blk: m.lastBlock };
+  return { scr: g.screen, st: g.stageIdx + 1, u: +m.u.toFixed(1), v: +m.v.toFixed(1), z: +m.z.toFixed(0), mx: Math.round((m.u - m.v) * 8), my: Math.round((m.u + m.v) * 4 - m.z), sp: +m.speed.toFixed(1), gnd: m.grounded, ph: m.phase, dz: +m.dizzyT.toFixed(1), score: g.score, time: +g.timeLeft.toFixed(1), deaths: g.deaths, sup: m.support ? m.support.s.name : null, blk: m.lastBlock };
 });
 const startAt = opt('--start', '');
 if (startAt) {
@@ -61,7 +61,7 @@ if (path) {
     console.log(`p${k} ${seg}`, JSON.stringify(s));
     if (shots) await page.screenshot({ path: `${outDir}/s${stage}_p${k}.png` });
     k++;
-    if (s.scr !== 'race') break;
+    if (s.scr !== 'race' && !args.includes('--keep')) break;
   }
 }
 
@@ -75,7 +75,7 @@ if (drive) {
     const s = await snap();
     console.log(`t${i}`, JSON.stringify(s));
     if (i % 3 === 2) await page.screenshot({ path: `${outDir}/s${stage}_drive${i}.png` });
-    if (s.scr !== 'race') break;
+    if (s.scr !== 'race' && !args.includes('--keep')) break;
   }
 }
 await browser.close();

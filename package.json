@@ -13,7 +13,7 @@
     "check": "tsc --noEmit -p tsconfig.json",
     "levels:dump": "node tools/dump_levels.mjs",
     "levels:overlay": "npm run levels:dump && python3 tools/level_overlay.py",
-    "test": "node tools/test_game.mjs"
+    "test": "node tools/smoke_all.mjs && node tools/flow_check.mjs && node tools/test_lobby.mjs"
   },
   "dependencies": {
     "ws": "^8.21.3"

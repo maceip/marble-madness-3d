@@ -12,9 +12,9 @@ const L = new LevelBuilder({
 // funnel pipe on the maze (z 100) drops the marble to the floors below (z -25)
 const funnel = L.uv(162, 645, 100);
 L.rect(funnel.u - 2.4, funnel.v - 2.4, funnel.u + 2.4, funnel.v + 2.4, 100, 0, 0, 'funnelFloor');
-const pipeOut = L.uv(150, 752, -25);
+const pipeOut = L.uv(152, 768, -25);
 L.pipe({ u0: funnel.u - 1.4, v0: funnel.v - 1.4, u1: funnel.u + 1.4, v1: funnel.v + 1.4, zMin: 88, zMax: 112,
-  exit: { u: pipeOut.u, v: pipeOut.v, vu: 1, vv: 3 }, duration: 1.5, bonus: 2000 });
+  exit: { u: pipeOut.u, v: pipeOut.v, z: -25, vu: 1.5, vv: 1.5 }, duration: 1.5, bonus: 2000 });
 
 // bridge plate and the wave chutes down to the goal (approximated as straight strips)
 L.band(64, 272, 812, 12, -40, 0, 0, 'plate');
