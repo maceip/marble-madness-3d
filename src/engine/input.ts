@@ -63,8 +63,38 @@ export class Input {
   private dragStartX = 0;
   private dragStartY = 0;
   private aimVector: { dx: number; dy: number } = { dx: 0, dy: 1 };
+  private clicksQueue: { x: number; y: number }[] = [];
+
+  takeClicks(): { x: number; y: number }[] {
+    const res = this.clicksQueue;
+    this.clicksQueue = [];
+    return res;
+  }
 
   private setupGameCanvasMouse(): void {
+    this.canvas.addEventListener('click', (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const scaleX = this.canvas.width / rect.width;
+      const scaleY = this.canvas.height / rect.height;
+      this.clicksQueue.push({
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY,
+      });
+    });
+
+    this.canvas.addEventListener('touchend', (e) => {
+      if (e.changedTouches.length > 0) {
+        const t = e.changedTouches[0];
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        this.clicksQueue.push({
+          x: (t.clientX - rect.left) * scaleX,
+          y: (t.clientY - rect.top) * scaleY,
+        });
+      }
+    });
+
     this.canvas.addEventListener('mousedown', (e) => {
       if (e.button === 0) {
         this.leftMouseDown = true;

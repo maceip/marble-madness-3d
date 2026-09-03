@@ -27,9 +27,25 @@
     .panel button:hover { background: #dcdf7a; }
     .panel .status { margin-top: 12px; color: #b7b95c; font-size: 15px; min-height: 22px; }
     .panel .small { font-size: 13px; color: #8d95b8; text-transform: none; letter-spacing: 0; }
-    #settings { position: fixed; right: 10px; top: 10px; font-size: 12px; color: #8d95b8; display: flex; gap: 12px; align-items: center; opacity: .55; z-index: 50; }
+    #settings {
+      position: fixed;
+      left: 14px;
+      bottom: 12px;
+      font-size: 11px;
+      color: #9aa0ff;
+      background: rgba(10, 12, 24, 0.75);
+      border: 1px solid rgba(74, 80, 168, 0.4);
+      border-radius: 4px;
+      padding: 4px 10px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      opacity: .4;
+      z-index: 50;
+      transition: opacity .15s ease;
+    }
     #settings:hover { opacity: 1; }
-    #settings input { width: 90px; }
+    #settings input { width: 80px; }
 
     /* 3D Bowling Ball Trackball Dock (Bottom Right on Mobile & Desktop) */
     #trackball-container {

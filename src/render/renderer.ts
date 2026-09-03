@@ -212,6 +212,23 @@ export class Renderer {
     const sy = bbox.y0 - this.cam.y;
     this.ctx.drawImage(overlay, Math.round(sx), Math.round(sy));
   }
+
+  /** Draw a full-screen image centered with letterbox/pillarbox to preserve aspect ratio. */
+  drawFullScreenImage(img: HTMLImageElement): { rx: number; ry: number; rw: number; rh: number; scale: number } {
+    const cw = this.canvas.width;
+    const ch = this.canvas.height;
+    const scale = Math.min(cw / img.width, ch / img.height);
+    const rw = Math.round(img.width * scale);
+    const rh = Math.round(img.height * scale);
+    const rx = Math.round((cw - rw) / 2);
+    const ry = Math.round((ch - rh) / 2);
+
+    this.screenCtx.fillStyle = '#000000';
+    this.screenCtx.fillRect(0, 0, cw, ch);
+    this.screenCtx.imageSmoothingEnabled = false;
+    this.screenCtx.drawImage(img, 0, 0, img.width, img.height, rx, ry, rw, rh);
+    return { rx, ry, rw, rh, scale };
+  }
 }
 
 export const GOAL_OVERLAY_BBOX: Record<number, { x0: number; y0: number }> = {

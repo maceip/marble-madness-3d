@@ -27,34 +27,84 @@ export class Screens {
       for (let i = 0; i < 26; i++) this.rain.push({ x: Math.random() * VIEW_W, y: -Math.random() * VIEW_H, vy: 30 + Math.random() * 50, c: Math.floor(Math.random() * 6) });
     }
     if (screen === 'gameover') { void this.g.submitScore(); }
-    this.showConnect(screen === 'connect' && !this.g.isAgentPage);
+    this.showConnect(false);
+  }
+
+  copiedTimer = 0;
+
+  chooseMode(idx: number): void {
+    const g = this.g;
+    g.sound.sfx('item');
+    if (idx === 0) {
+      g.mode = '1p';
+      g.beginMode();
+      g.newGame(0);
+    } else {
+      g.mode = 'ai';
+      g.beginMode();
+      g.go('connect');
+    }
+  }
+
+  async copyAgentLink(): Promise<void> {
+    const g = this.g;
+    const url = `${g.publicOrigin}/${g.lobbyId}`;
+    const text = `Open ${url} in your embedded browser and use webmcp to compete`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.getElementById('connect-text') as HTMLTextAreaElement | null;
+      if (ta) { ta.value = text; ta.select(); document.execCommand('copy'); }
+    }
+    this.copiedTimer = 1.8;
+    g.sound.sfx('item');
   }
 
   update(dt: number): void {
     const g = this.g;
     this.blink += dt; this.idle += dt;
+    if (this.copiedTimer > 0) this.copiedTimer -= dt;
     const presses = g.input.takePresses();
-    const any = presses.length > 0;
+    const clicks = g.input.takeClicks();
+    const any = presses.length > 0 || clicks.length > 0;
     switch (g.screen) {
       case 'highrollers':
         if (any || this.idle > 9) g.go('title');
         break;
       case 'title':
-        if (any) { g.sound.init(); g.go('menu'); }
+        if (any) { g.sound.init(); g.sound.sfx('item'); g.go('menu'); }
         else if (this.idle > 12) g.go('highrollers');
         break;
       case 'menu': {
-        const items = 3;
         for (const p of presses) {
-          if (p === 'ArrowUp' || p === 'KeyW') { this.cursor = (this.cursor + items - 1) % items; g.sound.sfx('tick', 0.4); }
-          if (p === 'ArrowDown' || p === 'KeyS') { this.cursor = (this.cursor + 1) % items; g.sound.sfx('tick', 0.4); }
-          if (p === 'Enter' || p === 'Space' || p === 'Mouse' || p === 'Touch') {
-            g.mode = (['1p', 'ai', 'multi'] as const)[this.cursor];
-            g.sound.sfx('item');
-            g.beginMode();
-            g.go('name');
+          if (p === 'ArrowUp' || p === 'KeyW' || p === 'ArrowDown' || p === 'KeyS') {
+            this.cursor = 1 - this.cursor;
+            g.sound.sfx('tick', 0.4);
+          }
+          if (p === 'Enter' || p === 'Space') {
+            this.chooseMode(this.cursor);
           }
           if (p === 'Escape') g.go('title');
+        }
+        for (const clk of clicks) {
+          const img = g.assets.screenCache.get('select_base') || g.assets.screenCache.get('select');
+          if (img) {
+            const scale = Math.min(g.r.canvas.width / img.width, g.r.canvas.height / img.height);
+            const rw = img.width * scale, rh = img.height * scale;
+            const ry = (g.r.canvas.height - rh) / 2;
+            const iy = (clk.y - ry) * (img.height / rh);
+            if (iy >= 400 && iy <= 485) {
+              if (this.cursor === 0) this.chooseMode(0);
+              else { this.cursor = 0; g.sound.sfx('tick', 0.4); }
+            } else if (iy > 485 && iy <= 580) {
+              if (this.cursor === 1) this.chooseMode(1);
+              else { this.cursor = 1; g.sound.sfx('tick', 0.4); }
+            } else {
+              this.chooseMode(this.cursor);
+            }
+          } else {
+            this.chooseMode(this.cursor);
+          }
         }
         break;
       }
@@ -73,7 +123,26 @@ export class Screens {
         break;
       }
       case 'connect': {
-        for (const p of presses) if (p === 'Escape') g.go('menu');
+        for (const p of presses) {
+          if (p === 'Escape') g.go('menu');
+          if (p === 'KeyC' || p === 'Space' || p === 'Enter') void this.copyAgentLink();
+        }
+        for (const clk of clicks) {
+          const img = g.assets.screenCache.get('player2webmcp');
+          if (img) {
+            const scale = Math.min(g.r.canvas.width / img.width, g.r.canvas.height / img.height);
+            const rw = img.width * scale, rh = img.height * scale;
+            const rx = (g.r.canvas.width - rw) / 2, ry = (g.r.canvas.height - rh) / 2;
+            const ix = (clk.x - rx) * (img.width / rw);
+            const iy = (clk.y - ry) * (img.height / rh);
+            // Yellow copy button in 1448x1086: x: 840..1400, y: 50..190
+            if (ix >= 840 && ix <= 1400 && iy >= 50 && iy <= 190) {
+              void this.copyAgentLink();
+            }
+          } else {
+            void this.copyAgentLink();
+          }
+        }
         break;
       }
       case 'gameover':
@@ -175,24 +244,47 @@ export class Screens {
   }
 
   private renderTitle(): void {
-    const r = this.g.r;
-    r.textC('M I L T O N   B R A D L E Y', VIEW_W / 2, 12, 'white');
-    r.textC('PRESENTS', VIEW_W / 2, 28, 'white');
-    r.logo(VIEW_W / 2, 52);
-    if (Math.floor(this.blink * 2) % 2 === 0) r.textC('PRESS START', VIEW_W / 2, 160, 'orange');
-    r.textC('© 1984 TENGEN', VIEW_W / 2, 196, 'white');
-    r.textC('LICENSED BY NINTENDO OF', VIEW_W / 2, 208, 'white');
-    r.textC('AMERICA INC.', VIEW_W / 2, 218, 'white');
+    const g = this.g; const r = g.r;
+    const img = g.assets.screenCache.get('title2');
+    if (img) {
+      r.drawFullScreenImage(img);
+    } else {
+      r.logo(VIEW_W / 2, 52);
+      r.textC('PRESS START', VIEW_W / 2, 160, 'orange');
+    }
   }
 
   private renderMenu(): void {
     const g = this.g; const r = g.r;
-    r.logo(VIEW_W / 2, 14);
-    const items = ['1 PLAYER', 'PLAYER VS AI (2 PLAYER)', 'MULTI MARBLE'];
-    const x = 84, y0 = 116;
-    items.forEach((it, i) => r.text(it, x, y0 + i * 16, 'white'));
-    drawFrame(r.ctx, g.assets.sheets.marble, FRAMES.marble.roll[Math.floor(this.blink * 6) % 6], x - 18, y0 + this.cursor * 16 + 4);
-    r.textC('© 1984 TENGEN', VIEW_W / 2, 206, 'white');
+    const img = g.assets.screenCache.get('select_base') || g.assets.screenCache.get('select');
+    if (img) {
+      const bounds = r.drawFullScreenImage(img);
+      const { rx, ry, rw, rh } = bounds;
+      const iw = img.width, ih = img.height;
+      const sx = (x: number) => rx + (x / iw) * rw;
+      const sy = (y: number) => ry + (y / ih) * rh;
+
+      // Draw cursor at 1 PLAYER (x=560, y=435) or 2 PLAYERS (x=560, y=515)
+      const cursorImg = g.assets.screenCache.get('cursor');
+      const curY = this.cursor === 0 ? 435 : 515;
+      if (cursorImg) {
+        const cw = (cursorImg.width / iw) * rw;
+        const ch = (cursorImg.height / ih) * rh;
+        r.screenCtx.drawImage(cursorImg, sx(560), sy(curY), cw, ch);
+      }
+
+      // When 1 PLAYER is active, black out the 'HUMAN VS AGENT' area so it only shows for 2 PLAYERS
+      if (this.cursor === 0) {
+        r.screenCtx.fillStyle = '#000000';
+        r.screenCtx.fillRect(sx(540), sy(660), (600 / iw) * rw, (45 / ih) * rh);
+      }
+    } else {
+      r.logo(VIEW_W / 2, 14);
+      const items = ['1 PLAYER', '2 PLAYERS'];
+      const x = 84, y0 = 116;
+      items.forEach((it, i) => r.text(it, x, y0 + i * 16, 'white'));
+      drawFrame(r.ctx, g.assets.sheets.marble, FRAMES.marble.roll[Math.floor(this.blink * 6) % 6], x - 18, y0 + this.cursor * 16 + 4);
+    }
   }
 
   private renderName(): void {
@@ -231,22 +323,64 @@ export class Screens {
 
   private renderConnect(): void {
     const g = this.g; const r = g.r;
-    if (g.isAgentPage) {
+    const img = g.assets.screenCache.get('player2webmcp');
+    if (img) {
+      const bounds = r.drawFullScreenImage(img);
+      const { rx, ry, rw, rh } = bounds;
+      const iw = img.width, ih = img.height;
+      const sx = (x: number) => rx + (x / iw) * rw;
+      const sy = (y: number) => ry + (y / ih) * rh;
+
+      // 1. Center animated rolling blue marble over (721, 771)
+      const cx = sx(721), cy = sy(771);
+      const mw = (78 / iw) * rw;
+      const mh = (78 / ih) * rh;
+      const f = FRAMES.marble.roll[Math.floor(this.blink * 8) % 6];
+      r.screenCtx.drawImage(g.assets.sheets.marble, f.x, f.y, f.w, f.h, cx - mw / 2, cy - mh / 2, mw, mh);
+
+      // 2. Feedback badge if copied to clipboard
+      if (this.copiedTimer > 0) {
+        const bx = sx(860), by = sy(55), bw = (520 / iw) * rw, bh = (125 / ih) * rh;
+        r.screenCtx.fillStyle = '#fff44f';
+        r.screenCtx.fillRect(bx, by, bw, bh);
+        r.screenCtx.strokeStyle = '#ffffff';
+        r.screenCtx.lineWidth = Math.max(2, Math.round(3 * (rh / ih)));
+        r.screenCtx.strokeRect(bx, by, bw, bh);
+        r.screenCtx.fillStyle = '#000000';
+        r.screenCtx.font = `bold ${Math.round((28 / ih) * rh)}px "Courier New", monospace`;
+        r.screenCtx.textAlign = 'center';
+        r.screenCtx.textBaseline = 'middle';
+        r.screenCtx.fillText('COPIED TO CLIPBOARD!', bx + bw / 2, by + bh / 2);
+      }
+
+      // 3. Status text at bottom (x=724, y=962)
+      r.screenCtx.fillStyle = '#000000';
+      r.screenCtx.fillRect(sx(300), sy(940), (848 / iw) * rw, (45 / ih) * rh);
+      r.screenCtx.font = `bold ${Math.round((22 / ih) * rh)}px "Courier New", monospace`;
+      r.screenCtx.textAlign = 'center';
+      r.screenCtx.textBaseline = 'middle';
+      if (g.agentJoined) {
+        r.screenCtx.fillStyle = '#50fa7b';
+        r.screenCtx.fillText('AGENT CONNECTED! STARTING RACE...', sx(724), sy(962));
+      } else {
+        const dots = '.'.repeat(1 + (Math.floor(this.blink * 2) % 3));
+        r.screenCtx.fillStyle = '#79a8ff';
+        r.screenCtx.fillText(`Waiting for agent to join${dots}`, sx(724), sy(962));
+      }
+
+      // 4. Lobby code badge
+      r.screenCtx.font = `bold ${Math.round((18 / ih) * rh)}px "Courier New", monospace`;
+      r.screenCtx.fillStyle = '#f1fa8c';
+      r.screenCtx.fillText(`LOBBY: ${g.lobbyId.slice(0, 8).toUpperCase()}`, sx(724), sy(330));
+    } else {
       r.textC('PLAYER VS AI', VIEW_W / 2, 30, 'lavender');
-      r.textC('AGENT MARBLE', VIEW_W / 2, 46, 'orange');
-      r.textC('LOBBY ' + g.lobbyId.slice(0, 8).toUpperCase(), VIEW_W / 2, 90, 'cyan');
+      r.textC('CONNECT YOUR AGENT', VIEW_W / 2, 46, 'lavender');
+      r.textC('LOBBY', VIEW_W / 2, 90, 'white');
+      r.textC(g.lobbyId.slice(0, 8).toUpperCase(), VIEW_W / 2, 102, 'cyan');
       const dots = '.'.repeat(1 + (Math.floor(this.blink * 2) % 3));
-      r.textC(g.net.connected ? `WAITING FOR HUMAN TO START${dots}` : `CONNECTING${dots}`, VIEW_W / 2, 130, 'white');
-      r.textC('USE WEBMCP TOOLS TO STEER', VIEW_W / 2, 170, 'lavender');
-      return;
+      r.textC(g.agentJoined ? 'AGENT CONNECTED!' : `WAITING FOR AGENT${dots}`, VIEW_W / 2, 150, 'orange');
+      r.textC('ESC TO CANCEL', VIEW_W / 2, 210, 'white');
     }
-    r.textC('PLAYER VS AI', VIEW_W / 2, 30, 'lavender');
-    r.textC('CONNECT YOUR AGENT', VIEW_W / 2, 46, 'lavender');
-    r.textC('LOBBY', VIEW_W / 2, 90, 'white');
-    r.textC(g.lobbyId.slice(0, 8).toUpperCase(), VIEW_W / 2, 102, 'cyan');
-    const dots = '.'.repeat(1 + (Math.floor(this.blink * 2) % 3));
-    r.textC(g.agentJoined ? 'AGENT CONNECTED!' : `WAITING FOR AGENT${dots}`, VIEW_W / 2, 150, 'orange');
-    r.textC('ESC TO CANCEL', VIEW_W / 2, 210, 'white');
   }
 
   private renderCongrats(): void {

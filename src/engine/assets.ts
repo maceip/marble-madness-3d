@@ -61,6 +61,16 @@ export class Assets {
     ]);
     tick(); tick();
     this.font = new BitmapFont(fontImg, fontMeta);
+
+    const screenNames = ['title2', 'select_base', 'select', 'player2webmcp', 'cursor'];
+    await Promise.all(screenNames.map(async (n) => {
+      try {
+        const im = await loadImage(ASSET_ROOT + `screens/${n}.png`);
+        this.screenCache.set(n, im);
+      } catch (e) {
+        console.warn('Could not preload screen', n, e);
+      }
+    }));
   }
 
   async stage(image: string): Promise<HTMLImageElement> {
@@ -80,6 +90,20 @@ export class Assets {
       try {
         im = await loadImage(ASSET_ROOT + key);
         this.goalLitCache.set(key, im);
+      } catch {
+        return null;
+      }
+    }
+    return im;
+  }
+
+  screenCache = new Map<string, HTMLImageElement>();
+  async screen(name: string): Promise<HTMLImageElement | null> {
+    let im = this.screenCache.get(name);
+    if (!im) {
+      try {
+        im = await loadImage(ASSET_ROOT + `screens/${name}.png`);
+        this.screenCache.set(name, im);
       } catch {
         return null;
       }

@@ -61,11 +61,16 @@ async function boot(): Promise<void> {
   await game.start();
 
   let last = performance.now();
+  const tbContainer = document.getElementById('trackball-container');
   const loop = (now: number) => {
     const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); // RAF's first timestamp can precede performance.now()
     last = now;
     game.update(dt);
     game.render();
+    if (tbContainer) {
+      const isRace = game.screen === 'race' || game.screen === 'intro' || game.screen === 'timebonus';
+      tbContainer.style.display = isRace ? 'flex' : 'none';
+    }
     trackballView?.render();
     requestAnimationFrame(loop);
   };

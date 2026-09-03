@@ -219,7 +219,7 @@ export class Game {
       this.go('connect');
       return;
     }
-    this.go('highrollers');
+    this.go('title');
   }
 
   async submitScore(): Promise<void> {
@@ -709,11 +709,15 @@ export class Game {
     switch (this.screen) {
       case 'intro': case 'race': case 'timebonus':
         this.renderRace();
+        r.present();
+        break;
+      case 'title': case 'menu': case 'connect':
+        this.screens.render();
         break;
       default:
         this.screens.render();
+        r.present();
     }
-    r.present();
   }
 
   private renderRace(): void {

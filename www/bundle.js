@@ -1789,6 +1789,15 @@ var Assets = class {
     tick();
     tick();
     this.font = new BitmapFont(fontImg, fontMeta);
+    const screenNames = ["title2", "select_base", "select", "player2webmcp", "cursor"];
+    await Promise.all(screenNames.map(async (n) => {
+      try {
+        const im = await loadImage(ASSET_ROOT + `screens/${n}.png`);
+        this.screenCache.set(n, im);
+      } catch (e) {
+        console.warn("Could not preload screen", n, e);
+      }
+    }));
   }
   async stage(image) {
     let im = this.stages.get(image);
@@ -1806,6 +1815,19 @@ var Assets = class {
       try {
         im = await loadImage(ASSET_ROOT + key);
         this.goalLitCache.set(key, im);
+      } catch {
+        return null;
+      }
+    }
+    return im;
+  }
+  screenCache = /* @__PURE__ */ new Map();
+  async screen(name) {
+    let im = this.screenCache.get(name);
+    if (!im) {
+      try {
+        im = await loadImage(ASSET_ROOT + `screens/${name}.png`);
+        this.screenCache.set(name, im);
       } catch {
         return null;
       }
@@ -2057,6 +2079,21 @@ var Renderer = class {
     const sx = bbox.x0 - this.cam.x;
     const sy = bbox.y0 - this.cam.y;
     this.ctx.drawImage(overlay, Math.round(sx), Math.round(sy));
+  }
+  /** Draw a full-screen image centered with letterbox/pillarbox to preserve aspect ratio. */
+  drawFullScreenImage(img) {
+    const cw = this.canvas.width;
+    const ch = this.canvas.height;
+    const scale = Math.min(cw / img.width, ch / img.height);
+    const rw = Math.round(img.width * scale);
+    const rh = Math.round(img.height * scale);
+    const rx = Math.round((cw - rw) / 2);
+    const ry = Math.round((ch - rh) / 2);
+    this.screenCtx.fillStyle = "#000000";
+    this.screenCtx.fillRect(0, 0, cw, ch);
+    this.screenCtx.imageSmoothingEnabled = false;
+    this.screenCtx.drawImage(img, 0, 0, img.width, img.height, rx, ry, rw, rh);
+    return { rx, ry, rw, rh, scale };
   }
 };
 var GOAL_OVERLAY_BBOX = {
@@ -2347,7 +2384,34 @@ var Input = class {
   dragStartX = 0;
   dragStartY = 0;
   aimVector = { dx: 0, dy: 1 };
+  clicksQueue = [];
+  takeClicks() {
+    const res = this.clicksQueue;
+    this.clicksQueue = [];
+    return res;
+  }
   setupGameCanvasMouse() {
+    this.canvas.addEventListener("click", (e) => {
+      const rect = this.canvas.getBoundingClientRect();
+      const scaleX = this.canvas.width / rect.width;
+      const scaleY = this.canvas.height / rect.height;
+      this.clicksQueue.push({
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+      });
+    });
+    this.canvas.addEventListener("touchend", (e) => {
+      if (e.changedTouches.length > 0) {
+        const t = e.changedTouches[0];
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        this.clicksQueue.push({
+          x: (t.clientX - rect.left) * scaleX,
+          y: (t.clientY - rect.top) * scaleY
+        });
+      }
+    });
     this.canvas.addEventListener("mousedown", (e) => {
       if (e.button === 0) {
         this.leftMouseDown = true;
@@ -4431,14 +4495,47 @@ var Screens = class {
     if (screen === "gameover") {
       void this.g.submitScore();
     }
-    this.showConnect(screen === "connect" && !this.g.isAgentPage);
+    this.showConnect(false);
+  }
+  copiedTimer = 0;
+  chooseMode(idx) {
+    const g = this.g;
+    g.sound.sfx("item");
+    if (idx === 0) {
+      g.mode = "1p";
+      g.beginMode();
+      g.newGame(0);
+    } else {
+      g.mode = "ai";
+      g.beginMode();
+      g.go("connect");
+    }
+  }
+  async copyAgentLink() {
+    const g = this.g;
+    const url = `${g.publicOrigin}/${g.lobbyId}`;
+    const text = `Open ${url} in your embedded browser and use webmcp to compete`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.getElementById("connect-text");
+      if (ta) {
+        ta.value = text;
+        ta.select();
+        document.execCommand("copy");
+      }
+    }
+    this.copiedTimer = 1.8;
+    g.sound.sfx("item");
   }
   update(dt) {
     const g = this.g;
     this.blink += dt;
     this.idle += dt;
+    if (this.copiedTimer > 0) this.copiedTimer -= dt;
     const presses = g.input.takePresses();
-    const any = presses.length > 0;
+    const clicks = g.input.takeClicks();
+    const any = presses.length > 0 || clicks.length > 0;
     switch (g.screen) {
       case "highrollers":
         if (any || this.idle > 9) g.go("title");
@@ -4446,27 +4543,46 @@ var Screens = class {
       case "title":
         if (any) {
           g.sound.init();
+          g.sound.sfx("item");
           g.go("menu");
         } else if (this.idle > 12) g.go("highrollers");
         break;
       case "menu": {
-        const items = 3;
         for (const p of presses) {
-          if (p === "ArrowUp" || p === "KeyW") {
-            this.cursor = (this.cursor + items - 1) % items;
+          if (p === "ArrowUp" || p === "KeyW" || p === "ArrowDown" || p === "KeyS") {
+            this.cursor = 1 - this.cursor;
             g.sound.sfx("tick", 0.4);
           }
-          if (p === "ArrowDown" || p === "KeyS") {
-            this.cursor = (this.cursor + 1) % items;
-            g.sound.sfx("tick", 0.4);
-          }
-          if (p === "Enter" || p === "Space" || p === "Mouse" || p === "Touch") {
-            g.mode = ["1p", "ai", "multi"][this.cursor];
-            g.sound.sfx("item");
-            g.beginMode();
-            g.go("name");
+          if (p === "Enter" || p === "Space") {
+            this.chooseMode(this.cursor);
           }
           if (p === "Escape") g.go("title");
+        }
+        for (const clk of clicks) {
+          const img = g.assets.screenCache.get("select_base") || g.assets.screenCache.get("select");
+          if (img) {
+            const scale = Math.min(g.r.canvas.width / img.width, g.r.canvas.height / img.height);
+            const rw = img.width * scale, rh = img.height * scale;
+            const ry = (g.r.canvas.height - rh) / 2;
+            const iy = (clk.y - ry) * (img.height / rh);
+            if (iy >= 400 && iy <= 485) {
+              if (this.cursor === 0) this.chooseMode(0);
+              else {
+                this.cursor = 0;
+                g.sound.sfx("tick", 0.4);
+              }
+            } else if (iy > 485 && iy <= 580) {
+              if (this.cursor === 1) this.chooseMode(1);
+              else {
+                this.cursor = 1;
+                g.sound.sfx("tick", 0.4);
+              }
+            } else {
+              this.chooseMode(this.cursor);
+            }
+          } else {
+            this.chooseMode(this.cursor);
+          }
         }
         break;
       }
@@ -4490,7 +4606,25 @@ var Screens = class {
         break;
       }
       case "connect": {
-        for (const p of presses) if (p === "Escape") g.go("menu");
+        for (const p of presses) {
+          if (p === "Escape") g.go("menu");
+          if (p === "KeyC" || p === "Space" || p === "Enter") void this.copyAgentLink();
+        }
+        for (const clk of clicks) {
+          const img = g.assets.screenCache.get("player2webmcp");
+          if (img) {
+            const scale = Math.min(g.r.canvas.width / img.width, g.r.canvas.height / img.height);
+            const rw = img.width * scale, rh = img.height * scale;
+            const rx = (g.r.canvas.width - rw) / 2, ry = (g.r.canvas.height - rh) / 2;
+            const ix = (clk.x - rx) * (img.width / rw);
+            const iy = (clk.y - ry) * (img.height / rh);
+            if (ix >= 840 && ix <= 1400 && iy >= 50 && iy <= 190) {
+              void this.copyAgentLink();
+            }
+          } else {
+            void this.copyAgentLink();
+          }
+        }
         break;
       }
       case "gameover":
@@ -4636,24 +4770,44 @@ var Screens = class {
     }
   }
   renderTitle() {
-    const r = this.g.r;
-    r.textC("M I L T O N   B R A D L E Y", VIEW_W / 2, 12, "white");
-    r.textC("PRESENTS", VIEW_W / 2, 28, "white");
-    r.logo(VIEW_W / 2, 52);
-    if (Math.floor(this.blink * 2) % 2 === 0) r.textC("PRESS START", VIEW_W / 2, 160, "orange");
-    r.textC("\xA9 1984 TENGEN", VIEW_W / 2, 196, "white");
-    r.textC("LICENSED BY NINTENDO OF", VIEW_W / 2, 208, "white");
-    r.textC("AMERICA INC.", VIEW_W / 2, 218, "white");
+    const g = this.g;
+    const r = g.r;
+    const img = g.assets.screenCache.get("title2");
+    if (img) {
+      r.drawFullScreenImage(img);
+    } else {
+      r.logo(VIEW_W / 2, 52);
+      r.textC("PRESS START", VIEW_W / 2, 160, "orange");
+    }
   }
   renderMenu() {
     const g = this.g;
     const r = g.r;
-    r.logo(VIEW_W / 2, 14);
-    const items = ["1 PLAYER", "PLAYER VS AI (2 PLAYER)", "MULTI MARBLE"];
-    const x = 84, y0 = 116;
-    items.forEach((it, i) => r.text(it, x, y0 + i * 16, "white"));
-    drawFrame(r.ctx, g.assets.sheets.marble, FRAMES.marble.roll[Math.floor(this.blink * 6) % 6], x - 18, y0 + this.cursor * 16 + 4);
-    r.textC("\xA9 1984 TENGEN", VIEW_W / 2, 206, "white");
+    const img = g.assets.screenCache.get("select_base") || g.assets.screenCache.get("select");
+    if (img) {
+      const bounds = r.drawFullScreenImage(img);
+      const { rx, ry, rw, rh } = bounds;
+      const iw = img.width, ih = img.height;
+      const sx = (x) => rx + x / iw * rw;
+      const sy = (y) => ry + y / ih * rh;
+      const cursorImg = g.assets.screenCache.get("cursor");
+      const curY = this.cursor === 0 ? 435 : 515;
+      if (cursorImg) {
+        const cw = cursorImg.width / iw * rw;
+        const ch = cursorImg.height / ih * rh;
+        r.screenCtx.drawImage(cursorImg, sx(560), sy(curY), cw, ch);
+      }
+      if (this.cursor === 0) {
+        r.screenCtx.fillStyle = "#000000";
+        r.screenCtx.fillRect(sx(540), sy(660), 600 / iw * rw, 45 / ih * rh);
+      }
+    } else {
+      r.logo(VIEW_W / 2, 14);
+      const items = ["1 PLAYER", "2 PLAYERS"];
+      const x = 84, y0 = 116;
+      items.forEach((it, i) => r.text(it, x, y0 + i * 16, "white"));
+      drawFrame(r.ctx, g.assets.sheets.marble, FRAMES.marble.roll[Math.floor(this.blink * 6) % 6], x - 18, y0 + this.cursor * 16 + 4);
+    }
   }
   renderName() {
     const g = this.g;
@@ -4698,22 +4852,56 @@ var Screens = class {
   renderConnect() {
     const g = this.g;
     const r = g.r;
-    if (g.isAgentPage) {
+    const img = g.assets.screenCache.get("player2webmcp");
+    if (img) {
+      const bounds = r.drawFullScreenImage(img);
+      const { rx, ry, rw, rh } = bounds;
+      const iw = img.width, ih = img.height;
+      const sx = (x) => rx + x / iw * rw;
+      const sy = (y) => ry + y / ih * rh;
+      const cx = sx(721), cy = sy(771);
+      const mw = 78 / iw * rw;
+      const mh = 78 / ih * rh;
+      const f = FRAMES.marble.roll[Math.floor(this.blink * 8) % 6];
+      r.screenCtx.drawImage(g.assets.sheets.marble, f.x, f.y, f.w, f.h, cx - mw / 2, cy - mh / 2, mw, mh);
+      if (this.copiedTimer > 0) {
+        const bx = sx(860), by = sy(55), bw = 520 / iw * rw, bh = 125 / ih * rh;
+        r.screenCtx.fillStyle = "#fff44f";
+        r.screenCtx.fillRect(bx, by, bw, bh);
+        r.screenCtx.strokeStyle = "#ffffff";
+        r.screenCtx.lineWidth = Math.max(2, Math.round(3 * (rh / ih)));
+        r.screenCtx.strokeRect(bx, by, bw, bh);
+        r.screenCtx.fillStyle = "#000000";
+        r.screenCtx.font = `bold ${Math.round(28 / ih * rh)}px "Courier New", monospace`;
+        r.screenCtx.textAlign = "center";
+        r.screenCtx.textBaseline = "middle";
+        r.screenCtx.fillText("COPIED TO CLIPBOARD!", bx + bw / 2, by + bh / 2);
+      }
+      r.screenCtx.fillStyle = "#000000";
+      r.screenCtx.fillRect(sx(300), sy(940), 848 / iw * rw, 45 / ih * rh);
+      r.screenCtx.font = `bold ${Math.round(22 / ih * rh)}px "Courier New", monospace`;
+      r.screenCtx.textAlign = "center";
+      r.screenCtx.textBaseline = "middle";
+      if (g.agentJoined) {
+        r.screenCtx.fillStyle = "#50fa7b";
+        r.screenCtx.fillText("AGENT CONNECTED! STARTING RACE...", sx(724), sy(962));
+      } else {
+        const dots = ".".repeat(1 + Math.floor(this.blink * 2) % 3);
+        r.screenCtx.fillStyle = "#79a8ff";
+        r.screenCtx.fillText(`Waiting for agent to join${dots}`, sx(724), sy(962));
+      }
+      r.screenCtx.font = `bold ${Math.round(18 / ih * rh)}px "Courier New", monospace`;
+      r.screenCtx.fillStyle = "#f1fa8c";
+      r.screenCtx.fillText(`LOBBY: ${g.lobbyId.slice(0, 8).toUpperCase()}`, sx(724), sy(330));
+    } else {
       r.textC("PLAYER VS AI", VIEW_W / 2, 30, "lavender");
-      r.textC("AGENT MARBLE", VIEW_W / 2, 46, "orange");
-      r.textC("LOBBY " + g.lobbyId.slice(0, 8).toUpperCase(), VIEW_W / 2, 90, "cyan");
-      const dots2 = ".".repeat(1 + Math.floor(this.blink * 2) % 3);
-      r.textC(g.net.connected ? `WAITING FOR HUMAN TO START${dots2}` : `CONNECTING${dots2}`, VIEW_W / 2, 130, "white");
-      r.textC("USE WEBMCP TOOLS TO STEER", VIEW_W / 2, 170, "lavender");
-      return;
+      r.textC("CONNECT YOUR AGENT", VIEW_W / 2, 46, "lavender");
+      r.textC("LOBBY", VIEW_W / 2, 90, "white");
+      r.textC(g.lobbyId.slice(0, 8).toUpperCase(), VIEW_W / 2, 102, "cyan");
+      const dots = ".".repeat(1 + Math.floor(this.blink * 2) % 3);
+      r.textC(g.agentJoined ? "AGENT CONNECTED!" : `WAITING FOR AGENT${dots}`, VIEW_W / 2, 150, "orange");
+      r.textC("ESC TO CANCEL", VIEW_W / 2, 210, "white");
     }
-    r.textC("PLAYER VS AI", VIEW_W / 2, 30, "lavender");
-    r.textC("CONNECT YOUR AGENT", VIEW_W / 2, 46, "lavender");
-    r.textC("LOBBY", VIEW_W / 2, 90, "white");
-    r.textC(g.lobbyId.slice(0, 8).toUpperCase(), VIEW_W / 2, 102, "cyan");
-    const dots = ".".repeat(1 + Math.floor(this.blink * 2) % 3);
-    r.textC(g.agentJoined ? "AGENT CONNECTED!" : `WAITING FOR AGENT${dots}`, VIEW_W / 2, 150, "orange");
-    r.textC("ESC TO CANCEL", VIEW_W / 2, 210, "white");
   }
   renderCongrats() {
     const g = this.g;
@@ -5472,7 +5660,7 @@ var Game = class {
       this.go("connect");
       return;
     }
-    this.go("highrollers");
+    this.go("title");
   }
   async submitScore() {
     if (this.scoreSubmitted || this.score <= 0) return;
@@ -6014,11 +6202,17 @@ var Game = class {
       case "race":
       case "timebonus":
         this.renderRace();
+        r.present();
+        break;
+      case "title":
+      case "menu":
+      case "connect":
+        this.screens.render();
         break;
       default:
         this.screens.render();
+        r.present();
     }
-    r.present();
   }
   renderRace() {
     const r = this.r;
@@ -6645,11 +6839,16 @@ async function boot() {
   });
   await game.start();
   let last = performance.now();
+  const tbContainer = document.getElementById("trackball-container");
   const loop = (now) => {
     const dt = Math.max(0, Math.min(0.05, (now - last) / 1e3));
     last = now;
     game.update(dt);
     game.render();
+    if (tbContainer) {
+      const isRace = game.screen === "race" || game.screen === "intro" || game.screen === "timebonus";
+      tbContainer.style.display = isRace ? "flex" : "none";
+    }
     trackballView?.render();
     requestAnimationFrame(loop);
   };
