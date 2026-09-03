@@ -2035,6 +2035,226 @@ var Renderer = class {
   }
 };
 
+// src/engine/trackball.ts
+var Trackball = class {
+  // 3x3 rotation matrix in column-major order (standard for WebGL: mat3)
+  rot = new Float32Array([
+    1,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    1
+  ]);
+  // Angular velocity around X (pitch) and Y (yaw) in rad/s
+  // omegaX > 0 rolls the ball downwards; omegaY > 0 rolls the ball rightwards
+  wx = 0;
+  wy = 0;
+  // Configuration
+  radius;
+  friction;
+  maxOmega;
+  stictionPx;
+  hapticStepRad;
+  enableHaptics = true;
+  // Stiction state
+  dragAccumPx = 0;
+  brokenOut = false;
+  dragging = false;
+  // Haptics timing & ratchet
+  hapticAccumRad = 0;
+  lastHapticTime = 0;
+  constructor(opts = {}) {
+    this.radius = opts.radius ?? 70;
+    this.friction = opts.friction ?? 3.8;
+    this.maxOmega = opts.maxOmega ?? 32;
+    this.stictionPx = opts.stictionPx ?? 6;
+    this.hapticStepRad = opts.hapticStepRad ?? 0.35;
+    if (opts.enableHaptics !== void 0) this.enableHaptics = opts.enableHaptics;
+  }
+  /**
+   * Called when touch/mouse drag begins.
+   */
+  startDrag() {
+    this.dragging = true;
+    this.dragAccumPx = 0;
+    this.brokenOut = Math.hypot(this.wx, this.wy) > 1.5;
+  }
+  /**
+   * Called on each touch/mouse move delta (in screen pixels).
+   * dx > 0 = right, dy > 0 = down screen.
+   */
+  dragDelta(dx, dy, dt = 0.016) {
+    const dist2 = Math.hypot(dx, dy);
+    if (dist2 < 0.2) return;
+    if (!this.brokenOut) {
+      this.dragAccumPx += dist2;
+      if (this.dragAccumPx >= this.stictionPx) {
+        this.brokenOut = true;
+        this.vibrate(10);
+      } else {
+        return;
+      }
+    }
+    const impulseK = 0.45;
+    const targetWx = dy / this.radius / Math.max(8e-3, dt) * impulseK;
+    const targetWy = dx / this.radius / Math.max(8e-3, dt) * impulseK;
+    const dot = this.wx * targetWx + this.wy * targetWy;
+    const currentSpeed = Math.hypot(this.wx, this.wy);
+    const targetSpeed = Math.hypot(targetWx, targetWy);
+    if (currentSpeed > 3 && targetSpeed > 2 && dot < -0.3 * currentSpeed * targetSpeed) {
+      this.wx *= 0.35;
+      this.wy *= 0.35;
+      this.vibrate([8, 12, 8]);
+    } else {
+      this.wx += targetWx * 0.35;
+      this.wy += targetWy * 0.35;
+    }
+    this.clampVelocity();
+  }
+  /**
+   * Called when touch/mouse drag ends. Momentum carries forward.
+   */
+  endDrag() {
+    this.dragging = false;
+    this.brokenOut = false;
+  }
+  /**
+   * Direct programmatic spin (used by WebMCP AI agent and keyboard torque).
+   * dx: -1..1, dy: -1..1, speed: 1..100 (relative intensity).
+   */
+  spin(dx, dy, speed) {
+    const norm = Math.hypot(dx, dy) || 1;
+    const s = Math.max(0.1, Math.min(100, speed));
+    const radDelta = s / 100 * this.maxOmega * 0.4;
+    const curSpeed = Math.hypot(this.wx, this.wy);
+    const dot = (this.wy * dx + this.wx * dy) / norm;
+    if (curSpeed > 3 && dot < -0.3 * curSpeed) {
+      this.wx *= 0.4;
+      this.wy *= 0.4;
+      this.vibrate([8, 12, 8]);
+    }
+    this.wy += dx / norm * radDelta;
+    this.wx += dy / norm * radDelta;
+    this.clampVelocity();
+  }
+  /**
+   * Update physics step: integrate rotation matrix, decay velocity, update haptics.
+   */
+  update(dt) {
+    if (dt <= 0) return;
+    const speed = Math.hypot(this.wx, this.wy);
+    if (speed > 1e-4) {
+      const angle = speed * dt;
+      const ax = this.wx / speed;
+      const ay = -this.wy / speed;
+      const az = 0;
+      this.rotateAroundAxis(ax, ay, az, angle);
+      if (this.dragging) {
+        this.hapticAccumRad += angle;
+        if (this.hapticAccumRad >= this.hapticStepRad) {
+          this.hapticAccumRad %= this.hapticStepRad;
+          this.vibrate(4);
+        }
+      }
+      const decay = Math.exp(-this.friction * dt);
+      this.wx *= decay;
+      this.wy *= decay;
+      if (speed < 0.05) {
+        this.wx = 0;
+        this.wy = 0;
+      }
+    } else {
+      this.hapticAccumRad = 0;
+    }
+  }
+  /**
+   * Returns normalized steering vector for marble physics (-1..1 in screen space).
+   */
+  getSteer() {
+    const sp = Math.hypot(this.wx, this.wy);
+    if (sp < 0.08) return { ax: 0, ay: 0 };
+    const mag = Math.min(1, sp / (this.maxOmega * 0.7));
+    return {
+      ax: this.wy / sp * mag,
+      ay: this.wx / sp * mag
+    };
+  }
+  /**
+   * Rotates 3x3 matrix by an axis-angle rotation (Rodrigues formula).
+   */
+  rotateAroundAxis(x, y, z, theta) {
+    const c = Math.cos(theta);
+    const s = Math.sin(theta);
+    const t = 1 - c;
+    const d00 = t * x * x + c, d01 = t * x * y - s * z, d02 = t * x * z + s * y;
+    const d10 = t * x * y + s * z, d11 = t * y * y + c, d12 = t * y * z - s * x;
+    const d20 = t * x * z - s * y, d21 = t * y * z + s * x, d22 = t * z * z + c;
+    const r = this.rot;
+    const r00 = d00 * r[0] + d01 * r[1] + d02 * r[2];
+    const r01 = d10 * r[0] + d11 * r[1] + d12 * r[2];
+    const r02 = d20 * r[0] + d21 * r[1] + d22 * r[2];
+    const r10 = d00 * r[3] + d01 * r[4] + d02 * r[5];
+    const r11 = d10 * r[3] + d11 * r[4] + d12 * r[5];
+    const r12 = d20 * r[3] + d21 * r[4] + d22 * r[5];
+    const r20 = d00 * r[6] + d01 * r[7] + d02 * r[8];
+    const r21 = d10 * r[6] + d11 * r[7] + d12 * r[8];
+    const r22 = d20 * r[6] + d21 * r[7] + d22 * r[8];
+    r[0] = r00;
+    r[1] = r01;
+    r[2] = r02;
+    r[3] = r10;
+    r[4] = r11;
+    r[5] = r12;
+    r[6] = r20;
+    r[7] = r21;
+    r[8] = r22;
+    this.orthonormalize();
+  }
+  orthonormalize() {
+    const r = this.rot;
+    let len0 = Math.hypot(r[0], r[1], r[2]) || 1;
+    r[0] /= len0;
+    r[1] /= len0;
+    r[2] /= len0;
+    const dot01 = r[0] * r[3] + r[1] * r[4] + r[2] * r[5];
+    r[3] -= dot01 * r[0];
+    r[4] -= dot01 * r[1];
+    r[5] -= dot01 * r[2];
+    let len1 = Math.hypot(r[3], r[4], r[5]) || 1;
+    r[3] /= len1;
+    r[4] /= len1;
+    r[5] /= len1;
+    r[6] = r[1] * r[5] - r[2] * r[4];
+    r[7] = r[2] * r[3] - r[0] * r[5];
+    r[8] = r[0] * r[4] - r[1] * r[3];
+  }
+  clampVelocity() {
+    const sp = Math.hypot(this.wx, this.wy);
+    if (sp > this.maxOmega) {
+      const f = this.maxOmega / sp;
+      this.wx *= f;
+      this.wy *= f;
+    }
+  }
+  /**
+   * Safe, throttled web vibration.
+   */
+  vibrate(pattern) {
+    if (!this.enableHaptics || typeof navigator === "undefined" || !("vibrate" in navigator)) return;
+    const now = performance.now();
+    if (now - this.lastHapticTime < 32) return;
+    this.lastHapticTime = now;
+    try {
+      navigator.vibrate(pattern);
+    } catch {
+    }
+  }
+};
+
 // src/engine/input.ts
 var KEY_DIRS = {
   ArrowUp: [0, -1],
@@ -2047,8 +2267,32 @@ var KEY_DIRS = {
   KeyD: [1, 0]
 };
 var Input = class {
-  constructor(canvas) {
+  constructor(canvas, trackballCanvas) {
     this.canvas = canvas;
+    this.trackballCanvas = trackballCanvas;
+    this.trackball = new Trackball();
+    this.setupKeyboard();
+    this.setupGameCanvasMouse();
+    if (this.trackballCanvas) {
+      this.setupTrackballTouch(this.trackballCanvas);
+    }
+  }
+  controlType = "screen";
+  trackball;
+  keys = /* @__PURE__ */ new Set();
+  pressedQueue = [];
+  anyPress = false;
+  pointerLocked = false;
+  mouseDown = false;
+  lastMouseX = 0;
+  lastMouseY = 0;
+  // Trackball touch tracking
+  activeTouchId = null;
+  lastTouchX = 0;
+  lastTouchY = 0;
+  // Programmatic AI override
+  ai = null;
+  setupKeyboard() {
     window.addEventListener("keydown", (e) => {
       if (e.repeat) {
         if (KEY_DIRS[e.code] || e.code === "Space") e.preventDefault();
@@ -2061,60 +2305,91 @@ var Input = class {
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.code));
     window.addEventListener("blur", () => this.keys.clear());
-    canvas.addEventListener("mousedown", (e) => {
+  }
+  setupGameCanvasMouse() {
+    this.canvas.addEventListener("mousedown", (e) => {
       this.mouseDown = true;
       this.anyPress = true;
       this.pressedQueue.push("Mouse");
+      this.lastMouseX = e.clientX;
+      this.lastMouseY = e.clientY;
+      this.trackball.startDrag();
       e.preventDefault();
     });
     window.addEventListener("mouseup", () => {
-      this.mouseDown = false;
+      if (this.mouseDown) {
+        this.mouseDown = false;
+        this.trackball.endDrag();
+      }
     });
     window.addEventListener("mousemove", (e) => {
-      if (!this.mouseDown && !this.pointerLocked) return;
-      const k = 0.06;
-      this.mouseVec.ax = clamp(this.mouseVec.ax + e.movementX * k, -1, 1);
-      this.mouseVec.ay = clamp(this.mouseVec.ay + e.movementY * k, -1, 1);
-      this.mouseDecay = 0.14;
+      if (this.pointerLocked) {
+        this.trackball.dragDelta(e.movementX * 1.2, e.movementY * 1.2);
+        return;
+      }
+      if (!this.mouseDown) return;
+      const dx = e.clientX - this.lastMouseX;
+      const dy = e.clientY - this.lastMouseY;
+      this.lastMouseX = e.clientX;
+      this.lastMouseY = e.clientY;
+      this.trackball.dragDelta(dx * 1.4, dy * 1.4);
     });
     document.addEventListener("pointerlockchange", () => {
-      this.pointerLocked = document.pointerLockElement === canvas;
+      this.pointerLocked = document.pointerLockElement === this.canvas;
     });
-    canvas.addEventListener("touchstart", (e) => {
-      const t = e.changedTouches[0];
-      this.touchOrigin = { x: t.clientX, y: t.clientY };
+  }
+  setupTrackballTouch(tb) {
+    tb.addEventListener("pointerdown", (e) => {
+      tb.setPointerCapture(e.pointerId);
+      this.activeTouchId = e.pointerId;
+      this.lastTouchX = e.clientX;
+      this.lastTouchY = e.clientY;
       this.anyPress = true;
       this.pressedQueue.push("Touch");
+      this.trackball.startDrag();
+      e.preventDefault();
+    });
+    tb.addEventListener("pointermove", (e) => {
+      if (this.activeTouchId !== e.pointerId) return;
+      const dx = e.clientX - this.lastTouchX;
+      const dy = e.clientY - this.lastTouchY;
+      this.lastTouchX = e.clientX;
+      this.lastTouchY = e.clientY;
+      this.trackball.dragDelta(dx * 1.6, dy * 1.6);
+      e.preventDefault();
+    });
+    const endPointer = (e) => {
+      if (this.activeTouchId === e.pointerId) {
+        this.activeTouchId = null;
+        this.trackball.endDrag();
+      }
+    };
+    tb.addEventListener("pointerup", endPointer);
+    tb.addEventListener("pointercancel", endPointer);
+    tb.addEventListener("touchstart", (e) => {
+      const t = e.changedTouches[0];
+      this.lastTouchX = t.clientX;
+      this.lastTouchY = t.clientY;
+      this.anyPress = true;
+      this.pressedQueue.push("Touch");
+      this.trackball.startDrag();
       e.preventDefault();
     }, { passive: false });
-    canvas.addEventListener("touchmove", (e) => {
-      if (!this.touchOrigin) return;
+    tb.addEventListener("touchmove", (e) => {
       const t = e.changedTouches[0];
-      const dx = t.clientX - this.touchOrigin.x, dy = t.clientY - this.touchOrigin.y;
-      const max = 70;
-      const m = Math.min(1, Math.hypot(dx, dy) / max);
-      const a = Math.atan2(dy, dx);
-      this.touchVec = { ax: Math.cos(a) * m, ay: Math.sin(a) * m };
+      const dx = t.clientX - this.lastTouchX;
+      const dy = t.clientY - this.lastTouchY;
+      this.lastTouchX = t.clientX;
+      this.lastTouchY = t.clientY;
+      this.trackball.dragDelta(dx * 1.6, dy * 1.6);
       e.preventDefault();
     }, { passive: false });
     const endTouch = () => {
-      this.touchOrigin = null;
-      this.touchVec = { ax: 0, ay: 0 };
+      this.trackball.endDrag();
     };
-    canvas.addEventListener("touchend", endTouch);
-    canvas.addEventListener("touchcancel", endTouch);
+    tb.addEventListener("touchend", endTouch);
+    tb.addEventListener("touchcancel", endTouch);
   }
-  controlType = "screen";
-  keys = /* @__PURE__ */ new Set();
-  pressedQueue = [];
-  mouseDown = false;
-  mouseVec = { ax: 0, ay: 0 };
-  mouseDecay = 0;
-  touchOrigin = null;
-  touchVec = { ax: 0, ay: 0 };
-  ai = null;
-  anyPress = false;
-  pointerLocked = false;
   /** consume queued key presses (for menus) */
   takePresses() {
     const q = this.pressedQueue;
@@ -2136,37 +2411,34 @@ var Input = class {
       ay /= m;
     }
     this.ai = { ax, ay, until: performance.now() + durationMs };
+    this.trackball.spin(ax, ay, m * 50);
   }
   clearAI() {
     this.ai = null;
   }
   /** Steering sample for this frame in screen space (before control-type mapping). */
   sample(dt) {
-    if (this.ai) {
-      if (performance.now() < this.ai.until) return this.mapControl({ ax: this.ai.ax, ay: this.ai.ay });
-      this.ai = null;
-    }
-    let ax = 0, ay = 0;
+    let kx = 0, ky = 0;
     for (const [code, d] of Object.entries(KEY_DIRS)) {
       if (this.keys.has(code)) {
-        ax += d[0];
-        ay += d[1];
+        kx += d[0];
+        ky += d[1];
       }
     }
-    if (ax || ay) {
-      const m = Math.hypot(ax, ay);
-      return this.mapControl({ ax: ax / m, ay: ay / m });
+    if (kx || ky) {
+      const km = Math.hypot(kx, ky);
+      this.trackball.spin(kx / km, ky / km, 45);
     }
-    if (this.mouseDecay > 0) {
-      this.mouseDecay -= dt;
-      const v = { ...this.mouseVec };
-      const f = Math.exp(-dt * 9);
-      this.mouseVec.ax *= f;
-      this.mouseVec.ay *= f;
-      return this.mapControl(v);
+    if (this.ai) {
+      if (performance.now() < this.ai.until) {
+        this.trackball.update(dt);
+        return this.mapControl({ ax: this.ai.ax, ay: this.ai.ay });
+      }
+      this.ai = null;
     }
-    if (this.touchOrigin) return this.mapControl(this.touchVec);
-    return { ax: 0, ay: 0 };
+    this.trackball.update(dt);
+    const s = this.trackball.getSteer();
+    return this.mapControl(s);
   }
   mapControl(s) {
     if (this.controlType === "screen") return s;
@@ -2174,9 +2446,6 @@ var Input = class {
     return { ax: (s.ax - s.ay) * c, ay: (s.ax + s.ay) * c };
   }
 };
-function clamp(x, a, b) {
-  return Math.max(a, Math.min(b, x));
-}
 
 // src/engine/audio.ts
 var BGM = {
@@ -4503,13 +4772,13 @@ var Net = class {
 // src/game/webmcp.ts
 var DIRS = {
   N: [0, -1],
-  NE: [1, -1],
+  NE: [0.707, -0.707],
   E: [1, 0],
-  SE: [1, 1],
+  SE: [0.707, 0.707],
   S: [0, 1],
-  SW: [-1, 1],
+  SW: [-0.707, 0.707],
   W: [-1, 0],
-  NW: [-1, -1],
+  NW: [-0.707, -0.707],
   UP: [0, -1],
   DOWN: [0, 1],
   LEFT: [-1, 0],
@@ -4518,46 +4787,81 @@ var DIRS = {
 var WebMCP = class {
   constructor(game) {
     this.game = game;
+    this.resources = [
+      {
+        uri: "game://state",
+        name: "Live Race State",
+        mimeType: "application/json",
+        description: "Current real-time position, velocity, trackball angular momentum, score, timer, and nearby hazards."
+      },
+      {
+        uri: "game://course",
+        name: "Course & Terrain Spec",
+        mimeType: "application/json",
+        description: "Stage bounds, goal position, downhill vector, and known hazard placements for the current race."
+      }
+    ];
     this.tools = [
       {
+        name: "spin_trackball",
+        description: "Swipe the physical arcade trackball. dx (-1.0 to 1.0, right), dy (-1.0 to 1.0, down), speed (1 to 100, intensity). The ball has angular mass and bearing friction. There are NO brakes: you must counter-spin (swipe in reverse) to slow down, or you will fly off cliffs!",
+        inputSchema: {
+          type: "object",
+          properties: {
+            dx: { type: "number", minimum: -1, maximum: 1, description: "Horizontal swipe delta (-1 left, +1 right)" },
+            dy: { type: "number", minimum: -1, maximum: 1, description: "Vertical swipe delta (-1 up, +1 down/descend)" },
+            speed: { type: "number", minimum: 1, maximum: 100, default: 50, description: "How hard you swipe the ball (simulates optical encoder tick rate)" }
+          },
+          required: ["dx", "dy"]
+        },
+        execute: (a) => this.spin(Number(a.dx ?? 0), Number(a.dy ?? 1), Number(a.speed ?? 50))
+      },
+      {
+        name: "steer_trackball",
+        description: "Legacy directional trackball push. direction: N/NE/E/SE/S/SW/W/NW or degrees 0-360. Translates to physical trackball spin.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            direction: { type: "string", description: "N, NE, E, SE, S, SW, W, NW or degree angle" },
+            impulse: { type: "number", minimum: 0.1, maximum: 1, default: 0.7 }
+          },
+          required: ["direction"]
+        },
+        execute: (a) => this.steer(String(a.direction ?? "S"), Number(a.impulse ?? 0.7))
+      },
+      {
+        name: "apply_brake",
+        description: "Attempts to brake. In Marble Madness arcade, there are NO physical brakes on the cabinet! You must counter-spin the trackball.",
+        inputSchema: { type: "object", properties: {} },
+        execute: () => ({
+          ok: false,
+          warning: "The arcade cabinet has NO brakes! To stop or slow down, you must counter-spin the trackball in reverse (spin_trackball with opposing vector) or let surface friction decelerate you."
+        })
+      },
+      {
         name: "get_game_state",
-        description: "Marble Madness: current screen, race, timer, score and the marble's position/velocity in map pixels (x right, y down), plus the opponent marble if any. Call this every few hundred ms while racing. The course descends toward larger y (except the Silly Race which ascends).",
+        description: "Read the full game state: race stage, timer, score, marble position, velocity, trackball angular speed, terrain, and opponent position.",
         inputSchema: { type: "object", properties: {} },
         execute: () => this.state()
       },
       {
-        name: "steer_trackball",
-        description: "Push the trackball. direction: N/NE/E/SE/S/SW/W/NW (screen directions, S = down the screen) or degrees 0-360 (0 = right, 90 = down). impulse 0.1-1.0, duration_ms 50-600. Momentum carries: short pushes and counter-steering are needed near edges.",
+        name: "wait_for_tick",
+        description: "Wait for next physics tick or race event (landing, bump, checkpoint, or void drop). Prevents blind polling loops.",
         inputSchema: {
           type: "object",
-          properties: {
-            direction: { type: "string", description: "N, NE, E, SE, S, SW, W, NW or a number of degrees" },
-            impulse: { type: "number", minimum: 0.1, maximum: 1, default: 0.7 },
-            duration_ms: { type: "number", minimum: 50, maximum: 600, default: 200 }
-          },
-          required: ["direction"]
+          properties: { timeout_ms: { type: "number", minimum: 20, maximum: 1e3, default: 100 } }
         },
-        execute: (a) => this.steer(String(a.direction ?? "S"), Number(a.impulse ?? 0.7), Number(a.duration_ms ?? 200))
-      },
-      {
-        name: "apply_brake",
-        description: "Stop pushing and let friction slow the marble for duration_ms (50-800). Use before edges and turns.",
-        inputSchema: { type: "object", properties: { duration_ms: { type: "number", minimum: 50, maximum: 800, default: 250 } } },
-        execute: (a) => {
-          this.mark();
-          this.game.input.setAI(0, 0, Number(a.duration_ms ?? 250));
-          return { ok: true };
-        }
+        execute: (a) => this.waitForTick(Number(a.timeout_ms ?? 100))
       },
       {
         name: "start_or_respawn",
-        description: "Advance from any menu screen (title, menu, name entry) into a race, or start a new game after game over. In a Player-vs-AI lobby the human starts the race; this just confirms you are ready.",
+        description: "Advance menu screens into the race or confirm ready in Player-vs-AI lobby.",
         inputSchema: { type: "object", properties: {} },
         execute: () => this.startOrRespawn()
       },
       {
         name: "submit_leaderboard_score",
-        description: "Submit the current score to the High Rollers leaderboard under a 1-6 letter name (tagged as AI).",
+        description: "Submit the final score to High Rollers tagged as AI.",
         inputSchema: { type: "object", properties: { initials: { type: "string", maxLength: 6 } }, required: ["initials"] },
         execute: async (a) => {
           const g = this.game;
@@ -4572,12 +4876,23 @@ var WebMCP = class {
     this.register();
   }
   tools;
+  resources;
   used = false;
+  subscribers = /* @__PURE__ */ new Set();
   mark() {
     if (!this.used) {
       this.used = true;
       this.game.isAI = true;
       this.game.onAgentDetected?.();
+    }
+  }
+  notifySubscribers(event, data) {
+    for (const sub of this.subscribers) {
+      try {
+        sub(event, data);
+      } catch (e) {
+        console.warn("[webmcp] subscriber error", e);
+      }
     }
   }
   register() {
@@ -4587,11 +4902,20 @@ var WebMCP = class {
     const doc = document;
     if (nav.modelContext?.registerTool) surfaces.push(nav.modelContext);
     if (doc.modelContext?.registerTool) surfaces.push(doc.modelContext);
-    for (const s of surfaces) for (const t of this.tools) {
-      try {
-        s.registerTool(t);
-      } catch (e) {
-        console.warn("[webmcp] register failed", t.name, e);
+    for (const s of surfaces) {
+      for (const t of this.tools) {
+        try {
+          s.registerTool?.(t);
+        } catch (e) {
+          console.warn("[webmcp] tool register failed", t.name, e);
+        }
+      }
+      for (const r of this.resources) {
+        try {
+          s.registerResource?.(r);
+        } catch (e) {
+          console.warn("[webmcp] resource register failed", r.uri, e);
+        }
       }
     }
     w.webmcp = {
@@ -4600,15 +4924,27 @@ var WebMCP = class {
         const t = this.tools.find((x) => x.name === name);
         if (!t) throw new Error(`unknown tool ${name}`);
         return t.execute(args ?? {});
+      },
+      listResources: () => this.resources,
+      readResource: async (uri) => {
+        if (uri === "game://state") return { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(this.state()) }] };
+        if (uri === "game://course") return { contents: [{ uri, mimeType: "application/json", text: JSON.stringify(this.course()) }] };
+        throw new Error(`unknown resource ${uri}`);
+      },
+      subscribe: (callback) => {
+        this.subscribers.add(callback);
+        return () => this.subscribers.delete(callback);
       }
     };
-    console.log(`[webmcp] ${this.tools.length} tools registered (${surfaces.length} modelContext surface(s), window.webmcp fallback)`);
+    console.log(`[webmcp] ${this.tools.length} tools & ${this.resources.length} resources registered`);
   }
   state() {
     const g = this.game;
     const m = g.marble;
     const mx = (m.u - m.v) * 8, my = (m.u + m.v) * 4 - m.z;
     const opp = g.others[0];
+    const tb = g.input.trackball;
+    const tbSpeed = Math.hypot(tb.wx, tb.wy);
     return {
       screen: g.screen,
       mode: g.mode,
@@ -4626,6 +4962,10 @@ var WebMCP = class {
         opponentFinished: g.oppFinished,
         wonLastRace: g.wonLast
       },
+      trackball: {
+        angularSpeedRpm: Math.round(tbSpeed * 9.55),
+        headingDeg: Math.round((Math.atan2(tb.wx, tb.wy) * 180 / Math.PI + 360) % 360)
+      },
       marble: {
         x: Math.round(mx),
         y: Math.round(my),
@@ -4636,36 +4976,67 @@ var WebMCP = class {
         grounded: m.grounded,
         phase: m.phase,
         dizzy: m.dizzyT > 0,
-        frozen: m.frozenT > 0,
         inPipe: m.inPipe,
         ridingStartRamp: !!m.slide,
         supportedBy: m.support ? m.support.s.name ?? "floor" : null
       },
       opponent: opp ? { x: Math.round((opp.u - opp.v) * 8), y: Math.round((opp.u + opp.v) * 4 - opp.z), phase: opp.phase } : null,
-      camera: { y: Math.round(g.r.cam.y), viewHeight: 240 },
-      hint: "y increases down the screen; hold S to roll down the course, use E/W to line up with ramps. Avoid dark voids; walls bounce you."
+      hazardsCount: g.hazards.length,
+      hint: "The arcade trackball has physical inertia. To brake, counter-spin in reverse. Watch out for cliffs!"
     };
   }
-  steer(direction, impulse, duration) {
+  course() {
+    const g = this.game;
+    return {
+      stage: g.stageIdx + 1,
+      name: g.stage.name,
+      width: g.stage.width,
+      height: g.stage.height,
+      progressDir: g.stage.progressDir > 0 ? "descend (+y)" : "ascend (-y)",
+      timeAdd: g.stage.timeAdd,
+      zones: g.stage.zones.map((z) => ({ kind: z.kind, id: z.id }))
+    };
+  }
+  spin(dx, dy, speed) {
     this.mark();
-    let ax = 0, ay = 0;
+    const g = this.game;
+    g.input.trackball.spin(dx, dy, speed);
+    const m = g.marble;
+    const tb = g.input.trackball;
+    return {
+      ok: true,
+      trackball: {
+        rpm: Math.round(Math.hypot(tb.wx, tb.wy) * 9.55),
+        spinVector: { dx: +dx.toFixed(2), dy: +dy.toFixed(2) }
+      },
+      marble: {
+        speed: +m.speed.toFixed(2),
+        grounded: m.grounded,
+        phase: m.phase,
+        warning: !m.grounded ? "Airborne! In danger of shattering on impact!" : null
+      }
+    };
+  }
+  steer(direction, impulse) {
+    this.mark();
+    let dx = 0, dy = 1;
     const d = DIRS[direction.toUpperCase()];
     if (d) {
-      ax = d[0];
-      ay = d[1];
+      dx = d[0];
+      dy = d[1];
     } else {
       const deg = Number(direction);
       if (Number.isFinite(deg)) {
-        ax = Math.cos(deg * Math.PI / 180);
-        ay = Math.sin(deg * Math.PI / 180);
-      } else {
-        ay = 1;
+        dx = Math.cos(deg * Math.PI / 180);
+        dy = Math.sin(deg * Math.PI / 180);
       }
     }
-    const m = Math.hypot(ax, ay) || 1;
-    const k = Math.max(0.1, Math.min(1, impulse));
-    this.game.input.setAI(ax / m * k, ay / m * k, Math.max(50, Math.min(600, duration)));
-    return { ok: true, direction, impulse: k, duration_ms: duration };
+    return this.spin(dx, dy, impulse * 80);
+  }
+  async waitForTick(timeoutMs) {
+    this.mark();
+    await new Promise((resolve) => setTimeout(resolve, Math.max(16, Math.min(1e3, timeoutMs))));
+    return this.state();
   }
   startOrRespawn() {
     const g = this.game;
@@ -5196,7 +5567,7 @@ var Game = class {
     const myY = (m.u + m.v) * 4 - m.z, oppY = (opp.u + opp.v) * 4 - opp.z;
     const dir = this.stage.progressDir;
     const leadY = dir > 0 ? Math.max(myY, oppY) : Math.min(myY, oppY);
-    const camTarget = clamp2(leadY - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+    const camTarget = clamp(leadY - 112, 0, Math.max(0, this.stage.height - VIEW_H));
     this.camOverride = camTarget;
     const behind = dir > 0 ? myY < this.r.cam.y - TWO_PLAYER_TRAIL_MARGIN : myY > this.r.cam.y + VIEW_H + TWO_PLAYER_TRAIL_MARGIN;
     if (behind && m.phase === "alive" && this.teleportCooldown <= 0) {
@@ -5367,7 +5738,7 @@ var Game = class {
     if (this.mode === "ai" && this.others[0] && this.bonusCount >= this.bonusTotal) {
       const o = this.others[0];
       const oy = (o.u + o.v) * 4 - o.z;
-      this.camOverride = clamp2(oy - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+      this.camOverride = clamp(oy - 112, 0, Math.max(0, this.stage.height - VIEW_H));
       const k = Math.min(1, dt * 4);
       this.r.cam.y += (this.camOverride - this.r.cam.y) * k;
     } else this.centerCameraOnMarble(false, dt);
@@ -5437,11 +5808,11 @@ var Game = class {
     if (!this.stageImg) return;
     const m = this.marble;
     const my = (m.u + m.v) * 4 - m.z;
-    let targetY = clamp2(my - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+    let targetY = clamp(my - 112, 0, Math.max(0, this.stage.height - VIEW_H));
     if (this.camOverride !== null && this.screen === "race") {
       targetY = this.camOverride;
     }
-    const targetX = clamp2(this.stage.viewX0, 0, Math.max(0, this.stage.width - VIEW_W));
+    const targetX = clamp(this.stage.viewX0, 0, Math.max(0, this.stage.width - VIEW_W));
     if (snap) {
       this.r.cam.y = targetY;
       this.r.cam.x = targetX;
@@ -5742,7 +6113,7 @@ async function loadHeightMap(stage) {
     return null;
   }
 }
-function clamp2(x, a, b) {
+function clamp(x, a, b) {
   return Math.max(a, Math.min(b, x));
 }
 function out_flag(out, img, frame, at) {
@@ -5764,21 +6135,288 @@ function mulberry32(seed) {
   };
 }
 
+// src/render/trackball3d.ts
+var VS_SOURCE = `
+attribute vec2 a_pos;
+varying vec2 v_uv;
+void main() {
+  v_uv = a_pos;
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+}
+`;
+var FS_SOURCE = `
+precision highp float;
+varying vec2 v_uv;
+
+uniform mat3 u_rot;
+uniform vec3 u_colorBase;
+uniform vec3 u_colorWave;
+uniform vec3 u_colorPearl;
+uniform float u_time;
+
+// Fast 3D hash & noise for procedural bowling ball resin swirls
+float hash(vec3 p) {
+  p = fract(p * 0.3183099 + 0.1);
+  p *= 17.0;
+  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+float noise(vec3 x) {
+  vec3 i = floor(x);
+  vec3 f = fract(x);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+        mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+    mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+        mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+}
+
+float fbm(vec3 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 4; i++) {
+    v += a * noise(p);
+    p = p * 2.04;
+    a *= 0.5;
+  }
+  return v;
+}
+
+void main() {
+  vec2 uv = v_uv; // -1.0 to 1.0
+  float r = length(uv);
+
+  if (r > 1.0) {
+    discard;
+  }
+
+  // --- Bezel / Socket Ring (0.85 to 1.0) ---
+  if (r > 0.85) {
+    float bezelT = (r - 0.85) / 0.15;
+    // Metallic gunmetal gradient with bevel highlights
+    vec3 bezelDark = vec3(0.08, 0.09, 0.12);
+    vec3 bezelMid = vec3(0.18, 0.20, 0.25);
+    vec3 bezelRim = vec3(0.35, 0.38, 0.45);
+    
+    // Top-left light direction on the bezel
+    float angle = atan(uv.y, uv.x);
+    float angleLight = clamp(dot(normalize(uv), normalize(vec2(-0.7, -0.7))), 0.0, 1.0);
+    
+    vec3 bCol = mix(bezelDark, bezelMid, smoothstep(0.0, 0.7, bezelT));
+    bCol = mix(bCol, bezelRim, smoothstep(0.7, 1.0, bezelT) * (0.3 + 0.7 * angleLight));
+    
+    // Inner socket groove shadow
+    bCol *= smoothstep(0.85, 0.88, r);
+    gl_FragColor = vec4(bCol, 1.0);
+    return;
+  }
+
+  // --- 3D Spherical Bowling Ball (r <= 0.85) ---
+  float ballR = r / 0.85;
+  float z = sqrt(max(0.0, 1.0 - ballR * ballR));
+  vec3 N = vec3(uv.x / 0.85, uv.y / 0.85, z);
+
+  // Rotate surface point in 3D using Trackball's orientation matrix
+  vec3 P = u_rot * N;
+
+  // Domain warping for cloudy, wavy reactive-resin bowling ball swirls
+  vec3 q = P * 2.6;
+  float n1 = fbm(q);
+  float n2 = fbm(q + vec3(n1 * 1.8, n1 * 1.4, n1 * 2.0));
+  
+  // Wavy marbling flow
+  float swirl = sin(q.x * 2.8 + q.y * 1.6 + 4.5 * n2);
+  float wavePattern = smoothstep(-0.5, 0.65, swirl);
+  float pearlVein = smoothstep(0.62, 0.88, n2);
+
+  // Resin color blend
+  vec3 resinColor = mix(u_colorBase, u_colorWave, wavePattern);
+  resinColor = mix(resinColor, u_colorPearl, pearlVein * 0.75);
+
+  // --- 3D Lighting ---
+  // Fixed overhead key light (from top-left)
+  vec3 L = normalize(vec3(-0.45, -0.65, 0.75));
+  vec3 V = vec3(0.0, 0.0, 1.0);
+  vec3 H = normalize(L + V);
+
+  float diff = max(dot(N, L), 0.0);
+  // High-gloss bowling ball clear-coat specular reflection
+  float spec = pow(max(dot(N, H), 0.0), 40.0);
+  float fresnel = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+
+  // Ambient lighting & fill
+  vec3 ambient = u_colorBase * 0.35;
+  vec3 litColor = ambient + resinColor * (0.3 + 0.7 * diff);
+  litColor += vec3(1.0, 1.0, 1.0) * spec * 0.9;
+  litColor += u_colorWave * fresnel * 0.35;
+
+  // Socket drop shadow cast onto the ball edge
+  float socketShadow = smoothstep(0.85, 0.72, r);
+  litColor *= mix(0.35, 1.0, socketShadow);
+
+  gl_FragColor = vec4(litColor, 1.0);
+}
+`;
+var Trackball3DView = class {
+  // Cloudy pearlescent
+  constructor(canvas, trackball) {
+    this.canvas = canvas;
+    this.trackball = trackball;
+    this.initGL();
+  }
+  gl = null;
+  program = null;
+  uRotLoc = null;
+  uBaseLoc = null;
+  uWaveLoc = null;
+  uPearlLoc = null;
+  posBuf = null;
+  is2dFallback = false;
+  // Colors
+  colorBase = [0.03, 0.12, 0.38];
+  // Deep sapphire
+  colorWave = [0.12, 0.65, 0.95];
+  // Vibrant cyan
+  colorPearl = [0.88, 0.94, 1];
+  setPlayerTheme(playerIndex) {
+    if (playerIndex === 1) {
+      this.colorBase = [0.03, 0.12, 0.38];
+      this.colorWave = [0.12, 0.65, 0.95];
+      this.colorPearl = [0.88, 0.94, 1];
+    } else {
+      this.colorBase = [0.38, 0.04, 0.08];
+      this.colorWave = [0.95, 0.32, 0.1];
+      this.colorPearl = [1, 0.9, 0.72];
+    }
+  }
+  initGL() {
+    try {
+      this.gl = this.canvas.getContext("webgl", { alpha: true, antialias: true }) || this.canvas.getContext("experimental-webgl", { alpha: true, antialias: true });
+    } catch {
+      this.gl = null;
+    }
+    if (!this.gl) {
+      this.is2dFallback = true;
+      return;
+    }
+    const gl = this.gl;
+    const vs = this.compileShader(gl.VERTEX_SHADER, VS_SOURCE);
+    const fs = this.compileShader(gl.FRAGMENT_SHADER, FS_SOURCE);
+    if (!vs || !fs) {
+      this.is2dFallback = true;
+      return;
+    }
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      console.warn("[trackball3d] shader link failed", gl.getProgramInfoLog(prog));
+      this.is2dFallback = true;
+      return;
+    }
+    this.program = prog;
+    this.uRotLoc = gl.getUniformLocation(prog, "u_rot");
+    this.uBaseLoc = gl.getUniformLocation(prog, "u_colorBase");
+    this.uWaveLoc = gl.getUniformLocation(prog, "u_colorWave");
+    this.uPearlLoc = gl.getUniformLocation(prog, "u_colorPearl");
+    const quad = new Float32Array([
+      -1,
+      -1,
+      1,
+      -1,
+      -1,
+      1,
+      -1,
+      1,
+      1,
+      -1,
+      1,
+      1
+    ]);
+    this.posBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.posBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+  }
+  compileShader(type, src) {
+    const gl = this.gl;
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+      console.warn("[trackball3d] shader compile error:", gl.getShaderInfoLog(sh));
+      gl.deleteShader(sh);
+      return null;
+    }
+    return sh;
+  }
+  render() {
+    if (this.is2dFallback || !this.gl || !this.program) {
+      this.render2DFallback();
+      return;
+    }
+    const gl = this.gl;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    gl.viewport(0, 0, w, h);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(this.program);
+    if (this.uRotLoc) gl.uniformMatrix3fv(this.uRotLoc, false, this.trackball.rot);
+    if (this.uBaseLoc) gl.uniform3fv(this.uBaseLoc, this.colorBase);
+    if (this.uWaveLoc) gl.uniform3fv(this.uWaveLoc, this.colorWave);
+    if (this.uPearlLoc) gl.uniform3fv(this.uPearlLoc, this.colorPearl);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.posBuf);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+  render2DFallback() {
+    const ctx = this.canvas.getContext("2d");
+    if (!ctx) return;
+    const w = this.canvas.width, h = this.canvas.height;
+    const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.42;
+    ctx.clearRect(0, 0, w, h);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 1.15, 0, Math.PI * 2);
+    ctx.fillStyle = "#14161f";
+    ctx.fill();
+    ctx.strokeStyle = "#323648";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    const grad = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.1, cx, cy, r);
+    grad.addColorStop(0, "#ffffff");
+    grad.addColorStop(0.3, `rgb(${this.colorWave.map((c) => Math.round(c * 255)).join(",")})`);
+    grad.addColorStop(1, `rgb(${this.colorBase.map((c) => Math.round(c * 255)).join(",")})`);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+};
+
 // src/main.ts
 async function boot() {
   const canvas = document.getElementById("game");
+  const trackballCanvas = document.getElementById("trackball");
   const assets = new Assets();
   const sctx = canvas.getContext("2d");
   sctx.fillStyle = "#000";
   sctx.fillRect(0, 0, canvas.width, canvas.height);
   await assets.load();
   const renderer = new Renderer(canvas, assets);
-  const input = new Input(canvas);
+  const input = new Input(canvas, trackballCanvas);
   const sound = new Sound();
   const game = new Game(assets, renderer, input, sound);
   window.game = game;
+  let trackballView = null;
+  if (trackballCanvas) {
+    trackballView = new Trackball3DView(trackballCanvas, input.trackball);
+  }
   const vm = document.getElementById("vol-music");
   const vs = document.getElementById("vol-sfx");
+  const vh = document.getElementById("opt-haptics");
   if (vm) {
     vm.value = String(sound.musicVolume);
     vm.oninput = () => sound.setMusicVolume(+vm.value);
@@ -5787,12 +6425,22 @@ async function boot() {
     vs.value = String(sound.sfxVolume);
     vs.oninput = () => sound.setSfxVolume(+vs.value);
   }
+  if (vh) {
+    vh.checked = input.trackball.enableHaptics;
+    vh.onchange = () => {
+      input.trackball.enableHaptics = vh.checked;
+    };
+  }
   const unlock = () => {
     sound.init();
   };
   window.addEventListener("keydown", unlock, { once: true });
   canvas.addEventListener("mousedown", unlock, { once: true });
   canvas.addEventListener("touchstart", unlock, { once: true });
+  if (trackballCanvas) {
+    trackballCanvas.addEventListener("mousedown", unlock, { once: true });
+    trackballCanvas.addEventListener("touchstart", unlock, { once: true });
+  }
   window.addEventListener("keydown", (e) => {
     if (e.code === "F1") {
       e.preventDefault();
@@ -5815,6 +6463,7 @@ async function boot() {
     last = now;
     game.update(dt);
     game.render();
+    trackballView?.render();
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);

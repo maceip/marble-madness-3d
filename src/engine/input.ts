@@ -1,9 +1,10 @@
 /**
- * Input: keyboard (arrows / WASD), mouse as trackball (drag or pointer-lock movement),
- * touch virtual joystick, and programmatic AI input (WebMCP / remote).
+ * Input: physical arcade Trackball (3D on-screen touch/mouse drag, pointer lock),
+ * keyboard (arrows / WASD) injecting trackball torque, and programmatic AI input.
  */
-export type ControlType = 'screen' | 'iso45';
+import { Trackball } from './trackball';
 
+export type ControlType = 'screen' | 'iso45';
 export interface Steer { ax: number; ay: number }
 
 const KEY_DIRS: Record<string, [number, number]> = {
@@ -15,18 +16,37 @@ const KEY_DIRS: Record<string, [number, number]> = {
 
 export class Input {
   controlType: ControlType = 'screen';
+  readonly trackball: Trackball;
+
   private keys = new Set<string>();
   private pressedQueue: string[] = [];
-  private mouseDown = false;
-  private mouseVec: Steer = { ax: 0, ay: 0 };
-  private mouseDecay = 0;
-  private touchOrigin: { x: number; y: number } | null = null;
-  private touchVec: Steer = { ax: 0, ay: 0 };
-  private ai: { ax: number; ay: number; until: number } | null = null;
   private anyPress = false;
   private pointerLocked = false;
+  private mouseDown = false;
+  private lastMouseX = 0;
+  private lastMouseY = 0;
 
-  constructor(private canvas: HTMLCanvasElement) {
+  // Trackball touch tracking
+  private activeTouchId: number | null = null;
+  private lastTouchX = 0;
+  private lastTouchY = 0;
+
+  // Programmatic AI override
+  private ai: { ax: number; ay: number; until: number } | null = null;
+
+  constructor(
+    private canvas: HTMLCanvasElement,
+    private trackballCanvas?: HTMLCanvasElement | null,
+  ) {
+    this.trackball = new Trackball();
+    this.setupKeyboard();
+    this.setupGameCanvasMouse();
+    if (this.trackballCanvas) {
+      this.setupTrackballTouch(this.trackballCanvas);
+    }
+  }
+
+  private setupKeyboard(): void {
     window.addEventListener('keydown', (e) => {
       if (e.repeat) { if (KEY_DIRS[e.code] || e.code === 'Space') e.preventDefault(); return; }
       this.keys.add(e.code);
@@ -36,43 +56,102 @@ export class Input {
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
+  }
 
-    canvas.addEventListener('mousedown', (e) => {
-      this.mouseDown = true; this.anyPress = true; this.pressedQueue.push('Mouse');
+  private setupGameCanvasMouse(): void {
+    this.canvas.addEventListener('mousedown', (e) => {
+      this.mouseDown = true;
+      this.anyPress = true;
+      this.pressedQueue.push('Mouse');
+      this.lastMouseX = e.clientX;
+      this.lastMouseY = e.clientY;
+      this.trackball.startDrag();
       e.preventDefault();
     });
-    window.addEventListener('mouseup', () => { this.mouseDown = false; });
+
+    window.addEventListener('mouseup', () => {
+      if (this.mouseDown) {
+        this.mouseDown = false;
+        this.trackball.endDrag();
+      }
+    });
+
     window.addEventListener('mousemove', (e) => {
-      if (!this.mouseDown && !this.pointerLocked) return;
-      // trackball: mouse motion becomes steering impulse that decays quickly
-      const k = 0.06;
-      this.mouseVec.ax = clamp(this.mouseVec.ax + e.movementX * k, -1, 1);
-      this.mouseVec.ay = clamp(this.mouseVec.ay + e.movementY * k, -1, 1);
-      this.mouseDecay = 0.14;
-    });
-    document.addEventListener('pointerlockchange', () => {
-      this.pointerLocked = document.pointerLockElement === canvas;
+      if (this.pointerLocked) {
+        this.trackball.dragDelta(e.movementX * 1.2, e.movementY * 1.2);
+        return;
+      }
+      if (!this.mouseDown) return;
+      const dx = e.clientX - this.lastMouseX;
+      const dy = e.clientY - this.lastMouseY;
+      this.lastMouseX = e.clientX;
+      this.lastMouseY = e.clientY;
+      this.trackball.dragDelta(dx * 1.4, dy * 1.4);
     });
 
-    canvas.addEventListener('touchstart', (e) => {
+    document.addEventListener('pointerlockchange', () => {
+      this.pointerLocked = document.pointerLockElement === this.canvas;
+    });
+  }
+
+  private setupTrackballTouch(tb: HTMLCanvasElement): void {
+    // Pointer Events for modern browsers / touch screens
+    tb.addEventListener('pointerdown', (e) => {
+      tb.setPointerCapture(e.pointerId);
+      this.activeTouchId = e.pointerId;
+      this.lastTouchX = e.clientX;
+      this.lastTouchY = e.clientY;
+      this.anyPress = true;
+      this.pressedQueue.push('Touch');
+      this.trackball.startDrag();
+      e.preventDefault();
+    });
+
+    tb.addEventListener('pointermove', (e) => {
+      if (this.activeTouchId !== e.pointerId) return;
+      const dx = e.clientX - this.lastTouchX;
+      const dy = e.clientY - this.lastTouchY;
+      this.lastTouchX = e.clientX;
+      this.lastTouchY = e.clientY;
+      this.trackball.dragDelta(dx * 1.6, dy * 1.6);
+      e.preventDefault();
+    });
+
+    const endPointer = (e: PointerEvent) => {
+      if (this.activeTouchId === e.pointerId) {
+        this.activeTouchId = null;
+        this.trackball.endDrag();
+      }
+    };
+    tb.addEventListener('pointerup', endPointer);
+    tb.addEventListener('pointercancel', endPointer);
+
+    // Fallback touch events for older webkit
+    tb.addEventListener('touchstart', (e) => {
       const t = e.changedTouches[0];
-      this.touchOrigin = { x: t.clientX, y: t.clientY };
-      this.anyPress = true; this.pressedQueue.push('Touch');
+      this.lastTouchX = t.clientX;
+      this.lastTouchY = t.clientY;
+      this.anyPress = true;
+      this.pressedQueue.push('Touch');
+      this.trackball.startDrag();
       e.preventDefault();
     }, { passive: false });
-    canvas.addEventListener('touchmove', (e) => {
-      if (!this.touchOrigin) return;
+
+    tb.addEventListener('touchmove', (e) => {
       const t = e.changedTouches[0];
-      const dx = t.clientX - this.touchOrigin.x, dy = t.clientY - this.touchOrigin.y;
-      const max = 70;
-      const m = Math.min(1, Math.hypot(dx, dy) / max);
-      const a = Math.atan2(dy, dx);
-      this.touchVec = { ax: Math.cos(a) * m, ay: Math.sin(a) * m };
+      const dx = t.clientX - this.lastTouchX;
+      const dy = t.clientY - this.lastTouchY;
+      this.lastTouchX = t.clientX;
+      this.lastTouchY = t.clientY;
+      this.trackball.dragDelta(dx * 1.6, dy * 1.6);
       e.preventDefault();
     }, { passive: false });
-    const endTouch = () => { this.touchOrigin = null; this.touchVec = { ax: 0, ay: 0 }; };
-    canvas.addEventListener('touchend', endTouch);
-    canvas.addEventListener('touchcancel', endTouch);
+
+    const endTouch = () => {
+      this.trackball.endDrag();
+    };
+    tb.addEventListener('touchend', endTouch);
+    tb.addEventListener('touchcancel', endTouch);
   }
 
   /** consume queued key presses (for menus) */
@@ -84,32 +163,37 @@ export class Input {
     const m = Math.hypot(ax, ay);
     if (m > 1) { ax /= m; ay /= m; }
     this.ai = { ax, ay, until: performance.now() + durationMs };
+    // Also spin the trackball so visual 3D ball reflects AI steering
+    this.trackball.spin(ax, ay, m * 50);
   }
   clearAI(): void { this.ai = null; }
 
   /** Steering sample for this frame in screen space (before control-type mapping). */
   sample(dt: number): Steer {
+    // Keyboard inputs inject physical torque into trackball
+    let kx = 0, ky = 0;
+    for (const [code, d] of Object.entries(KEY_DIRS)) {
+      if (this.keys.has(code)) { kx += d[0]; ky += d[1]; }
+    }
+    if (kx || ky) {
+      const km = Math.hypot(kx, ky);
+      this.trackball.spin(kx / km, ky / km, 45);
+    }
+
+    // Programmatic AI override (e.g. from test harnesses)
     if (this.ai) {
-      if (performance.now() < this.ai.until) return this.mapControl({ ax: this.ai.ax, ay: this.ai.ay });
+      if (performance.now() < this.ai.until) {
+        this.trackball.update(dt);
+        return this.mapControl({ ax: this.ai.ax, ay: this.ai.ay });
+      }
       this.ai = null;
     }
-    let ax = 0, ay = 0;
-    for (const [code, d] of Object.entries(KEY_DIRS)) {
-      if (this.keys.has(code)) { ax += d[0]; ay += d[1]; }
-    }
-    if (ax || ay) {
-      const m = Math.hypot(ax, ay);
-      return this.mapControl({ ax: ax / m, ay: ay / m });
-    }
-    if (this.mouseDecay > 0) {
-      this.mouseDecay -= dt;
-      const v = { ...this.mouseVec };
-      const f = Math.exp(-dt * 9);
-      this.mouseVec.ax *= f; this.mouseVec.ay *= f;
-      return this.mapControl(v);
-    }
-    if (this.touchOrigin) return this.mapControl(this.touchVec);
-    return { ax: 0, ay: 0 };
+
+    // Advance physical trackball simulation
+    this.trackball.update(dt);
+
+    const s = this.trackball.getSteer();
+    return this.mapControl(s);
   }
 
   private mapControl(s: Steer): Steer {
@@ -119,5 +203,3 @@ export class Input {
     return { ax: (s.ax - s.ay) * c, ay: (s.ax + s.ay) * c };
   }
 }
-
-function clamp(x: number, a: number, b: number): number { return Math.max(a, Math.min(b, x)); }
