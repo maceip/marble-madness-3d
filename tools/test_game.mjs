@@ -26,7 +26,7 @@ const page = await browser.newPage({ viewport: { width: 900, height: 760 } });
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log('[console]', m.type(), m.text()); });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 await page.goto(`${base}/?stage=${stage}`);
-await page.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 15000 });
+await page.waitForFunction(() => window.game && typeof window.game.go === 'function', null, { timeout: 15000 });
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${outDir}/s${stage}_intro.png` });
 // wait for the race

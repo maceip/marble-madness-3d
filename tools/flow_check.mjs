@@ -6,7 +6,7 @@ const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const page = await browser.newPage({ viewport: { width: 900, height: 760 } });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 await page.goto('http://127.0.0.1:3000/');
-await page.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
+await page.waitForFunction(() => window.game && typeof window.game.go === 'function', null, { timeout: 20000 });
 const shot = async (name) => { await page.waitForTimeout(250); await page.screenshot({ path: `artifacts/browser/flow_${name}.png` }); console.log(name, await page.evaluate(() => window.game.screen)); };
 await shot('highrollers');
 await page.keyboard.press('Enter'); await shot('title');

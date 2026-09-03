@@ -40,8 +40,12 @@ L.strip(200, 452, 40, 30, 542, 38, 3.2, 'goalCorridor');
 L.strip(232, 318, 100, 268, 336, 61, 3.2, 'rampRight');          // plateau -> right floor
 
 // --- start & checkpoints -----------------------------------------------------
-const start = L.uv(145, 62, 136);
-L.start(start.u, start.v);
+// Start on the solid plateau (heightmap comp hm10, z100) at map (150,220). The arcade art starts at the very
+// top on the thin `hills` slope, but the marble slides straight off it into the gap behind the tent wall and
+// dies at spawn; this spot is verified to settle grounded and roll onto the chute. (Deterministic: place +
+// settle with zero input stays grounded.)
+const start = L.uv(150, 220, 100);
+L.start(start.u, start.v, 100);
 L.checkpoint(start.u, start.v);
 const cp1 = L.uv(135, 300, Z_TOP); L.checkpoint(cp1.u, cp1.v);
 const cp2 = L.uv(172, 402, 70); L.checkpoint(cp2.u, cp2.v);

@@ -9,7 +9,7 @@ const ctxA = await browser.newContext({ viewport: { width: 900, height: 760 } })
 const human = await ctxH.newPage(); const agent = await ctxA.newPage();
 for (const [n, p] of [['human', human], ['agent', agent]]) { p.on('pageerror', (e) => console.log(`[${n} pageerror]`, e.message)); p.on('console', (m) => { if (m.type() === 'error') console.log(`[${n} console]`, m.text()); }); }
 await human.goto('http://127.0.0.1:3000/');
-await human.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
+await human.waitForFunction(() => window.game && typeof window.game.go === 'function', null, { timeout: 20000 });
 const lobby = await human.evaluate(() => window.game.lobbyId);
 console.log('lobby', lobby);
 await human.keyboard.press('Enter'); await human.waitForTimeout(450);   // title -> menu (wait for debounce)
@@ -19,7 +19,7 @@ await human.keyboard.press('Enter'); await human.waitForTimeout(500);   // confi
 console.log('human screen', await human.evaluate(() => window.game.screen), 'panel text:', await human.evaluate(() => document.getElementById('connect-text')?.value));
 await human.screenshot({ path: 'artifacts/browser/lobby_connect.png' });
 await agent.goto(`http://127.0.0.1:3000/${lobby}`);
-await agent.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
+await agent.waitForFunction(() => window.game && typeof window.game.go === 'function', null, { timeout: 20000 });
 console.log('agent screen', await agent.evaluate(() => ({ screen: window.game.screen, isAgent: window.game.isAgentPage, tools: window.webmcp.listTools().map((t) => t.name) })));
 await agent.screenshot({ path: 'artifacts/browser/lobby_agent_wait.png' });
 await human.waitForFunction(() => window.game.screen === 'race' || window.game.screen === 'intro', null, { timeout: 15000 });

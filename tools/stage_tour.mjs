@@ -7,7 +7,7 @@ const page = await browser.newPage({ viewport: { width: 900, height: 760 } });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 for (const st of [1, 2, 3, 4, 5, 6]) {
   await page.goto(`http://127.0.0.1:3000/?stage=${st}`);
-  await page.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
+  await page.waitForFunction(() => window.game && typeof window.game.go === 'function', null, { timeout: 20000 });
   await page.waitForTimeout(500);
   await page.screenshot({ path: `artifacts/browser/tour_s${st}_intro.png` });
   await page.waitForFunction(() => window.game.screen === 'race', null, { timeout: 20000 });

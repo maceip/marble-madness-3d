@@ -16,7 +16,7 @@ async function run() {
   page.on('pageerror', (err) => pageErrors.push(err.message));
 
   await page.goto('http://127.0.0.1:3000/');
-  await page.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
+  await page.waitForFunction(() => window.game && typeof window.game.go === 'function', null, { timeout: 20000 });
   await page.waitForTimeout(400);
 
   // 1. Ensure top-right auth-dock is NOT present anywhere in the DOM

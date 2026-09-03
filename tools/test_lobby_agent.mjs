@@ -11,14 +11,14 @@ for (const p of [human, agent]) p.on('pageerror', (e) => console.log('[pageerror
 let failed = 0; const check = (n, ok, d = '') => { console.log(`${ok ? 'PASS' : 'FAIL'}  ${n}${d ? '  ' + d : ''}`); if (!ok) failed++; };
 
 await human.goto(base + '/');
-await human.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
+await human.waitForFunction(() => window.game && typeof window.game.go === 'function', null, { timeout: 20000 });
 // drive the human straight to the Player-vs-AI connect screen (the exact menu keystrokes are covered elsewhere;
 // what the lobby depends on is mode=ai + go('connect'), which opens the human's WebSocket)
 const lobby = await human.evaluate(() => { const g = window.game; g.mode = 'ai'; g.isAI = false; g.playerName = 'REX'; g.go('connect'); return g.lobbyId; });
 check('human on connect screen', await human.waitForFunction(() => window.game.screen === 'connect' && window.game.net.connected, null, { timeout: 12000 }).then(() => true).catch(() => false));
 
 await agent.goto(`${base}/${lobby}`);
-await agent.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
+await agent.waitForFunction(() => window.game && typeof window.game.go === 'function', null, { timeout: 20000 });
 check('agent page identifies as the AI in this lobby', await agent.evaluate((l) => window.game.isAgentPage && window.game.mode === 'ai' && window.game.lobbyId === l, lobby));
 check('agent shows the waiting screen, not the copy UI', await agent.evaluate(() => window.game.screen === 'connect'));
 
