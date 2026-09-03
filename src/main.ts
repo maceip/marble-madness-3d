@@ -60,6 +60,9 @@ async function boot(): Promise<void> {
   const input = new Input(canvas, trackballCanvas);
   const sound = new Sound();
   const game = new Game(assets, renderer, input, sound);
+  // Agent pages (including the hidden Chrome-AI player iframe) must never create a second
+  // audible mix. Keep this session-only: setMuted() would persist into the human page's settings.
+  if (game.isAgentPage) sound.muted = true;
   window.game = game;
   window.MarbleEngine = {
     level: levelEngine,

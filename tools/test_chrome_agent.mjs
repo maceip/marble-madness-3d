@@ -28,7 +28,8 @@ await context.addInitScript(() => {
           async prompt(_input, promptOptions) {
             window.__chromeAiTest.prompts++;
             if (promptOptions?.responseConstraint?.properties?.actions) window.__chromeAiTest.constrained++;
-            return JSON.stringify({ actions: [{ dx: 0, dy: 1, speed: 48, hold_ms: 100 }] });
+            // Deliberately point away from Stage 1's next target; the runtime route guard must correct it.
+            return JSON.stringify({ actions: [{ dx: 0, dy: -1, speed: 48, hold_ms: 100 }] });
           },
           destroy() { window.__chromeAiTest.destroyed++; },
         };
@@ -67,6 +68,7 @@ if (agentFrame) {
   });
   await agentFrame.waitForFunction(() => window.game?.isAgentPage && window.game.playerName === 'CHROME AI', null, { timeout: 15000 });
   check('iframe joined as the existing AI role', await agentFrame.evaluate(() => window.game.isAgentPage && window.game.net.role === 'ai'));
+  check('agent iframe is session-silent', await agentFrame.evaluate(() => window.game.sound.muted && (!window.game.sound.bgmEl || window.game.sound.bgmEl.volume === 0)));
   const agentRaced = await agentFrame.waitForFunction(() => window.game?.screen === 'race', null, { timeout: 25000 }).then(() => true).catch(() => false);
   check('agent iframe reaches the race', agentRaced, JSON.stringify(await agentFrame.evaluate(() => ({ screen: window.game?.screen, connected: window.game?.net.connected, players: [...(window.game?.net.players.values() || [])].map((p) => p.role) }))));
 }
@@ -84,8 +86,11 @@ if (agentFrame) {
   }));
   check('model output executes the real WebMCP trackball tool', evidence.used && evidence.rpm > 0, JSON.stringify({ rpm: evidence.rpm }));
   check('real call appears in MCP traffic', evidence.traffic.some((entry) => entry.phase === 'call' && entry.name === 'spin_trackball') && evidence.traffic.some((entry) => entry.phase === 'result' && entry.name === 'spin_trackball'));
+  check('route guard corrects a model action aimed away from the next target', evidence.traffic.some((entry) => entry.phase === 'call' && entry.name === 'spin_trackball' && entry.payload?.dy > 0));
 }
 check('human sees the Chrome AI opponent', await page.waitForFunction(() => [...window.game.remoteInfo.values()].some((p) => p.role === 'ai' && p.name === 'CHROME AI'), null, { timeout: 10000 }).then(() => true).catch(() => false));
+await page.locator('#vol-music').fill('0');
+check('desktop music slider silences the human BGM', await page.evaluate(() => window.game.sound.musicVolume === 0 && (!window.game.sound.bgmEl || window.game.sound.bgmEl.volume === 0)));
 await page.screenshot({ path: 'artifacts/browser/chrome-ai-human-race.png' });
 
 // Simulate the iframe's normal post-race transition. The parent must stop polling, destroy the

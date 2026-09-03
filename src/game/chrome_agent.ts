@@ -96,6 +96,26 @@ function parsePlan(raw: string): AgentPlan {
   };
 }
 
+/** Keep the small on-device model from accelerating directly away from its explicit route target.
+ * Counter-steering is still allowed when the marble is already moving quickly toward the target. */
+function guardRouteDirection(plan: AgentPlan, snapshot: Record<string, unknown>, course: Record<string, unknown>): AgentPlan {
+  const marble = snapshot.marble as Record<string, unknown> | undefined;
+  const target = course.nextTarget as Record<string, unknown> | undefined;
+  if (!marble || !target) return plan;
+  const rx = Number(target.x) - Number(marble.x), ry = Number(target.y) - Number(marble.y);
+  const distance = Math.hypot(rx, ry);
+  if (!Number.isFinite(distance) || distance < 1) return plan;
+  const tx = rx / distance, ty = ry / distance;
+  const vx = Number(marble.vx) || 0, vy = Number(marble.vy) || 0;
+  const movingTowardTarget = vx * tx + vy * ty > 1.5;
+  if (movingTowardTarget) return plan;
+  return {
+    actions: plan.actions.map((action) => action.dx * tx + action.dy * ty < -0.1
+      ? { ...action, dx: +tx.toFixed(3), dy: +ty.toFixed(3), speed: Math.min(action.speed, 60) }
+      : action),
+  };
+}
+
 function delay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) { reject(signal.reason); return; }
@@ -261,11 +281,16 @@ export class ChromeLocalAgent {
       })
       .addNode('decide', async (state: typeof CycleState.State) => {
         this.phase = 'thinking'; this.changed();
+        const marble = state.snapshot.marble as Record<string, unknown> | undefined;
+        const target = state.course.nextTarget as Record<string, unknown> | undefined;
+        const navigation = marble && target
+          ? `\nNAVIGATION INVARIANT: current (${marble.x},${marble.y}), next target (${target.x},${target.y}). Unless counter-steering to brake existing motion toward that target, every action must point toward it.`
+          : '';
         const raw = await session.prompt(
-          `CURRENT GAME STATE\n${JSON.stringify(state.snapshot)}\nCOURSE AND ROUTE\n${JSON.stringify(state.course)}\nChoose the next short action burst.`,
+          `CURRENT GAME STATE\n${JSON.stringify(state.snapshot)}\nCOURSE AND ROUTE\n${JSON.stringify(state.course)}${navigation}\nChoose the next short action burst.`,
           { responseConstraint: ACTION_SCHEMA, omitResponseConstraintInput: false, signal },
         );
-        return { plan: parsePlan(raw) };
+        return { plan: guardRouteDirection(parsePlan(raw), state.snapshot, state.course) };
       }, { timeout: 15000 })
       .addNode('act', async (state: typeof CycleState.State) => {
         this.phase = 'playing'; this.changed();

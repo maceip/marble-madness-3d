@@ -311,6 +311,8 @@ export class Game {
   }
 
   newGame(stageIdx = 0): void {
+    this.sound.stopBgm();
+    this.musicStarted = false;
     this.score = 0; this.displayScore = 0; this.deaths = 0; this.carried = 0; this.scoreSubmitted = false;
     this.raceEndSent = false;
     this.aiDestroyed = 0; this.aiDizzied = 0; this.bumpClock = 0; this.bumpedIds.clear(); this.remotePhase.clear();
