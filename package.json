@@ -1,28 +1,24 @@
 {
-  "name": "marble-madness-3d",
-  "version": "1.0.0",
+  "name": "marble-madness-web",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Marble Madness (1984) remade as a playable WebGL/three.js isometric marble run using the bundled arcade/Master System reference art.",
+  "description": "Faithful web remake of Marble Madness: arcade stage art, NES gameplay rules, 1P / Player-vs-AI (WebMCP) / multi-marble modes.",
   "scripts": {
-    "assets:retro": "python3 tools/extract-retro-assets.py",
-    "audit:audio": "node tools/audit-audio.mjs",
-    "build": "npm run assets:retro && node tools/build.mjs",
+    "assets": "python3 tools/prep_assets.py && python3 tools/gen_frames.py",
+    "build": "node tools/build.mjs",
+    "watch": "node tools/build.mjs --watch",
     "serve": "node tools/serve.mjs",
+    "start": "npm run build && npm run serve",
     "check": "tsc --noEmit -p tsconfig.json",
-    "test:gameplay": "node tools/browser-gameplay.mjs",
-    "test:fixes": "node tools/browser_test_all_fixes.mjs",
-    "test:stages": "node tools/test_redesigned_stages.mjs",
-    "test:sprites": "node tools/test_sprite_sheet_materials.mjs",
-    "test": "npm run test:fixes && npm run test:stages && npm run test:sprites && npm run test:gameplay",
-    "start": "npm run build && npm run serve"
+    "levels:dump": "node tools/dump_levels.mjs",
+    "levels:overlay": "npm run levels:dump && python3 tools/level_overlay.py",
+    "test": "node tools/test_game.mjs"
   },
   "dependencies": {
-    "three": "^0.185.0",
     "ws": "^8.21.3"
   },
   "devDependencies": {
-    "@types/three": "^0.185.0",
     "@types/ws": "^8.18.1",
     "esbuild": "^0.25.0",
     "playwright-core": "1.62.1",

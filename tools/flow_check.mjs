@@ -1,0 +1,20 @@
+// Walk the menu flow with key presses and screenshot each screen.
+import { chromium } from 'playwright-core';
+import { mkdirSync } from 'node:fs';
+mkdirSync('artifacts/browser', { recursive: true });
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const page = await browser.newPage({ viewport: { width: 900, height: 760 } });
+page.on('pageerror', (e) => console.log('[pageerror]', e.message));
+await page.goto('http://127.0.0.1:3000/');
+await page.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
+const shot = async (name) => { await page.waitForTimeout(250); await page.screenshot({ path: `artifacts/browser/flow_${name}.png` }); console.log(name, await page.evaluate(() => window.game.screen)); };
+await shot('highrollers');
+await page.keyboard.press('Enter'); await shot('title');
+await page.keyboard.press('Enter'); await shot('menu');
+await page.keyboard.press('ArrowDown'); await shot('menu2');
+await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter'); await shot('name');
+for (const k of ['KeyR', 'KeyE', 'KeyX']) await page.keyboard.press(k);
+await shot('name_typed');
+await page.keyboard.press('Enter'); await shot('control');
+await page.keyboard.press('Enter'); await page.waitForTimeout(800); await shot('intro');
+await browser.close();
