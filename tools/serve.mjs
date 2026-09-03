@@ -421,6 +421,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---- telemetry: only from established page sessions (cookie), never from bare requests
+    if (p === '/api/trace' && req.method === 'POST') {
+      const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
+      if (!telemetryAllowed('trace:' + ip, 240)) return sendJson(res, 429, { error: 'slow down' });
+      let payload; try { payload = JSON.parse((await readBody(req, 16384)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad body' }); }
+      const sid = String(payload.sid || '?').slice(0, 12);
+      for (const line of (Array.isArray(payload.lines) ? payload.lines : []).slice(0, 80)) console.log(`[trace ${sid}] ${String(line).slice(0, 300)}`);
+      return sendJson(res, 200, { ok: true });
+    }
     if (p.startsWith('/api/telemetry/')) {
       const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
       if (p === '/api/telemetry/summary' && req.method === 'GET') {

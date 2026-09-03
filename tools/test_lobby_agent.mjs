@@ -12,12 +12,10 @@ let failed = 0; const check = (n, ok, d = '') => { console.log(`${ok ? 'PASS' : 
 
 await human.goto(base + '/');
 await human.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
-const lobby = await human.evaluate(() => window.game.lobbyId);
-await human.keyboard.press('Enter'); await human.waitForTimeout(450);
-await human.keyboard.press('ArrowDown'); await human.waitForTimeout(150);
-await human.keyboard.press('Enter'); await human.waitForTimeout(450);
-await human.keyboard.press('Enter'); await human.waitForTimeout(500);
-check('human on connect screen', await human.evaluate(() => window.game.screen === 'connect'));
+// drive the human straight to the Player-vs-AI connect screen (the exact menu keystrokes are covered elsewhere;
+// what the lobby depends on is mode=ai + go('connect'), which opens the human's WebSocket)
+const lobby = await human.evaluate(() => { const g = window.game; g.mode = 'ai'; g.isAI = false; g.playerName = 'REX'; g.go('connect'); return g.lobbyId; });
+check('human on connect screen', await human.waitForFunction(() => window.game.screen === 'connect' && window.game.net.connected, null, { timeout: 12000 }).then(() => true).catch(() => false));
 
 await agent.goto(`${base}/${lobby}`);
 await agent.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });

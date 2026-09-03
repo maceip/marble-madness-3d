@@ -1,4 +1,5 @@
 import { Assets, FRAMES, Frame } from '../engine/assets';
+import { mmTrace, mmBeat } from '../engine/trace';
 import { Renderer, Sprite, Label } from '../render/renderer';
 import { Input } from '../engine/input';
 import { Sound } from '../engine/audio';
@@ -195,6 +196,7 @@ export class Game {
   /* ---------------------------------------------------------------------- */
 
   go(screen: Screen): void {
+    mmTrace('screen', { from: this.screen, to: screen, mode: this.mode, agent: this.isAgentPage });
     this.screen = screen; this.t = 0;
     if (screen === 'connect' && !this.isAgentPage) {
       this.agentJoined = false;
@@ -544,6 +546,7 @@ export class Game {
     this.popups = this.popups.filter((p) => p.t < 2.6);
 
     // roll sound: marble surface rolling + mechanical trackball bearing loop
+    mmBeat('marble', 300, { u: +this.marble.u.toFixed(1), v: +this.marble.v.toFixed(1), z: +this.marble.z.toFixed(0), g: this.marble.grounded, ph: this.marble.phase, sup: this.marble.support ? this.marble.support.s.name : null, blk: this.marble.lastBlock || '', st: this.stageIdx + 1 });
     const sp = this.marble.phase === 'alive' && this.marble.grounded && !this.marble.inPipe ? this.marble.speed / 15 : 0;
     this.sound.setRoll(sp);
     const tbSpeed = Math.hypot(this.input.trackball.wx, this.input.trackball.wy);
@@ -569,6 +572,7 @@ export class Game {
         this.input.trackball.vibrate(25);
         break;
       case 'die':
+        mmTrace('die', { kind: e.kind, u: +this.marble.u.toFixed(1), v: +this.marble.v.toFixed(1), z: +this.marble.z.toFixed(0), stage: this.stageIdx + 1 });
         this.deaths++;
         if (e.kind === 'shatter' || e.kind === 'void' || e.kind === 'zap') this.sound.sfx('shatter');
         else if (e.kind === 'squeeze') this.sound.sfx('muncher');

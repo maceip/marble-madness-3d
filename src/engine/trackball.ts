@@ -10,6 +10,7 @@
  */
 
 import type { TrackballAudio } from './trackball_audio.js';
+import { mmTrace } from './trace';
 
 export interface TrackballOptions {
   radius?: number;          // virtual touch radius in px (default 70)
@@ -299,6 +300,7 @@ export class Trackball {
    */
   vibrate(pattern: number | number[]): void {
     if (!this.enableHaptics || typeof navigator === 'undefined') return;
+    { const nb = (window as unknown as { NativeBridge?: unknown }).NativeBridge; mmTrace('haptic', { pat: pattern, bridge: !!nb, navVib: typeof navigator !== 'undefined' && 'vibrate' in navigator, on: this.enableHaptics }); }
     const now = performance.now();
     // Throttle vibration calls to at most once every 32ms
     if (now - this.lastHapticTime < 32) return;

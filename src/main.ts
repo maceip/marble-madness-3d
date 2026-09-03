@@ -4,6 +4,7 @@ import { Input } from './engine/input';
 import { Sound } from './engine/audio';
 import { Game } from './game/game';
 import { trackEvent, trackErrors, flushNativeTelemetry } from './engine/telemetry';
+import { mmTrace, mmTraceInit } from './engine/trace';
 import { Trackball3DView } from './render/trackball3d';
 
 import * as levelEngine from './engine/level';
@@ -26,6 +27,7 @@ declare global {
 }
 
 async function boot(): Promise<void> {
+  mmTraceInit();
   // The server injects window.__MM__ (lobby id, agent-page flag, public origin, login, install nonce). If a CSP blocked
   // that inline script, the same JSON is in <meta name="mm-config">; without it a /<lobby> URL degrades to 1-player.
   if (!(window as any).__MM__) {

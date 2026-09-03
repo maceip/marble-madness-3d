@@ -3,6 +3,7 @@
  * keyboard (arrows / WASD) injecting trackball torque, and programmatic AI input.
  */
 import { Trackball } from './trackball';
+import { mmTrace, mmBeat } from './trace';
 
 export type ControlType = 'screen' | 'iso45';
 export interface Steer { ax: number; ay: number }
@@ -86,6 +87,7 @@ export class Input {
       canvasTouchMoved = false;
       this.anyPress = true;
       this.pressedQueue.push('Touch');
+      mmTrace('canvas.touchstart', { x: Math.round(t.clientX), y: Math.round(t.clientY), ctrl: this.controlType });
       this.trackball.startDrag();
     }, { passive: true });
 
@@ -101,6 +103,7 @@ export class Input {
           canvasLastTouchX = t.clientX;
           canvasLastTouchY = t.clientY;
           canvasLastTouchTime = now;
+          mmBeat('canvas.touchmove', 200, { dx: Math.round(dx), dy: Math.round(dy), wx: +this.trackball.wx.toFixed(1), wy: +this.trackball.wy.toFixed(1) });
           this.trackball.dragDelta(dx * 1.25, dy * 1.25, dt);
           break;
         }
@@ -112,6 +115,7 @@ export class Input {
         const t = e.changedTouches[i];
         if (t.identifier === canvasTouchId) {
           canvasTouchId = null;
+          mmTrace('canvas.touchend', { moved: canvasTouchMoved });
           this.trackball.endDrag();
           // If the player simply tapped without dragging, record as a menu click
           if (!canvasTouchMoved) {

@@ -2183,6 +2183,66 @@ var GOAL_OVERLAY_BBOX = {
   6: { x0: 111, y0: 676 }
 };
 
+// src/engine/trace.ts
+var SID = Math.random().toString(36).slice(2, 8);
+var enabled = false;
+var buf = [];
+var lastFlush = 0;
+var MAX_BUF = 60;
+function mmTrace(tag, data) {
+  if (!enabled) return;
+  let d = "";
+  if (data) {
+    try {
+      d = " " + JSON.stringify(data);
+    } catch {
+      d = "";
+    }
+  }
+  buf.push(`${(performance.now() / 1e3).toFixed(2)} ${tag}${d}`);
+  if (buf.length > MAX_BUF) buf = buf.slice(-MAX_BUF);
+  const now = performance.now();
+  if (now - lastFlush > 700) flush();
+}
+var beats = /* @__PURE__ */ new Map();
+function mmBeat(tag, everyMs, data) {
+  if (!enabled) return;
+  const now = performance.now();
+  if (now - (beats.get(tag) ?? 0) < everyMs) return;
+  beats.set(tag, now);
+  mmTrace(tag, data);
+}
+function flush() {
+  if (!enabled || buf.length === 0) return;
+  lastFlush = performance.now();
+  const lines = buf;
+  buf = [];
+  const body = JSON.stringify({ sid: SID, lines });
+  try {
+    if (navigator.sendBeacon && navigator.sendBeacon("/api/trace", new Blob([body], { type: "application/json" }))) return;
+  } catch {
+  }
+  fetch("/api/trace", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {
+  });
+}
+function mmTraceInit() {
+  try {
+    const q = new URLSearchParams(location.search);
+    enabled = q.get("trace") === "1" || localStorage.getItem("mm_trace") === "1";
+    if (q.get("trace") === "1") localStorage.setItem("mm_trace", "1");
+    if (q.get("trace") === "0") {
+      localStorage.removeItem("mm_trace");
+      enabled = false;
+    }
+  } catch {
+    enabled = false;
+  }
+  if (!enabled) return;
+  mmTrace("boot", { sid: SID, ua: navigator.userAgent.slice(0, 80), vibrate: "vibrate" in navigator, dpr: window.devicePixelRatio, w: innerWidth, h: innerHeight, bridge: !!window.NativeBridge });
+  setInterval(flush, 1e3);
+  window.addEventListener("pagehide", flush);
+}
+
 // src/engine/trackball.ts
 var Trackball = class {
   // 3x3 rotation matrix in column-major order (standard for WebGL: mat3)
@@ -2442,6 +2502,10 @@ var Trackball = class {
    */
   vibrate(pattern) {
     if (!this.enableHaptics || typeof navigator === "undefined") return;
+    {
+      const nb2 = window.NativeBridge;
+      mmTrace("haptic", { pat: pattern, bridge: !!nb2, navVib: typeof navigator !== "undefined" && "vibrate" in navigator, on: this.enableHaptics });
+    }
     const now = performance.now();
     if (now - this.lastHapticTime < 32) return;
     this.lastHapticTime = now;
@@ -2540,6 +2604,7 @@ var Input = class {
       canvasTouchMoved = false;
       this.anyPress = true;
       this.pressedQueue.push("Touch");
+      mmTrace("canvas.touchstart", { x: Math.round(t.clientX), y: Math.round(t.clientY), ctrl: this.controlType });
       this.trackball.startDrag();
     }, { passive: true });
     this.canvas.addEventListener("touchmove", (e) => {
@@ -2554,6 +2619,7 @@ var Input = class {
           canvasLastTouchX = t.clientX;
           canvasLastTouchY = t.clientY;
           canvasLastTouchTime = now;
+          mmBeat("canvas.touchmove", 200, { dx: Math.round(dx), dy: Math.round(dy), wx: +this.trackball.wx.toFixed(1), wy: +this.trackball.wy.toFixed(1) });
           this.trackball.dragDelta(dx * 1.25, dy * 1.25, dt);
           break;
         }
@@ -2564,6 +2630,7 @@ var Input = class {
         const t = e.changedTouches[i];
         if (t.identifier === canvasTouchId) {
           canvasTouchId = null;
+          mmTrace("canvas.touchend", { moved: canvasTouchMoved });
           this.trackball.endDrag();
           if (!canvasTouchMoved) {
             const rect = this.canvas.getBoundingClientRect();
@@ -2792,8 +2859,8 @@ var DEFAULT_TUNING = {
 };
 function pinkNoiseBuffer(ctx, seconds = 2) {
   const n = Math.floor(ctx.sampleRate * seconds);
-  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
-  const d = buf.getChannelData(0);
+  const buf2 = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf2.getChannelData(0);
   let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, peak = 0;
   for (let i = 0; i < n; i++) {
     const w = Math.random() * 2 - 1;
@@ -2810,14 +2877,14 @@ function pinkNoiseBuffer(ctx, seconds = 2) {
   }
   const k = 0.25 / (peak || 1);
   for (let i = 0; i < n; i++) d[i] *= k;
-  return buf;
+  return buf2;
 }
 function whiteBurstBuffer(ctx, seconds = 0.05) {
   const n = Math.floor(ctx.sampleRate * seconds);
-  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
-  const d = buf.getChannelData(0);
+  const buf2 = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf2.getChannelData(0);
   for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * 0.8;
-  return buf;
+  return buf2;
 }
 var TrackballAudio = class {
   constructor(ctx, destination, tuning = {}) {
@@ -3051,8 +3118,8 @@ var Sound = class {
     try {
       const r = await fetch(url);
       if (!r.ok) return;
-      const buf = await this.ctx.decodeAudioData(await r.arrayBuffer());
-      this.buffers.set(key, buf);
+      const buf2 = await this.ctx.decodeAudioData(await r.arrayBuffer());
+      this.buffers.set(key, buf2);
     } catch {
     }
   }
@@ -3106,14 +3173,14 @@ var Sound = class {
   }
   sfx(name, vol = 1, rate = 1) {
     if (this.muted || !this.ctx || this.ctx.state !== "running") return;
-    const buf = this.buffers.get(name);
-    if (!buf) {
+    const buf2 = this.buffers.get(name);
+    if (!buf2) {
       this.synth(name, vol);
       return;
     }
     const src = this.ctx.createBufferSource();
     const g = this.ctx.createGain();
-    src.buffer = buf;
+    src.buffer = buf2;
     src.playbackRate.value = rate;
     g.gain.value = clamp01(vol * this.sfxVolume);
     src.connect(g).connect(this.ctx.destination);
@@ -3151,11 +3218,11 @@ var Sound = class {
     if (!ctx || ctx.state !== "running") return;
     const want = !this.muted && level > 0.03;
     if (want && !this.rollSrc) {
-      const buf = this.buffers.get("roll");
-      if (!buf) return;
+      const buf2 = this.buffers.get("roll");
+      if (!buf2) return;
       const src = ctx.createBufferSource();
       const g = ctx.createGain();
-      src.buffer = buf;
+      src.buffer = buf2;
       src.loop = true;
       g.gain.value = 0;
       src.connect(g).connect(ctx.destination);
@@ -3195,8 +3262,8 @@ var Sound = class {
     if (!ctx || this.bearingSrc) return;
     try {
       const len = Math.floor(ctx.sampleRate * 1.5);
-      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-      const d = buf.getChannelData(0);
+      const buf2 = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf2.getChannelData(0);
       let lastVal = 0;
       for (let i = 0; i < len; i++) {
         const white = Math.random() * 2 - 1;
@@ -3204,7 +3271,7 @@ var Sound = class {
         d[i] = lastVal * 2.8;
       }
       const src = ctx.createBufferSource();
-      src.buffer = buf;
+      src.buffer = buf2;
       src.loop = true;
       const filter = ctx.createBiquadFilter();
       filter.type = "bandpass";
@@ -7034,6 +7101,7 @@ var Game = class {
   /* flow                                                                    */
   /* ---------------------------------------------------------------------- */
   go(screen) {
+    mmTrace("screen", { from: this.screen, to: screen, mode: this.mode, agent: this.isAgentPage });
     this.screen = screen;
     this.t = 0;
     if (screen === "connect" && !this.isAgentPage) {
@@ -7407,6 +7475,7 @@ var Game = class {
     }
     for (const p of this.popups) p.t += dt;
     this.popups = this.popups.filter((p) => p.t < 2.6);
+    mmBeat("marble", 300, { u: +this.marble.u.toFixed(1), v: +this.marble.v.toFixed(1), z: +this.marble.z.toFixed(0), g: this.marble.grounded, ph: this.marble.phase, sup: this.marble.support ? this.marble.support.s.name : null, blk: this.marble.lastBlock || "", st: this.stageIdx + 1 });
     const sp = this.marble.phase === "alive" && this.marble.grounded && !this.marble.inPipe ? this.marble.speed / 15 : 0;
     this.sound.setRoll(sp);
     const tbSpeed = Math.hypot(this.input.trackball.wx, this.input.trackball.wy);
@@ -7430,6 +7499,7 @@ var Game = class {
         this.input.trackball.vibrate(25);
         break;
       case "die":
+        mmTrace("die", { kind: e.kind, u: +this.marble.u.toFixed(1), v: +this.marble.v.toFixed(1), z: +this.marble.z.toFixed(0), stage: this.stageIdx + 1 });
         this.deaths++;
         if (e.kind === "shatter" || e.kind === "void" || e.kind === "zap") this.sound.sfx("shatter");
         else if (e.kind === "squeeze") this.sound.sfx("muncher");
@@ -8273,6 +8343,7 @@ var Trackball3DView = class {
 
 // src/main.ts
 async function boot() {
+  mmTraceInit();
   if (!window.__MM__) {
     const meta = document.querySelector('meta[name="mm-config"]');
     if (meta) {
