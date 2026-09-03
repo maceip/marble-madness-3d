@@ -36,4 +36,8 @@ export const TIME_BONUS_PER_SEC = 100;
 
 export const BIRD_ZAP_RESETS_TO_START = true; // per brief (video respawns nearby)
 export const TWO_PLAYER_TELEPORT_PENALTY = 1000;
+/** arcade 2-player time table (2player_longplay.mov): 60 and 65 fresh, then +45/+40/+30/+25 carried */
+export const ARCADE_TIME_ADD = [60, 65, 45, 40, 30, 25];
+/** arcade 2-player: the winner of the previous race gets extra seconds ("WON LAST RACE: +5 sec") */
+export const WON_RACE_BONUS = 5;
 export const TWO_PLAYER_TRAIL_MARGIN = 40;    // px beyond the view edge before teleport

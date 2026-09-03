@@ -117,6 +117,48 @@ export class Renderer {
     this.font.drawBig(ctx, timeText, bx + 3, 7);
   }
 
+  private tintCanvas: HTMLCanvasElement | null = null;
+  /** draw via `fn` into a scratch canvas, recolour every opaque pixel to `color`, blit at (x, y) */
+  private tinted(w: number, h: number, x: number, y: number, color: string, fn: (c: CanvasRenderingContext2D) => void): void {
+    if (!this.tintCanvas) this.tintCanvas = document.createElement('canvas');
+    const c = this.tintCanvas;
+    if (c.width < w || c.height < h) { c.width = Math.max(c.width, w); c.height = Math.max(c.height, h); }
+    const cx = c.getContext('2d')!;
+    cx.clearRect(0, 0, c.width, c.height);
+    cx.globalCompositeOperation = 'source-over';
+    fn(cx);
+    cx.globalCompositeOperation = 'source-in';
+    cx.fillStyle = color; cx.fillRect(0, 0, w, h);
+    this.ctx.drawImage(c, 0, 0, w, h, Math.round(x), Math.round(y), w, h);
+  }
+
+  textTinted(text: string, x: number, y: number, color: string): void {
+    const w = this.font.width(text) + 1;
+    this.tinted(w, 9, x, y, color, (c) => this.font.draw(c, text, 0, 0, 'white'));
+  }
+
+  /** big timer digits in an arbitrary colour (the sheet only has blue) */
+  drawBigTinted(text: string, x: number, y: number, color: string): void {
+    const w = this.font.bigWidth(text) + 2;
+    this.tinted(w, 16, x, y, color, (c) => this.font.drawBig(c, text, 0, 0));
+  }
+
+  /** arcade 2-player HUD: P1 blue on the left, P2 red on the right, each with SCORE + timer */
+  drawHud2P(p1: { score: string; time: string }, p2: { score: string; time: string }): void {
+    const ctx = this.ctx;
+    const blue = '#5a7cff', red = '#ff5a5a';
+    this.textTinted('SCORE', 8, 4, blue);
+    this.textTinted(p1.score, 8, 14, blue);
+    const w1 = this.font.bigWidth(p1.time);
+    ctx.fillStyle = '#7d7d7d'; ctx.fillRect(84, 5, w1 + 6, 18);
+    this.drawBigTinted(p1.time, 87, 7, blue);
+    const w2 = this.font.bigWidth(p2.time);
+    ctx.fillStyle = '#7d7d7d'; ctx.fillRect(VIEW_W - 90 - w2, 5, w2 + 6, 18);
+    this.drawBigTinted(p2.time, VIEW_W - 87 - w2, 7, red);
+    this.textTinted('SCORE', VIEW_W - 8 - this.font.width('SCORE'), 4, red);
+    this.textTinted(p2.score, VIEW_W - 8 - this.font.width(p2.score), 14, red);
+  }
+
   /** black banner box with text lines (used for TIME TO FINISH / TIME BONUS) */
   drawBox(x: number, y: number, w: number, h: number): void {
     this.ctx.fillStyle = '#000';

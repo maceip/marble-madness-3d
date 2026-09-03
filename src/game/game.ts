@@ -16,7 +16,7 @@ import { Hazard, makeHazard, HazardContext, HazardEvent } from './hazards';
 import { Screens } from './screens';
 import { Net, RemotePlayer } from './net';
 import { WebMCP } from './webmcp';
-import { TWO_PLAYER_TELEPORT_PENALTY, TWO_PLAYER_TRAIL_MARGIN } from '../engine/constants';
+import { TWO_PLAYER_TELEPORT_PENALTY, TWO_PLAYER_TRAIL_MARGIN, ARCADE_TIME_ADD, WON_RACE_BONUS } from '../engine/constants';
 
 export type Mode = '1p' | 'ai' | 'multi';
 export type Screen = 'boot' | 'highrollers' | 'title' | 'menu' | 'name' | 'control' | 'connect' | 'intro' | 'race' | 'timebonus' | 'gameover' | 'congrats';
@@ -84,6 +84,14 @@ export class Game {
   remote = new Map<string, Marble>();
   remoteInfo = new Map<string, RemotePlayer>();
   teleportCooldown = 0;
+  /** 2P (arcade rules, 2player_longplay.mov): race outcome bookkeeping */
+  finished = false;
+  oppFinished = false;
+  wonLast = false;
+  wonPool = 0;
+  wonDone = 0;
+  waitingT = 0;
+  goalFlags: { u: number; v: number; z: number }[] = [];
 
   constructor(readonly assets: Assets, readonly r: Renderer, readonly input: Input, readonly sound: Sound) {
     this.screens = new Screens(this);
@@ -252,6 +260,12 @@ export class Game {
     this.resetStageState();
   }
 
+  /** seconds granted at the start of a race: NES table in 1P, arcade table in the 2P modes */
+  timeAddFor(idx: number): number {
+    if (this.mode === '1p') return STAGES[idx].timeAdd;
+    return ARCADE_TIME_ADD[idx] ?? STAGES[idx].timeAdd;
+  }
+
   resetStageState(): void {
     const s = this.stage;
     const top = topAt(s, s.start.u, s.start.v);
@@ -268,8 +282,27 @@ export class Game {
     this.raceTime = 0;
     this.goalReached = false;
     this.timezoneT = 0; this.timezoneTag = 0;
-    this.introPool = s.timeAdd;
+    this.introPool = this.timeAddFor(this.stageIdx);
+    this.wonPool = this.mode === 'ai' && this.wonLast ? WON_RACE_BONUS : 0;
+    this.wonDone = 0; this.waitingT = 0;
+    this.finished = false; this.oppFinished = false;
     this.timeLeft = s.carryTime ? this.carried : 0;
+    // 2P: the agent's (red) marble starts beside the human's
+    if (this.mode === 'ai' && this.isAgentPage) {
+      const u = s.start.u + 1.2, v = s.start.v - 1.2;
+      const t2 = supportAt(s, u, v, this.marble.z + 4, 8);
+      this.marble.place(u, v, t2 ? t2.z : this.marble.z);
+    }
+    // animated finish flags either side of the goal (animated_assets/FinishFlag.gif)
+    this.goalFlags = [];
+    const goal = s.zones.find((z) => z.kind === 'goal');
+    if (goal) {
+      const zRef = goal.zMin !== undefined ? goal.zMin + 4 : 0;
+      for (const [u, v] of [[goal.u0 + 0.3, goal.v1 - 0.3], [goal.u1 - 0.3, goal.v0 + 0.3]]) {
+        const sup = goal.zMin !== undefined ? supportAt(s, u, v, zRef + 20, 40) : topAt(s, u, v);
+        if (sup) this.goalFlags.push({ u, v, z: sup.z });
+      }
+    }
     this.centerCameraOnMarble(true);
   }
 
@@ -295,7 +328,20 @@ export class Game {
   }
 
   private updateIntro(dt: number): void {
+    this.centerCameraOnMarble(false, dt);
+    if (this.mode !== '1p') this.updateNet(dt);
     if (this.t < 0.6) return;
+    if (this.wonPool > 0) {
+      // arcade 2P: "WON LAST RACE: +5 sec" drains into the winner's timer before the race time does
+      const take = Math.min(this.wonPool, 5 * dt);
+      this.wonPool -= take;
+      this.timeLeft = Math.min(TIME_CAP, this.timeLeft + take);
+      this.introTick += take;
+      if (this.introTick >= 1) { this.introTick -= 1; this.sound.sfx('tick', 0.35, 1.4); }
+      if (this.wonPool <= 0.001) { this.wonPool = 0; this.wonDone = this.t; }
+      return;
+    }
+    if (this.wonDone > 0 && this.t - this.wonDone < 0.8) return;
     if (this.introPool > 0) {
       if (this.t > 0.6 && this.stage.music && !this.musicStarted) { this.musicStarted = true; this.sound.playBgm(this.stage.music); }
       const rate = 22 * dt;
@@ -309,7 +355,6 @@ export class Game {
       this.go('race');
       this.raceTime = 0;
     }
-    this.centerCameraOnMarble(false, dt);
   }
   private musicStarted = false;
   private introTick = 0;
@@ -336,6 +381,13 @@ export class Game {
         this.sound.sfx('shatter');
         if (BIRD_ZAP_RESETS_TO_START && e.marble === this.marble) this.pendingRespawnAtStart = true;
         break;
+      case 'time-gift':
+        if (e.marble === this.marble) {
+          this.timeLeft = Math.min(TIME_CAP, this.timeLeft + TIMEZONE_BONUS);
+          this.timezoneTag = 1.2;
+          this.sound.sfx('checkpoint', 0.6, 1.2);
+        }
+        break;
       case 'steelie-bump': break;
     }
   }
@@ -344,7 +396,11 @@ export class Game {
     if (!this.net.lobby) return;
     this.net.update(dt);
     const m = this.marble;
-    this.net.sendState(dt, { stage: this.stageIdx + 1, u: m.u, v: m.v, z: m.z, vu: m.vu, vv: m.vv, phase: m.phase, score: this.score, time: this.timeLeft, progress: (m.u + m.v) * this.stage.progressDir });
+    this.net.sendState(dt, { stage: this.stageIdx + 1, u: m.u, v: m.v, z: m.z, vu: m.vu, vv: m.vv, phase: m.phase, score: this.score, time: this.timeLeft, progress: (m.u + m.v) * this.stage.progressDir, fin: this.finished ? 1 : 0, deaths: this.deaths });
+    // arcade 2P: a race ends for both once both have finished; remember when the opponent is done (or already ahead)
+    for (const p of this.net.players.values()) {
+      if (p.stage > this.stageIdx + 1 || (p.stage === this.stageIdx + 1 && p.fin)) this.oppFinished = true;
+    }
     // mirror remote players into Marble objects (same stage only)
     const seen = new Set<string>();
     for (const p of this.net.players.values()) {
@@ -377,6 +433,8 @@ export class Game {
     if (this.mode !== 'ai') return;
     const opp = this.others[0];
     if (!opp || opp.phase !== 'alive') return;
+    // once the leader has finished the race, the other marble is left alone to finish on its own
+    if (this.oppFinished || this.finished) { this.camOverride = null; return; }
     this.teleportCooldown = Math.max(0, this.teleportCooldown - dt);
     const m = this.marble;
     const myY = (m.u + m.v) * 4 - m.z, oppY = (opp.u + opp.v) * 4 - opp.z;
@@ -409,7 +467,8 @@ export class Game {
     }
 
     // marble physics
-    const steer = this.input.sample(dt);
+    let steer = this.input.sample(dt);
+    if (s.reverseControls) steer = { ax: -steer.ax, ay: -steer.ay };
     const ev: MarbleEvent[] = [];
     this.marble.step(s, steer, dt, ev);
     for (const e of ev) this.onMarbleEvent(e);
@@ -500,7 +559,7 @@ export class Game {
         this.timeLeft = Math.min(TIME_CAP, this.timeLeft + TIMEZONE_BONUS);
         this.sound.sfx('checkpoint', 0.6, 1.2);
       }
-    } else { this.timezoneTag = 0; this.timezoneT = 0; }
+    } else { this.timezoneTag = Math.max(0, this.timezoneTag - 1 / 60); this.timezoneT = 0; }
   }
   private pendingPipeBonus = 0;
 
@@ -511,6 +570,8 @@ export class Game {
   }
 
   private reachGoal(): void {
+    this.finished = true;
+    this.wonLast = this.mode === 'ai' && !this.oppFinished;
     this.sound.stopBgm();
     this.sound.stopRoll();
     this.sound.sfx('goal');
@@ -520,17 +581,35 @@ export class Game {
     this.go('timebonus');
   }
 
+  /** 2P: is there an opponent still racing this stage (alive with time on the clock)? */
+  opponentRacing(): boolean {
+    if (this.mode !== 'ai') return false;
+    for (const p of this.net.players.values()) {
+      if (p.stage === this.stageIdx + 1 && !p.fin && p.time > 0.05 && performance.now() - p.lastSeen < 6000) return true;
+    }
+    return false;
+  }
+
   private updateTimeBonus(dt: number): void {
+    if (this.mode !== '1p') this.updateNet(dt);
     // marble keeps rolling to a stop
     const ev: MarbleEvent[] = [];
     this.marble.step(this.stage, { ax: 0, ay: 0 }, dt, ev);
-    this.centerCameraOnMarble(false, dt);
+    if (this.mode === 'ai' && this.others[0] && this.bonusCount >= this.bonusTotal) {
+      // watch the opponent finish
+      const o = this.others[0];
+      const oy = (o.u + o.v) * 4 - o.z;
+      this.camOverride = clamp(oy - 112, 0, Math.max(0, this.stage.height - VIEW_H));
+      const k = Math.min(1, dt * 4);
+      this.r.cam.y += (this.camOverride - this.r.cam.y) * k;
+    } else this.centerCameraOnMarble(false, dt);
     if (this.t > 1.0 && this.bonusCount < this.bonusTotal) {
       const step = Math.min(this.bonusTotal - this.bonusCount, Math.ceil(this.bonusTotal * dt / 1.4 / 100) * 100);
       this.bonusCount += step; this.score += step;
       this.tickAcc += dt; if (this.tickAcc > 0.08) { this.tickAcc = 0; this.sound.sfx('tick', 0.3, 1.2); }
     }
     if (this.bonusCount >= this.bonusTotal && this.t > 2.6) {
+      if (!this.oppFinished && this.opponentRacing()) { this.waitingT += dt; return; }
       this.fade = Math.min(1, this.fade + dt * 2);
       if (this.fade >= 1 && this.t > 3.4) {
         this.carried = Math.floor(this.timeLeft);
@@ -606,10 +685,18 @@ export class Game {
     const sprites: Sprite[] = [];
     const ctx = this.hazardCtx(0);
     for (const h of this.hazards) h.sprites(ctx, sprites);
-    this.marbleSprites(this.marble, this.isAI ? this.assets.sheets.marbleRed : this.assets.sheets.marble, sprites);
+    this.marbleSprites(this.marble, this.isAI, sprites);
     for (const [id, o] of this.remote) {
       const info = this.remoteInfo.get(id);
-      this.marbleSprites(o, info?.role === 'ai' ? this.assets.sheets.marbleRed : this.assets.sheets.marble, sprites);
+      this.marbleSprites(o, info?.role === 'ai', sprites);
+    }
+    // finish flags (blue left, red right) waving at the goal
+    if (FRAMES.flagBlue.length) {
+      this.goalFlags.forEach((f, i) => {
+        const fr = i === 0 ? FRAMES.flagBlue : FRAMES.flagRed;
+        const img = i === 0 ? this.assets.sheets.flagBlue : this.assets.sheets.flagRed;
+        out_flag(sprites, img, fr[Math.floor((this.raceTime + this.t) * 30) % fr.length], f);
+      });
     }
     r.drawSprites(sprites);
     for (const h of this.hazards) h.drawOverlay?.(r.ctx, (u, v, z) => r.project(u, v, z), this.raceTime);
@@ -640,8 +727,13 @@ export class Game {
 
     if (this.debug) this.renderDebug();
 
-    // HUD
-    r.drawHud(fmtScore(this.displayScore), fmtTime(this.timeLeft));
+    // HUD (arcade 2P layout in Player-vs-AI: P1 blue left, P2 red right)
+    if (this.mode === 'ai') {
+      const opp = [...this.net.players.values()].find((p) => p.role !== (this.isAgentPage ? 'ai' : 'human'));
+      const me = { score: fmtScore(this.displayScore), time: fmtTime(this.timeLeft) };
+      const them = { score: fmtScore(opp?.score ?? 0), time: fmtTime(opp?.time ?? 0) };
+      if (this.isAgentPage) r.drawHud2P(them, me); else r.drawHud2P(me, them);
+    } else r.drawHud(fmtScore(this.displayScore), fmtTime(this.timeLeft));
     if (this.toast.t > 0) {
       r.ctx.fillStyle = 'rgba(0,0,0,0.75)'; r.ctx.fillRect(0, VIEW_H - 12, VIEW_W, 12);
       r.text(this.toast.text.slice(0, 36), 2, VIEW_H - 10, 'orange');
@@ -650,19 +742,45 @@ export class Game {
     if (this.screen === 'intro') {
       const title = this.stage.name;
       const bw = 232, bh = 30; const bx = (VIEW_W - bw) / 2, by = 36;
+      const showWon = this.wonPool > 0 || (this.wonDone > 0 && this.t - this.wonDone < 0.8);
       r.drawBox(bx, by, bw, bh);
-      r.text('TIME TO FINISH', bx + 36, by + 6, 'orange');
-      r.text(title + ':', bx + 44, by + 16, 'cyan');
-      const n = fmtTime(this.introPool);
-      r.ctx.fillStyle = '#7d7d7d'; r.ctx.fillRect(bx + bw - 34, by + 6, 28, 18);
-      r.font.drawBig(r.ctx, n, bx + bw - 32, by + 8);
+      if (showWon) {
+        // arcade 2P: the previous race's winner banks extra seconds first
+        r.text('WON LAST RACE:', bx + 40, by + 11, 'orange');
+        r.text(`+${Math.ceil(this.wonPool)} SEC`, bx + bw - 60, by + 11, 'cyan');
+      } else {
+        const extra = this.mode !== '1p' && this.stageIdx >= 2;
+        r.text(extra ? 'EXTRA TIME FOR' : 'TIME TO FINISH', bx + 36, by + 6, 'orange');
+        r.text(title + ':', bx + 44, by + 16, 'cyan');
+        const n = fmtTime(this.introPool);
+        r.ctx.fillStyle = '#7d7d7d'; r.ctx.fillRect(bx + bw - 34, by + 6, 28, 18);
+        if (extra) r.text('+', bx + bw - 42, by + 11, 'cyan');
+        r.font.drawBig(r.ctx, n, bx + bw - 32, by + 8);
+      }
+      if (this.stage.reverseControls) {
+        r.drawBox(bx, by + bh + 4, bw, 14);
+        r.textC('EVERYTHING YOU KNOW IS WRONG', VIEW_W / 2, by + bh + 7, 'orange');
+      }
     }
     if (this.screen === 'timebonus') {
-      const bw = 96, bh = 46; const bx = 20, by = 40;
-      r.drawBox(bx, by, bw, bh);
-      r.textC('TIME', bx + bw / 2, by + 6, 'lavender');
-      r.textC('BONUS', bx + bw / 2, by + 18, 'lavender');
-      r.textC(fmtScore(this.bonusCount), bx + bw / 2, by + 32, 'lavender');
+      if (this.mode === 'ai') {
+        // arcade wording: "BONUS FOR TIME LEFT: 5,300" in the finisher's colour
+        const bw = 236, bh = 16; const bx = (VIEW_W - bw) / 2, by = 40;
+        r.drawBox(bx, by, bw, bh);
+        const col = this.isAgentPage ? '#ff5a5a' : '#5a7cff';
+        r.textTinted('BONUS FOR TIME LEFT:', bx + 6, by + 4, col);
+        r.textTinted(fmtScore(this.bonusCount), bx + bw - 6 - r.font.width(fmtScore(this.bonusCount)), by + 4, col);
+        if (this.waitingT > 0.5 && this.fade === 0) {
+          r.drawBox(bx, by + bh + 4, bw, 14);
+          r.textC(this.isAgentPage ? 'WAITING FOR LEFT PLAYER' : 'WAITING FOR RIGHT PLAYER', VIEW_W / 2, by + bh + 7, 'orange');
+        }
+      } else {
+        const bw = 96, bh = 46; const bx = 20, by = 40;
+        r.drawBox(bx, by, bw, bh);
+        r.textC('TIME', bx + bw / 2, by + 6, 'lavender');
+        r.textC('BONUS', bx + bw / 2, by + 18, 'lavender');
+        r.textC(fmtScore(this.bonusCount), bx + bw / 2, by + 32, 'lavender');
+      }
       if (this.fade > 0) { r.ctx.fillStyle = `rgba(0,0,0,${this.fade})`; r.ctx.fillRect(0, 0, VIEW_W, VIEW_H); }
     }
   }
@@ -731,16 +849,21 @@ export class Game {
   }
 
   /** choose marble frame(s) from its state */
-  marbleSprites(m: Marble, img: HTMLImageElement, out: Sprite[]): void {
+  marbleSprites(m: Marble, red: boolean | undefined, out: Sprite[]): void {
     const F = FRAMES.marble;
+    const img = red ? this.assets.sheets.marbleRed : this.assets.sheets.marble;
     if (m.phase === 'hidden' || m.inPipe) return;
     const base = { img, u: m.u, v: m.v, z: m.z, dy: -8 };
     const groundZ = m.support ? m.support.z : m.z;
+    // rolling: NES Player1Rolling / Player2Rolling (16 frames); effects keep coming from marble_effects
+    const rollF = red ? FRAMES.p2roll : FRAMES.p1roll;
+    const rollImg = red ? this.assets.sheets.p2roll : this.assets.sheets.p1roll;
+    const rollSprite = (k: number): { img: HTMLImageElement; frame: Frame } =>
+      rollF.length ? { img: rollImg, frame: rollF[((Math.floor(k) % rollF.length) + rollF.length) % rollF.length] } : { img, frame: F.roll[Math.floor(k) % F.roll.length] };
     if (m.phase === 'alive') {
-      let f: Frame;
-      if (m.dizzyT > 0) f = F.dizzy[Math.floor(m.dizzyT * 12) % F.dizzy.length];
-      else f = F.roll[Math.floor(m.rollDist * 1.6) % F.roll.length];
-      out.push({ ...base, frame: f, shadowZ: m.grounded ? 0 : m.z - groundZ });
+      if (m.dizzyT > 0) { out.push({ ...base, frame: F.dizzy[Math.floor(m.dizzyT * 12) % F.dizzy.length], shadowZ: m.grounded ? 0 : m.z - groundZ }); return; }
+      const rs = rollSprite(m.rollDist * 3.2);
+      out.push({ ...base, img: rs.img, frame: rs.frame, shadowZ: m.grounded ? 0 : m.z - groundZ });
       return;
     }
     if (m.phase === 'dying') {
@@ -763,7 +886,8 @@ export class Game {
         case 'crush': if (t > 0.3) out.push({ ...base, frame: F.pile[0] }); break;
         case 'void': {
           // keeps falling out of view
-          out.push({ ...base, z: m.z - t * 260, frame: F.roll[Math.floor(t * 20) % 6], alpha: Math.max(0, 1 - t) });
+          const rs = rollSprite(t * 40);
+          out.push({ ...base, img: rs.img, frame: rs.frame, z: m.z - t * 260, alpha: Math.max(0, 1 - t) });
           break;
         }
       }
@@ -796,6 +920,10 @@ async function loadHeightMap(stage: StageDef): Promise<HeightMap | null> {
 }
 
 function clamp(x: number, a: number, b: number): number { return Math.max(a, Math.min(b, x)); }
+
+function out_flag(out: Sprite[], img: HTMLImageElement, frame: Frame, at: { u: number; v: number; z: number }): void {
+  out.push({ img, frame, u: at.u, v: at.v, z: at.z, dy: 0, depthBias: 1 });
+}
 
 function hsl(h: number, s: number, l: number): [number, number, number] {
   const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = l - c / 2;

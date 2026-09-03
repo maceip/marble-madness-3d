@@ -20,8 +20,8 @@ L.zone('bonus', goalC.u - 4, goalC.v - 4, goalC.u + 4, goalC.v + 4, 6000, 'goalf
 L.zone('goal', goalC.u - 3.5, goalC.v - 3.5, goalC.u + 3.5, goalC.v + 3.5, undefined, 'goal', -292, -262);
 
 // hazards: steelie on the blue floor, slimes on the orange floor, birds over the middle
-{ const p = L.uv(150, 600, -188); L.hazard({ kind: 'steelie', u: p.u, v: p.v }); }
-{ const p = L.uv(60, 340, 16); L.hazard({ kind: 'slime', u: p.u, v: p.v, range: 2 }); }
+{ const p = L.uv(150, 600, -188); L.hazard({ kind: 'steelie', u: p.u, v: p.v, z: p.z }); }
+{ const p = L.uv(60, 340, 16); L.hazard({ kind: 'slime', u: p.u, v: p.v, z: p.z, range: 2 }); }
 L.hazard({ kind: 'birds', u: 0, v: 0, band: [60, 200], period: 8, count: 4 });
 
 export const stage6 = L.build();

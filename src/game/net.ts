@@ -9,6 +9,8 @@ export interface RemoteState {
   id: string; role: NetRole; name: string; color: string;
   stage: number; u: number; v: number; z: number; vu: number; vv: number;
   phase: string; score: number; time: number; progress: number;
+  /** 1 once the player has reached the goal of `stage` */
+  fin?: number; deaths?: number;
 }
 
 export interface RemotePlayer extends RemoteState {

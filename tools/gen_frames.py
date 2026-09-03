@@ -104,6 +104,23 @@ def cell_frames(name: str, pivot: str):
     return out
 
 
+def grid_frames(name: str, cell_w: int, cell_h: int, pivot: str):
+    """Strips written by prep_assets.gif_strip: cells of cell_w x cell_h separated by a 1 px gap."""
+    path = os.path.join(SPR, name)
+    if not os.path.exists(path):
+        return []
+    a = np.asarray(Image.open(path).convert('RGBA'))
+    n = (a.shape[1] + 1) // (cell_w + 1)
+    out = []
+    for i in range(n):
+        x0 = i * (cell_w + 1)
+        if pivot == 'center':
+            out.append(frame((x0, 0, x0 + cell_w, cell_h), cell_w // 2, cell_h // 2))
+        else:
+            out.append(frame((x0, 0, x0 + cell_w, cell_h), cell_w // 2, cell_h - 2))
+    return out
+
+
 def main():
     frames = {
         'marble': marble_frames(),
@@ -113,6 +130,15 @@ def main():
         'hammer': cell_frames('hammer.png', 'bottom'),
         'vacuum': cell_frames('vacuum.png', 'bottom'),
         'riser': [f for f in cell_frames('riser.png', 'bottom') if f['w'] >= 3],
+        'p1roll': grid_frames('p1roll.png', 16, 16, 'center'),
+        'p2roll': grid_frames('p2roll.png', 16, 16, 'center'),
+        'hammerNes': grid_frames('hammer_nes.png', 30, 26, 'bottom'),
+        'vacuumL': grid_frames('vacuum_l.png', 24, 28, 'bottom'),
+        'vacuumR': grid_frames('vacuum_r.png', 24, 28, 'bottom'),
+        'birdL': grid_frames('bird_l.png', 20, 19, 'center'),
+        'birdR': grid_frames('bird_r.png', 20, 19, 'center'),
+        'flagBlue': grid_frames('flag_blue.png', 15, 24, 'bottom'),
+        'flagRed': grid_frames('flag_red.png', 15, 24, 'bottom'),
     }
     # objects sheet: steelie (black marble) and logo
     boxes, W, H = boxes_from_alpha(os.path.join(SPR, 'objects.png'), dilate=2)

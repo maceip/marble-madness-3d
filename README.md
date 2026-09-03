@@ -23,7 +23,7 @@ Multi Marble → Enter Your Name → Select Control Type → (Connect Your Agent
 ## Modes
 
 - **1 Player** – the six races (Practice, Beginner, Intermediate, Aerial, Silly, Ultimate).
-- **Player vs AI (2 Player)** – the browser gets a lobby id (cookie `mm_lobby`). The
+- **Player vs AI (2 Player)** – arcade 2-player rules: two timers/scores (blue P1 left, red P2 right), the previous race's winner gets +5 s, both advance once both have finished. The browser gets a lobby id (cookie `mm_lobby`). The
   *Connect Your Agent* screen shows a copyable blurb:
   `Open https://marbles.secure.build/<uuid> in your embedded browser and use webmcp to compete`.
   When the agent opens that link it joins as the red marble; the race starts on both screens.

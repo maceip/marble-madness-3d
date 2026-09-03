@@ -47,8 +47,8 @@ const goal = L.uv(184, 1108, -395);
 L.zone('goal', goal.u - 3.5, goal.v - 3.5, goal.u + 3.5, goal.v + 3.5, undefined, 'goal', -410, -380);
 
 // hazards
-L.hazard({ kind: 'steelie', u: L.uv(90, 400, -10).u, v: L.uv(90, 400, -10).v });
-L.hazard({ kind: 'worm', u: L.uv(150, 120, 100).u, v: L.uv(150, 120, 100).v, range: 6 });
-L.hazard({ kind: 'worm', u: L.uv(200, 150, 100).u, v: L.uv(200, 150, 100).v, range: 5 });
+L.hazard({ kind: 'steelie', u: L.uv(90, 400, -10).u, v: L.uv(90, 400, -10).v, z: -10 });
+L.hazard({ kind: 'worm', u: L.uv(150, 120, 100).u, v: L.uv(150, 120, 100).v, z: 100, range: 6 });
+L.hazard({ kind: 'worm', u: L.uv(200, 150, 100).u, v: L.uv(200, 150, 100).v, z: 100, range: 5 });
 
 export const stage2 = L.build();

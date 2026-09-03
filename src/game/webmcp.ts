@@ -104,7 +104,8 @@ export class WebMCP {
     const opp = g.others[0];
     return {
       screen: g.screen, mode: g.mode, lobby: g.lobbyId || null, agentJoined: g.agentJoined,
-      race: { stage: g.stageIdx + 1, name: g.stage.name, direction: g.stage.progressDir > 0 ? 'descend (+y)' : 'ascend (-y)', timeLeft: Math.round(g.timeLeft * 10) / 10, score: g.score, deaths: g.deaths },
+      race: { stage: g.stageIdx + 1, name: g.stage.name, direction: g.stage.progressDir > 0 ? 'descend (+y)' : 'ascend (-y)', timeLeft: Math.round(g.timeLeft * 10) / 10, score: g.score, deaths: g.deaths,
+        controlsReversed: !!g.stage.reverseControls, finished: g.finished, opponentFinished: g.oppFinished, wonLastRace: g.wonLast },
       marble: {
         x: Math.round(mx), y: Math.round(my), height: Math.round(m.z), vx: Math.round((m.vu - m.vv) * 8), vy: Math.round((m.vu + m.vv) * 4),
         speed: +m.speed.toFixed(2), grounded: m.grounded, phase: m.phase, dizzy: m.dizzyT > 0, frozen: m.frozenT > 0, inPipe: m.inPipe,

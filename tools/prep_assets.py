@@ -84,7 +84,7 @@ def build_font(font_path: str) -> tuple[Image.Image, dict]:
         vrows = small_rows[vi * 4:(vi + 1) * 4]
         variants.append(vrows)
     # Build atlas: each variant is a 16x4 grid of 8x8 cells -> 128x32, stacked vertically
-    atlas = Image.new('RGBA', (128, 32 * 5 + 16), (0, 0, 0, 0))
+    atlas = Image.new('RGBA', (160, 32 * 5 + 16), (0, 0, 0, 0))  # 160: room for ten 14 px timer digits
     for vi, vrows in enumerate(variants):
         for ri, (y0, y1) in enumerate(vrows):
             band = sep[y0:y1].all(0)  # columns that are separators within this band
@@ -158,9 +158,36 @@ def main() -> None:
     for c in ((49, 146, 202), (0, 91, 91)):
         bgm |= (np.abs(ra[..., :3] - np.array(c)).sum(2) <= 8)
     ra[bgm, 3] = 0
-    lum = ra[..., :3].mean(2); m = ~bgm
-    ra[m, 0] = np.clip(lum[m] * 1.05, 0, 255); ra[m, 1] = np.clip(lum[m] * 0.95, 0, 255); ra[m, 2] = np.clip(lum[m] * 0.25, 0, 255)
     Image.fromarray(ra.astype(np.uint8), 'RGBA').save(os.path.join(OUT, 'sprites', 'riser.png'))
+
+    # NES-style animated sprites supplied as GIFs (animated_assets/) -> fixed-cell strips
+    from PIL import ImageSequence
+    def gif_strip(name, out, pick=None):
+        path = os.path.join(ROOT, 'animated_assets', name)
+        if not os.path.exists(path):
+            return
+        im = Image.open(path)
+        frames = [fr.convert('RGBA') for fr in ImageSequence.Iterator(im)]
+        if pick is not None:
+            frames = [f for i, f in enumerate(frames) if pick(i)]
+        w, h = frames[0].size
+        strip = Image.new('RGBA', (len(frames) * (w + 1), h), (0, 0, 0, 0))
+        for i, f in enumerate(frames):
+            strip.paste(f, (i * (w + 1), 0), f)
+        strip.save(os.path.join(OUT, 'sprites', out))
+    gif_strip('Player1Rolling.gif', 'p1roll.png')
+    gif_strip('Player2Rolling.gif', 'p2roll.png')
+    gif_strip('HammerTrap.gif', 'hammer_nes.png')
+    gif_strip('VacuumTrapL.gif', 'vacuum_l.png')
+    gif_strip('VacuumTrapR.gif', 'vacuum_r.png')
+    gif_strip('BirdL.gif', 'bird_l.png')
+    gif_strip('BirdR.gif', 'bird_r.png')
+    gif_strip('FinishFlag.gif', 'flag_blue.png', pick=lambda i: i % 2 == 0)
+    gif_strip('FinishFlag.gif', 'flag_red.png', pick=lambda i: i % 2 == 1)
+    for rail in ('RailingL.png', 'RailingR.png'):
+        rp = os.path.join(ROOT, 'animated_assets', rail)
+        if os.path.exists(rp):
+            Image.open(rp).convert('RGBA').save(os.path.join(OUT, 'sprites', rail.lower()))
 
     atlas, meta = build_font(src('Font.png'))
     atlas.save(os.path.join(OUT, 'sprites', 'font.png'))

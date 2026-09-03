@@ -1,0 +1,52 @@
+// 2P flow screenshots: race HUD on both pages, human finishes first (BONUS FOR TIME LEFT + waiting),
+// agent finishes, both reach the next intro (WON LAST RACE / TIME TO FINISH).
+import { chromium } from 'playwright-core';
+import { mkdirSync } from 'node:fs';
+mkdirSync('artifacts/browser', { recursive: true });
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const ctxH = await browser.newContext({ viewport: { width: 864, height: 720 } });
+const ctxA = await browser.newContext({ viewport: { width: 864, height: 720 } });
+const human = await ctxH.newPage(); const agent = await ctxA.newPage();
+for (const [n, p] of [['human', human], ['agent', agent]]) p.on('pageerror', (e) => console.log(`[${n} pageerror]`, e.message));
+await human.goto('http://127.0.0.1:3000/');
+await human.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
+const lobby = await human.evaluate(() => window.game.lobbyId);
+await human.keyboard.press('Enter'); await human.waitForTimeout(150);
+await human.keyboard.press('Enter'); await human.waitForTimeout(150);
+await human.keyboard.press('ArrowDown'); await human.keyboard.press('Enter'); await human.waitForTimeout(150);
+for (const k of ['KeyR', 'KeyE', 'KeyX']) await human.keyboard.press(k);
+await human.keyboard.press('Enter'); await human.waitForTimeout(150);
+await human.keyboard.press('Enter'); await human.waitForTimeout(400);
+await agent.goto(`http://127.0.0.1:3000/${lobby}`);
+await agent.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
+for (const p of [human, agent]) await p.waitForFunction(() => window.game.screen === 'race', null, { timeout: 30000 });
+await human.waitForTimeout(600);
+await human.screenshot({ path: 'artifacts/browser/p2_human_race.png' });
+await agent.screenshot({ path: 'artifacts/browser/p2_agent_race.png' });
+// human rolls into the goal
+const goal = await human.evaluate(() => { const g = window.game; const z = g.stage.zones.find((q) => q.kind === 'goal'); return { u: (z.u0 + z.u1) / 2, v: (z.v0 + z.v1) / 2, zmin: z.zMin, zmid: z.zMin !== undefined ? (z.zMin + z.zMax) / 2 : 0 }; });
+console.log('goal', goal);
+await human.evaluate((gl) => { const g = window.game; g.marble.place(gl.u, gl.v, gl.zmid); }, goal);
+await human.waitForTimeout(300);
+console.log('after place', await human.evaluate(() => ({ screen: window.game.screen, z: +window.game.marble.z.toFixed(1), ph: window.game.marble.phase, sup: window.game.marble.support?.s.name })));
+await human.waitForFunction(() => window.game.screen === 'timebonus', null, { timeout: 5000 });
+await human.waitForTimeout(1000);
+console.log('players seen by human', await human.evaluate(() => ({ mode: window.game.mode, racing: window.game.opponentRacing(), players: [...window.game.net.players.values()].map((p) => ({ role: p.role, stage: p.stage, fin: p.fin, time: +p.time.toFixed(1), seen: Math.round(performance.now() - p.lastSeen) })) })));
+await human.waitForTimeout(2600);
+console.log('human', await human.evaluate(() => ({ screen: window.game.screen, fin: window.game.finished, opp: window.game.oppFinished, won: window.game.wonLast, waiting: +window.game.waitingT.toFixed(1) })));
+await human.screenshot({ path: 'artifacts/browser/p2_human_bonus_wait.png' });
+await agent.screenshot({ path: 'artifacts/browser/p2_agent_while_human_done.png' });
+// agent finishes too
+await agent.evaluate((gl) => { const g = window.game; g.marble.place(gl.u, gl.v, gl.zmid); }, goal);
+await agent.waitForFunction(() => window.game.screen === 'timebonus', null, { timeout: 5000 });
+await agent.waitForTimeout(1500);
+await agent.screenshot({ path: 'artifacts/browser/p2_agent_bonus.png' });
+await human.waitForFunction(() => window.game.screen === 'intro' && window.game.stageIdx === 1, null, { timeout: 15000 });
+await human.waitForTimeout(700);
+await human.screenshot({ path: 'artifacts/browser/p2_human_won_banner.png' });
+await agent.waitForFunction(() => window.game.screen === 'intro' && window.game.stageIdx === 1, null, { timeout: 15000 });
+console.log('intro', await human.evaluate(() => ({ won: window.game.wonLast, pool: +window.game.wonPool.toFixed(1), time: +window.game.timeLeft.toFixed(1) })), await agent.evaluate(() => ({ won: window.game.wonLast, pool: window.game.wonPool, time: +window.game.timeLeft.toFixed(1) })));
+await agent.screenshot({ path: 'artifacts/browser/p2_agent_intro2.png' });
+await human.waitForTimeout(2500);
+await human.screenshot({ path: 'artifacts/browser/p2_human_intro2.png' });
+await browser.close();

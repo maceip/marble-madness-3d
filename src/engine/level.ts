@@ -107,6 +107,8 @@ export type HazardKind = 'steelie' | 'worm' | 'slime' | 'hammer' | 'vacuum' | 'b
 export interface HazardSpawn {
   kind: HazardKind;
   u: number; v: number;
+  /** floor height the spawn point was read at; the hazard snaps to the surface nearest this height */
+  z?: number;
   /** wander / patrol radius in tiles (slime, worm) */
   range?: number;
   /** activation region for birds / wand (u+v band), default whole stage */
@@ -115,6 +117,8 @@ export interface HazardSpawn {
   phase?: number;
   count?: number;
   facing?: 1 | -1;
+  /** slime: instead of dissolving the marble it hands out seconds (Silly race plaza) */
+  gift?: boolean;
   /** riser pad: tiles along u and v; launch velocity given to a marble popped by a piston */
   size?: [number, number];
   launch?: { du: number; dv: number };
@@ -137,6 +141,8 @@ export interface StageDef {
   carryTime: boolean;
   /** progress direction: +1 = descend (u+v increases), -1 = ascend (Silly race) */
   progressDir: 1 | -1;
+  /** Silly race: trackball directions are inverted ("EVERYTHING YOU KNOW IS WRONG") */
+  reverseControls?: boolean;
   surfaces: Surface[];
   start: { u: number; v: number; z?: number };
   checkpoints: { u: number; v: number }[];
@@ -248,7 +254,7 @@ export function pipeAt(level: StageDef, u: number, v: number, z: number): Pipe |
 export interface StageOpts {
   id: number; name: string; music: string; image: string;
   width: number; height: number; timeAdd: number; carryTime: boolean;
-  progressDir?: 1 | -1; viewX0?: number;
+  progressDir?: 1 | -1; viewX0?: number; reverseControls?: boolean;
 }
 
 /**
@@ -264,15 +270,15 @@ export class LevelBuilder {
     this.def = {
       id: o.id, name: o.name, music: o.music, image: o.image, width: o.width, height: o.height,
       viewX0: o.viewX0 ?? Math.max(0, Math.floor((o.width - 288) / 2)),
-      timeAdd: o.timeAdd, carryTime: o.carryTime, progressDir: o.progressDir ?? 1,
+      timeAdd: o.timeAdd, carryTime: o.carryTime, progressDir: o.progressDir ?? 1, reverseControls: o.reverseControls,
       surfaces: [], start: { u: 0, v: 0 }, checkpoints: [], zones: [], pipes: [], hazards: [], floorMin: 0, manualSurfaces: [],
     };
   }
 
   /** world coords of a map pixel at height z (snapped to half tiles) */
-  uv(x: number, y: number, z: number): { u: number; v: number } {
+  uv(x: number, y: number, z: number): { u: number; v: number; z: number } {
     const w = toWorld(x, y, z);
-    return { u: Math.round(w.u * 2) / 2, v: Math.round(w.v * 2) / 2 };
+    return { u: Math.round(w.u * 2) / 2, v: Math.round(w.v * 2) / 2, z };
   }
 
   /** Flat platform. (x,y) = map pixel of top corner, lenU/lenV in tiles, z height. */

@@ -22,6 +22,16 @@ export interface Sheets {
   vacuum: HTMLImageElement;
   riser: HTMLImageElement;
   objects: HTMLImageElement;
+  /** NES-style animated assets (animated_assets/) */
+  p1roll: HTMLImageElement;
+  p2roll: HTMLImageElement;
+  hammerNes: HTMLImageElement;
+  vacuumL: HTMLImageElement;
+  vacuumR: HTMLImageElement;
+  birdL: HTMLImageElement;
+  birdR: HTMLImageElement;
+  flagBlue: HTMLImageElement;
+  flagRed: HTMLImageElement;
 }
 
 export class Assets {
@@ -30,11 +40,15 @@ export class Assets {
   stages = new Map<string, HTMLImageElement>();
 
   async load(onProgress?: (frac: number) => void): Promise<void> {
-    const names: (keyof Sheets)[] = ['marble', 'marbleRed', 'worm', 'slime', 'bird', 'hammer', 'vacuum', 'riser', 'objects'];
+    const names: (keyof Sheets)[] = ['marble', 'marbleRed', 'worm', 'slime', 'bird', 'hammer', 'vacuum', 'riser', 'objects',
+      'p1roll', 'p2roll', 'hammerNes', 'vacuumL', 'vacuumR', 'birdL', 'birdR', 'flagBlue', 'flagRed'];
     const files: Record<keyof Sheets, string> = {
       marble: 'sprites/marble_effects.png', marbleRed: 'sprites/marble_effects_red.png', worm: 'sprites/worm.png',
       slime: 'sprites/slime.png', bird: 'sprites/bird.png', hammer: 'sprites/hammer.png', vacuum: 'sprites/vacuum.png', riser: 'sprites/riser.png',
       objects: 'sprites/objects.png',
+      p1roll: 'sprites/p1roll.png', p2roll: 'sprites/p2roll.png', hammerNes: 'sprites/hammer_nes.png',
+      vacuumL: 'sprites/vacuum_l.png', vacuumR: 'sprites/vacuum_r.png', birdL: 'sprites/bird_l.png', birdR: 'sprites/bird_r.png',
+      flagBlue: 'sprites/flag_blue.png', flagRed: 'sprites/flag_red.png',
     };
     let done = 0;
     const total = names.length + 2;

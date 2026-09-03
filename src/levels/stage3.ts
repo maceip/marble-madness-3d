@@ -35,8 +35,8 @@ const goal = L.uv(232, 1036, -120);
 L.zone('goal', goal.u - 3.5, goal.v - 3.5, goal.u + 3.5, goal.v + 3.5, undefined, 'goal', -135, -105);
 
 // hazards: slimes at the pit ramp feet, a wand on the maze, worms on the lower maze
-for (const [x, y] of [[60, 330], [220, 330], [120, 560]] as const) { const p = L.uv(x, y, 100); L.hazard({ kind: 'slime', u: p.u, v: p.v, range: 2 }); }
+for (const [x, y] of [[60, 330], [220, 330], [120, 560]] as const) { const p = L.uv(x, y, 100); L.hazard({ kind: 'slime', u: p.u, v: p.v, z: p.z, range: 2 }); }
 L.hazard({ kind: 'wand', u: 0, v: 0, band: [40, 120] });
-{ const p = L.uv(200, 520, 100); L.hazard({ kind: 'worm', u: p.u, v: p.v, range: 5 }); }
+{ const p = L.uv(200, 520, 100); L.hazard({ kind: 'worm', u: p.u, v: p.v, z: p.z, range: 5 }); }
 
 export const stage3 = L.build();

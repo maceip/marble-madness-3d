@@ -18,6 +18,7 @@ export interface HazardContext {
 export type HazardEvent =
   | { type: 'wand'; marble: Marble }
   | { type: 'bird-zap'; marble: Marble }
+  | { type: 'time-gift'; marble: Marble }
   | { type: 'sfx'; name: 'muncher' | 'bounce' | 'shatter' | 'springboard' | 'item' | 'fall' | 'checkpoint'; vol?: number }
   | { type: 'steelie-bump'; marble: Marble };
 
@@ -32,6 +33,17 @@ export abstract class Hazard {
   drawOverlay?(ctx2d: CanvasRenderingContext2D, project: Project, time: number): void;
   /** called when the marble respawns / stage restarts */
   reset(ctx: HazardContext): void { void ctx; }
+}
+
+/** floor height for a hazard: the surface nearest the declared spawn height, else the topmost surface */
+function spawnZ(level: StageDef, u: number, v: number, z?: number): number {
+  if (z !== undefined) {
+    const s = supportAt(level, u, v, z + 8, 16);
+    if (s && Math.abs(s.z - z) < 40) return s.z;
+    return z;
+  }
+  const top = topAt(level, u, v);
+  return top ? top.z : 0;
 }
 
 function dist(a: { u: number; v: number }, b: { u: number; v: number }): number {
@@ -49,8 +61,7 @@ export class Steelie extends Hazard {
   respawnT = 0;
 
   reset(ctx: HazardContext): void {
-    const top = topAt(ctx.level, this.spawn.u, this.spawn.v);
-    this.ball.place(this.spawn.u, this.spawn.v, top ? top.z : 0);
+    this.ball.place(this.spawn.u, this.spawn.v, spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z));
     this.active = true;
   }
 
@@ -110,7 +121,7 @@ export class Worm extends Hazard {
 
   reset(ctx: HazardContext): void {
     this.u = this.spawn.u; this.v = this.spawn.v;
-    const top = topAt(ctx.level, this.u, this.v); this.z = top ? top.z : 0;
+    this.z = spawnZ(ctx.level, this.u, this.v, this.spawn.z);
     this.eating = 0; this.stunned = 0;
   }
 
@@ -180,7 +191,7 @@ export class Slime extends Hazard {
   phase = 0;
   reset(ctx: HazardContext): void {
     this.u = this.spawn.u; this.v = this.spawn.v;
-    const top = topAt(ctx.level, this.u, this.v); this.z = top ? top.z : 0;
+    this.z = spawnZ(ctx.level, this.u, this.v, this.spawn.z);
     this.phase = ctx.rng() * 100;
   }
   update(dt: number, ctx: HazardContext): void {
@@ -190,15 +201,22 @@ export class Slime extends Hazard {
     const tv = this.spawn.v + Math.sin(this.t * 0.31 + this.phase * 1.7) * range;
     const sup = supportAt(ctx.level, tu, tv, this.z + 4, 6);
     if (sup && Math.abs(sup.z - this.z) < 6) { this.u = tu; this.v = tv; this.z = sup.z; }
+    if (this.giftT > 0) this.giftT -= dt;
     for (const mb of ctx.marbles) {
       if (mb.phase !== 'alive' || mb.inPipe || !mb.grounded) continue;
       if (dist(this, mb) < 0.9 && Math.abs(mb.z - this.z) < 8) {
+        if (this.spawn.gift) {
+          // Silly race: "everything you know is wrong" — the slime is a time present
+          if (this.giftT <= 0) { this.giftT = 1.5; ctx.onEvent({ type: 'time-gift', marble: mb }); }
+          continue;
+        }
         mb.u = this.u; mb.v = this.v;
         mb.die('dissolve');
         ctx.onEvent({ type: 'sfx', name: 'fall', vol: 0.8 });
       }
     }
   }
+  giftT = 0;
   sprites(ctx: HazardContext, out: Sprite[]): void {
     const frames = FRAMES.slime;
     const f = frames[Math.floor(this.t * 6 + this.phase) % frames.length];
@@ -213,7 +231,7 @@ export class Slime extends Hazard {
 export class Hammer extends Hazard {
   t = 0;
   reset(ctx: HazardContext): void {
-    const top = topAt(ctx.level, this.spawn.u, this.spawn.v); this.z = top ? top.z : 0;
+    this.z = spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z);
     this.t = this.spawn.phase ?? 0;
   }
   /** current angle of the handle in screen space (0 = pointing right, grows clockwise) */
@@ -238,10 +256,12 @@ export class Hammer extends Hazard {
     }
   }
   sprites(ctx: HazardContext, out: Sprite[]): void {
-    const frames = FRAMES.hammer;
+    // animated_assets/HammerTrap.gif: 18 frames of one full swing
+    const frames = FRAMES.hammerNes.length ? FRAMES.hammerNes : FRAMES.hammer;
+    const img = FRAMES.hammerNes.length ? ctx.assets.sheets.hammerNes : ctx.assets.sheets.hammer;
     const a = ((this.angle() % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
     const idx = Math.floor(a / (Math.PI * 2) * frames.length) % frames.length;
-    out.push({ img: ctx.assets.sheets.hammer, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 4, depthBias: 3 });
+    out.push({ img, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 6, depthBias: 3 });
   }
 }
 
@@ -254,7 +274,7 @@ export class Vacuum extends Hazard {
   pull = 0;          // 0..1 how hard it is currently sucking
   swallow = 0;
   reset(ctx: HazardContext): void {
-    const top = topAt(ctx.level, this.spawn.u, this.spawn.v); this.z = top ? top.z : 0;
+    this.z = spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z);
     this.t = this.spawn.phase ?? 0; this.pull = 0; this.swallow = 0;
   }
   update(dt: number, ctx: HazardContext): void {
@@ -280,10 +300,16 @@ export class Vacuum extends Hazard {
     this.pull += ((sucking || this.swallow > 0 ? 1 : 0) - this.pull) * Math.min(1, dt * 6);
   }
   sprites(ctx: HazardContext, out: Sprite[]): void {
-    const frames = FRAMES.vacuum;
-    // idle: slot barely moves; sucking: mouth animation runs through the frames
-    const idx = this.pull > 0.2 ? Math.floor(this.t * 12) % frames.length : Math.floor(this.t * 1.5) % 3;
-    out.push({ img: ctx.assets.sheets.vacuum, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 3, flip: this.spawn.facing === -1, depthBias: 2 });
+    // animated_assets/VacuumTrapL|R.gif: yellow box, 2 frames (idle / inhaling)
+    const left = this.spawn.facing === -1;
+    const frames = left ? FRAMES.vacuumL : FRAMES.vacuumR;
+    if (!frames.length) {
+      const f = FRAMES.vacuum; const idx = this.pull > 0.2 ? Math.floor(this.t * 12) % f.length : Math.floor(this.t * 1.5) % 3;
+      out.push({ img: ctx.assets.sheets.vacuum, frame: f[idx], u: this.u, v: this.v, z: this.z, dy: 3, flip: left, depthBias: 2 });
+      return;
+    }
+    const idx = this.pull > 0.2 ? Math.floor(this.t * 8) % frames.length : 0;
+    out.push({ img: left ? ctx.assets.sheets.vacuumL : ctx.assets.sheets.vacuumR, frame: frames[idx], u: this.u, v: this.v, z: this.z, dy: 4, depthBias: 2 });
   }
 }
 
@@ -297,7 +323,7 @@ export class Risers extends Hazard {
   t = 0;
   pistons: Piston[] = [];
   reset(ctx: HazardContext): void {
-    const top = topAt(ctx.level, this.spawn.u, this.spawn.v); this.z = top ? top.z : 0;
+    this.z = spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z);
     const [nu, nv] = this.spawn.size ?? [3, 3];
     this.pistons = [];
     for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
@@ -354,7 +380,7 @@ export class Risers extends Hazard {
 /* ------------------------------------------------------------------------ */
 export class WavePlate extends Hazard {
   t = 0;
-  reset(ctx: HazardContext): void { const top = topAt(ctx.level, this.spawn.u, this.spawn.v); this.z = top ? top.z : 0; this.t = 0; }
+  reset(ctx: HazardContext): void { this.z = spawnZ(ctx.level, this.spawn.u, this.spawn.v, this.spawn.z); this.t = 0; }
   /** hump centre along u for the current time */
   humpU(): number {
     const r = this.spawn.rect!; const period = this.spawn.period ?? 2.6;
@@ -445,9 +471,16 @@ export class Birds extends Hazard {
   sprites(ctx: HazardContext, out: Sprite[]): void {
     const frames = FRAMES.bird;
     for (const b of this.units) {
-      const f = frames[2 + (Math.floor((this.t + b.phase) * 10) % 2)];
       const S = b.y / 4, D = b.x / 8;
-      out.push({ img: ctx.assets.sheets.bird, frame: f, u: (S + D) / 2, v: (S - D) / 2, z: 0, flip: b.vx < 0, depthBias: 500 });
+      const dir = b.vx < 0 ? FRAMES.birdL : FRAMES.birdR;
+      if (dir.length) {
+        // animated_assets/BirdL|R.gif: 2 flap frames at 160 ms
+        const f = dir[Math.floor((this.t + b.phase) * 6) % dir.length];
+        out.push({ img: b.vx < 0 ? ctx.assets.sheets.birdL : ctx.assets.sheets.birdR, frame: f, u: (S + D) / 2, v: (S - D) / 2, z: 0, depthBias: 500 });
+      } else {
+        const f = frames[2 + (Math.floor((this.t + b.phase) * 10) % 2)];
+        out.push({ img: ctx.assets.sheets.bird, frame: f, u: (S + D) / 2, v: (S - D) / 2, z: 0, flip: b.vx < 0, depthBias: 500 });
+      }
     }
     if (this.zapT > 0 && this.zapAt) {
       const f = frames[this.zapT > 0.25 ? 0 : 1];

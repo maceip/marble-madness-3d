@@ -14,7 +14,7 @@
 // Lobby protocol (JSON):
 //   c->s  { type:'join', lobby, role, name, color }
 //   s->c  { type:'welcome', id, lobby, role, players:[...] }
-//   c->s  { type:'state', stage, u,v,z,vu,vv,phase,score,time,progress }   (≤30 Hz)
+//   c->s  { type:'state', stage, u,v,z,vu,vv,phase,score,time,progress,fin,deaths }   (≤30 Hz)
 //   s->c  { type:'tick', players:[{id,role,name,color,stage,u,v,z,vu,vv,phase,score,progress}] }  (20 Hz)
 //   c->s  { type:'bump', targetId, iu, iv }        s->c { type:'bump', from, iu, iv }
 //   c->s  { type:'start', stage }                  s->c { type:'start', stage, by }   (2P race start sync)
@@ -172,7 +172,7 @@ wss.on('connection', (ws, req) => {
   const client = {
     id: 'p_' + crypto.randomBytes(4).toString('hex'), ws, lobbyId, role,
     name: role === 'ai' ? 'AGENT' : `MARBLE ${nextNum++}`, color: COLORS[nextNum % COLORS.length],
-    state: { stage: 1, u: 0, v: 0, z: 0, vu: 0, vv: 0, phase: 'alive', score: 0, time: 0, progress: 0 },
+    state: { stage: 1, u: 0, v: 0, z: 0, vu: 0, vv: 0, phase: 'alive', score: 0, time: 0, progress: 0, fin: 0, deaths: 0 },
     lastSeen: Date.now(), tokens: 60,
   };
   const lobby = lobbyOf(lobbyId);
@@ -194,7 +194,7 @@ wss.on('connection', (ws, req) => {
         break;
       case 'state': {
         const s = client.state;
-        for (const k of ['stage', 'u', 'v', 'z', 'vu', 'vv', 'score', 'time', 'progress']) if (typeof msg[k] === 'number' && Number.isFinite(msg[k])) s[k] = msg[k];
+        for (const k of ['stage', 'u', 'v', 'z', 'vu', 'vv', 'score', 'time', 'progress', 'fin', 'deaths']) if (typeof msg[k] === 'number' && Number.isFinite(msg[k])) s[k] = msg[k];
         if (typeof msg.phase === 'string') s.phase = msg.phase.slice(0, 12);
         break;
       }
