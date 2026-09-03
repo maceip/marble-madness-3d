@@ -18,6 +18,38 @@ export class Screens {
   constructor(private g: Game) {}
 
   menuDelay = 0;
+  authPending: 'github' | 'twitter' | null = null;
+  authCancelTimer = 0;
+  authSuccessTimer = 0;
+
+  setAuthPending(provider: 'github' | 'twitter'): void {
+    this.authPending = provider;
+    this.authCancelTimer = 0;
+    this.authSuccessTimer = 0;
+  }
+
+  startAuthCancelTimer(seconds = 2.0): void {
+    if (this.authPending) {
+      this.authCancelTimer = seconds;
+    }
+  }
+
+  clearAuthPending(): void {
+    this.authPending = null;
+    this.authCancelTimer = 0;
+    localStorage.removeItem('mm_auth_nonce');
+  }
+
+  onAuthSuccess(handle: string): void {
+    this.authPending = null;
+    this.authCancelTimer = 0;
+    this.g.playerName = handle;
+    this.g.sound.sfx('item');
+    if (this.g.screen === 'name') {
+      // Show prefilled handle and proceed to game after brief 500ms confirmation
+      this.authSuccessTimer = 0.5;
+    }
+  }
 
   enter(screen: Screen): void {
     this.idle = 0;
@@ -80,6 +112,14 @@ Instructions for Codex / AI Agent:
     const g = this.g;
     this.blink += dt; this.idle += dt;
     if (this.copiedTimer > 0) this.copiedTimer -= dt;
+    if (this.authCancelTimer > 0) {
+      this.authCancelTimer -= dt;
+      if (this.authCancelTimer <= 0) this.clearAuthPending();
+    }
+    if (this.authSuccessTimer > 0) {
+      this.authSuccessTimer -= dt;
+      if (this.authSuccessTimer <= 0) this.finishName();
+    }
     const presses = g.input.takePresses();
     const clicks = g.input.takeClicks();
     const any = presses.length > 0 || clicks.length > 0;
@@ -183,6 +223,24 @@ Instructions for Codex / AI Agent:
 
   private updateName(presses: string[], clicks: { x: number; y: number }[]): void {
     const g = this.g;
+
+    if (this.authPending) {
+      for (const p of presses) {
+        if (p === 'Escape') {
+          this.clearAuthPending();
+          return;
+        }
+      }
+      return;
+    }
+
+    if (this.authSuccessTimer > 0) {
+      if (presses.length > 0 || clicks.length > 0) {
+        this.finishName();
+        return;
+      }
+    }
+
     const colX = [366, 507, 647, 787, 927, 1067, 1207];
     const rowY = [383, 508, 632, 759];
 
@@ -440,12 +498,28 @@ Instructions for Codex / AI Agent:
       r.screenCtx.font = `bold ${fontSize}px "Courier New", monospace`;
       r.screenCtx.textBaseline = 'middle';
       r.screenCtx.textAlign = 'center';
-      r.screenCtx.fillStyle = '#ffe019';
-      
-      const blinkChar = (Math.floor(this.blink * 3) % 2 === 0) ? '_' : ' ';
-      const displayName = (g.playerName || '').toUpperCase().slice(0, NAME_MAX);
-      const padded = (displayName + blinkChar).padEnd(NAME_MAX, '_');
-      r.screenCtx.fillText(padded, sx(806), sy(895));
+
+      if (this.authPending) {
+        // Draw pulsating highlight over active OAuth button
+        const isGh = this.authPending === 'github';
+        const bx = isGh ? 628 : 751, by = 209, bw = isGh ? 99 : 98, bh = 81;
+        const pulse = 0.5 + 0.5 * Math.sin(this.blink * 10);
+        r.screenCtx.strokeStyle = `rgba(255, 224, 25, ${pulse})`;
+        r.screenCtx.lineWidth = Math.max(2, Math.round(4 * (rh / ih)));
+        r.screenCtx.strokeRect(sx(bx), sy(by), (bw / iw) * rw, (bh / ih) * rh);
+
+        r.screenCtx.fillStyle = '#ffe019';
+        const dots = '.'.repeat(1 + (Math.floor(this.blink * 3) % 3));
+        r.screenCtx.fillText(`CONNECTING${dots}`, sx(806), sy(895));
+      } else {
+        r.screenCtx.fillStyle = '#ffe019';
+        const blinkChar = (Math.floor(this.blink * 3) % 2 === 0) ? '_' : ' ';
+        const isHandle = g.playerName && g.playerName.startsWith('@');
+        const maxLen = isHandle ? 16 : NAME_MAX;
+        const displayName = (g.playerName || '').toUpperCase().slice(0, maxLen);
+        const padded = isHandle ? displayName : (displayName + blinkChar).padEnd(NAME_MAX, '_');
+        r.screenCtx.fillText(padded, sx(806), sy(895));
+      }
     } else {
       r.textC('PLAYER 1', VIEW_W / 2, 30, 'lavender');
       r.textC('ENTER YOUR NAME.', VIEW_W / 2, 46, 'lavender');

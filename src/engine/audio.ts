@@ -27,10 +27,15 @@ const SFX: Record<SfxName, string> = {
   tick: 'marble-062.mp3',
 };
 
+import { TrackballAudio } from './trackball_audio.js';
+
 const ROOT = '/audio/';
 
 export class Sound {
   ctx: AudioContext | null = null;
+  trackballAudio: TrackballAudio | null = null;
+  sfxBus: GainNode | null = null;
+  onInit?: (sound: Sound) => void;
   private buffers = new Map<string, AudioBuffer>();
   private bgmEl: HTMLAudioElement | null = null;
   private bgmKey = '';
@@ -48,10 +53,24 @@ export class Sound {
 
   /** must be called from a user gesture */
   init(): void {
-    if (this.ctx) { if (this.ctx.state === 'suspended') void this.ctx.resume(); return; }
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') void this.ctx.resume();
+      return;
+    }
     try {
-      this.ctx = new AudioContext();
+      this.ctx = new AudioContext({ latencyHint: 'interactive' });
       void this.ctx.resume();
+      this.sfxBus = this.ctx.createGain();
+      this.sfxBus.gain.value = this.muted ? 0 : this.sfxVolume;
+      this.sfxBus.connect(this.ctx.destination);
+
+      // Trackball procedural audio engine wired to SFX bus
+      this.trackballAudio = new TrackballAudio(this.ctx, this.sfxBus, {
+        whineGain: 0.28,  // tuned: sitting at ~-18 dBFS under arcade tunes
+        alphaMax: 45,     // tuned: steady roll is clean; aggressive whips light up chassis rumble
+      });
+      this.trackballAudio.setEnabled(!this.muted && this.sfxVolume > 0);
+      this.onInit?.(this);
     } catch { this.ctx = null; return; }
     for (const [k, f] of Object.entries(SFX)) void this.loadBuffer(k, ROOT + f);
   }
@@ -65,9 +84,31 @@ export class Sound {
     } catch { /* ignore */ }
   }
 
-  setMusicVolume(v: number): void { this.musicVolume = clamp01(v); localStorage.setItem('mm_music', String(v)); if (this.bgmEl) this.bgmEl.volume = this.muted ? 0 : this.musicVolume; }
-  setSfxVolume(v: number): void { this.sfxVolume = clamp01(v); localStorage.setItem('mm_sfx', String(v)); }
-  setMuted(m: boolean): void { this.muted = m; localStorage.setItem('mm_muted', m ? '1' : '0'); if (this.bgmEl) this.bgmEl.volume = m ? 0 : this.musicVolume; if (m) { this.stopRoll(); this.stopTrackballRoll(); } }
+  setMusicVolume(v: number): void {
+    this.musicVolume = clamp01(v);
+    localStorage.setItem('mm_music', String(v));
+    if (this.bgmEl) this.bgmEl.volume = this.muted ? 0 : this.musicVolume;
+  }
+
+  setSfxVolume(v: number): void {
+    this.sfxVolume = clamp01(v);
+    localStorage.setItem('mm_sfx', String(v));
+    if (this.sfxBus && this.ctx) {
+      this.sfxBus.gain.setTargetAtTime(this.muted ? 0 : this.sfxVolume, this.ctx.currentTime, 0.02);
+    }
+    this.trackballAudio?.setEnabled(!this.muted && this.sfxVolume > 0);
+  }
+
+  setMuted(m: boolean): void {
+    this.muted = m;
+    localStorage.setItem('mm_muted', m ? '1' : '0');
+    if (this.bgmEl) this.bgmEl.volume = m ? 0 : this.musicVolume;
+    if (this.sfxBus && this.ctx) {
+      this.sfxBus.gain.setTargetAtTime(m ? 0 : this.sfxVolume, this.ctx.currentTime, 0.02);
+    }
+    this.trackballAudio?.setEnabled(!m && this.sfxVolume > 0);
+    if (m) { this.stopRoll(); this.stopTrackballRoll(); }
+  }
 
   playBgm(key: string, loop = true): void {
     const file = BGM[key]; if (!file) return;

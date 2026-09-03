@@ -62,7 +62,8 @@ async function boot(): Promise<void> {
   }
 
   // first gesture unlocks audio
-  const unlock = () => { sound.init(); };
+  sound.onInit = (s) => { input.trackball.audio = s.trackballAudio; };
+  const unlock = () => { sound.init(); if (sound.trackballAudio) input.trackball.audio = sound.trackballAudio; };
   window.addEventListener('keydown', unlock, { once: true });
   canvas.addEventListener('mousedown', unlock, { once: true });
   canvas.addEventListener('touchstart', unlock, { once: true });
@@ -102,6 +103,7 @@ async function boot(): Promise<void> {
   const applyUser = (handle: string, provider = 'twitter') => {
     (window as any).__MM__ = { ...((window as any).__MM__ || {}), user: handle };
     game.playerName = handle;
+    game.screens.onAuthSuccess(handle);
   };
   const user = (window as any).__MM__?.user;
   if (user) {
@@ -110,12 +112,16 @@ async function boot(): Promise<void> {
 
   // Global triggerAuth callable from in-game canvas pickname screen
   (window as any).triggerAuth = (provider: 'github' | 'twitter') => {
+    game.screens.setAuthPending(provider);
     const nb = (window as any).NativeBridge as { launchAuth?(url: string): string } | undefined;
     if (nb && nb.launchAuth) {
       const nonce = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, '0')).join('');
       localStorage.setItem('mm_auth_nonce', nonce);
       const err = nb.launchAuth(`${location.origin}/auth/${provider}?app=${nonce}`);
-      if (err) console.warn('[auth] could not open browser:', err);
+      if (err) {
+        console.warn('[auth] could not open browser:', err);
+        game.screens.clearAuthPending();
+      }
     } else {
       window.location.href = `/auth/${provider}`;
     }
@@ -129,22 +135,39 @@ async function boot(): Promise<void> {
     window.addEventListener('contextmenu', (e) => e.preventDefault());
     // Custom Tab lifecycle from the host (1 started, 2 finished, 3 failed, 4 aborted, 5 shown, 6 hidden)
     (window as any).onAuthTabEvent = (event: number) => {
-      if (event === 6 && localStorage.getItem('mm_auth_nonce')) console.info('[auth] login tab hidden; waiting for the redirect or the user to retry');
+      if (event === 6) {
+        if (localStorage.getItem('mm_auth_nonce')) {
+          console.info('[auth] login tab hidden; waiting for redirect or cancel timeout');
+          game.screens.startAuthCancelTimer(2.0);
+        } else {
+          game.screens.clearAuthPending();
+        }
+      }
     };
     (window as any).onAuthComplete = () => {
       const raw = nb.takeAuthResult?.();
       if (!raw) return;
       try {
         const r = JSON.parse(raw) as { user?: string; provider?: string; state?: string; error?: string };
-        if (r.state !== localStorage.getItem('mm_auth_nonce')) { console.warn('[auth] result rejected: nonce mismatch'); return; }
+        if (r.state !== localStorage.getItem('mm_auth_nonce')) {
+          console.warn('[auth] result rejected: nonce mismatch. got:', r.state, 'expected:', localStorage.getItem('mm_auth_nonce'));
+          return;
+        }
         localStorage.removeItem('mm_auth_nonce');
-        if (r.error || !r.user) { console.warn('[auth] login failed:', r.error); return; }
+        if (r.error || !r.user) {
+          console.warn('[auth] login failed:', r.error);
+          game.screens.clearAuthPending();
+          return;
+        }
         // same display cookie the web flow sets, so the server injects __MM__.user next time too
         document.cookie = `mm_user=${encodeURIComponent(r.user)}; Path=/; Max-Age=2592000; SameSite=Lax`;
         applyUser(r.user, r.provider || 'twitter');
         input.trackball.vibrate(8);
         trackEvent('login', { provider: r.provider || 'twitter' });
-      } catch (err) { console.warn('[auth] bad result', err); }
+      } catch (err) {
+        console.warn('[auth] bad result', err);
+        game.screens.clearAuthPending();
+      }
     };
     (window as any).onAuthComplete();        // cold start straight from the redirect
     nb.onWebReady?.();                       // the host may lift its native title overlay now

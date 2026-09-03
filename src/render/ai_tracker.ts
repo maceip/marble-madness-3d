@@ -248,7 +248,7 @@ export class AITrackerOverlay {
     const by = tagY - badgeH / 2;
 
     const bevel = 6;
-    const badgePts = [
+    const badgePts: [number, number][] = [
       [bx + bevel, by],
       [bx + badgeW - bevel, by],
       [bx + badgeW, by + bevel],

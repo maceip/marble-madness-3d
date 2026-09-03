@@ -11,12 +11,11 @@ for (const [n, p] of [['human', human], ['agent', agent]]) p.on('pageerror', (e)
 await human.goto('http://127.0.0.1:3000/');
 await human.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
 const lobby = await human.evaluate(() => window.game.lobbyId);
-await human.keyboard.press('Enter'); await human.waitForTimeout(150);
-await human.keyboard.press('Enter'); await human.waitForTimeout(150);
-await human.keyboard.press('ArrowDown'); await human.keyboard.press('Enter'); await human.waitForTimeout(150);
+await human.keyboard.press('Enter'); await human.waitForTimeout(450);   // title -> menu (wait for debounce)
+await human.keyboard.press('ArrowDown'); await human.waitForTimeout(150); // select 2 PLAYERS
+await human.keyboard.press('Enter'); await human.waitForTimeout(450);   // menu -> name screen
 for (const k of ['KeyR', 'KeyE', 'KeyX']) await human.keyboard.press(k);
-await human.keyboard.press('Enter'); await human.waitForTimeout(150);
-await human.keyboard.press('Enter'); await human.waitForTimeout(400);
+await human.keyboard.press('Enter'); await human.waitForTimeout(500);   // confirm name -> connect screen
 await agent.goto(`http://127.0.0.1:3000/${lobby}`);
 await agent.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
 for (const p of [human, agent]) await p.waitForFunction(() => window.game.screen === 'race', null, { timeout: 30000 });

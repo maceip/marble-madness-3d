@@ -9,6 +9,8 @@
  * - Web Haptics (breakout click, bearing encoder ratchet ticks, counter-brake buzz).
  */
 
+import type { TrackballAudio } from './trackball_audio.js';
+
 export interface TrackballOptions {
   radius?: number;          // virtual touch radius in px (default 70)
   friction?: number;        // bearing friction coefficient (default 3.2)
@@ -40,6 +42,7 @@ export class Trackball {
   stictionPx: number;
   hapticStepRad: number;
   enableHaptics = true;
+  audio: TrackballAudio | null = null;
 
   // Stiction state
   private dragAccumPx = 0;
@@ -74,9 +77,11 @@ export class Trackball {
   startDrag(): void {
     this.dragging = true;
     this.dragAccumPx = 0;
+    const speed = Math.hypot(this.wx, this.wy);
     // If ball is already spinning fast, breakout is already broken
-    this.brokenOut = Math.hypot(this.wx, this.wy) > 1.5;
-    try { this.engine?.tbDown(Math.hypot(this.wx, this.wy)); } catch { /* bridge gone */ }
+    this.brokenOut = speed > 1.5;
+    this.audio?.onGrab(speed);
+    try { this.engine?.tbDown(speed); } catch { /* bridge gone */ }
   }
 
   /**
@@ -91,6 +96,7 @@ export class Trackball {
       this.dragAccumPx += dist;
       if (this.dragAccumPx >= this.stictionPx) {
         this.brokenOut = true;
+        this.audio?.onBreakout();
         const eng = this.engine;
         if (eng) { try { eng.tbBreakout(); } catch { /* bridge gone */ } } else this.vibrate(8); // Crisp breakout click
       } else {
@@ -112,6 +118,7 @@ export class Trackball {
     const eng = this.engine;
     if (currentSpeed > 2.5 && targetSpeed > 1.2 && dot < -0.25 * currentSpeed * targetSpeed) {
       // Counter-braking! Palm on the heavy ball absorbs momentum
+      this.audio?.onBrake(currentSpeed);
       this.wx *= 0.55;
       this.wy *= 0.55;
       if (eng) { try { eng.tbBrake(currentSpeed); } catch { /* bridge gone */ } } else this.vibrate([8, 12, 8]);
@@ -132,6 +139,7 @@ export class Trackball {
   endDrag(): void {
     this.dragging = false;
     this.brokenOut = false;
+    this.audio?.onRelease();
     try { this.engine?.tbUp(); } catch { /* bridge gone */ }   // silence at once: the ball is now free of the hand
   }
 
@@ -205,6 +213,8 @@ export class Trackball {
       this.hapticAccumRad = 0;
       this.brokenOut = false;
     }
+
+    this.audio?.update(this.wx, this.wy, dt);
   }
 
   /**

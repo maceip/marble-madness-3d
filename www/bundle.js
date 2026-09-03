@@ -2196,6 +2196,7 @@ var Trackball = class {
   stictionPx;
   hapticStepRad;
   enableHaptics = true;
+  audio = null;
   // Stiction state
   dragAccumPx = 0;
   brokenOut = false;
@@ -2225,9 +2226,11 @@ var Trackball = class {
   startDrag() {
     this.dragging = true;
     this.dragAccumPx = 0;
-    this.brokenOut = Math.hypot(this.wx, this.wy) > 1.5;
+    const speed = Math.hypot(this.wx, this.wy);
+    this.brokenOut = speed > 1.5;
+    this.audio?.onGrab(speed);
     try {
-      this.engine?.tbDown(Math.hypot(this.wx, this.wy));
+      this.engine?.tbDown(speed);
     } catch {
     }
   }
@@ -2242,6 +2245,7 @@ var Trackball = class {
       this.dragAccumPx += dist2;
       if (this.dragAccumPx >= this.stictionPx) {
         this.brokenOut = true;
+        this.audio?.onBreakout();
         const eng2 = this.engine;
         if (eng2) {
           try {
@@ -2261,6 +2265,7 @@ var Trackball = class {
     const targetSpeed = Math.hypot(targetWx, targetWy);
     const eng = this.engine;
     if (currentSpeed > 2.5 && targetSpeed > 1.2 && dot < -0.25 * currentSpeed * targetSpeed) {
+      this.audio?.onBrake(currentSpeed);
       this.wx *= 0.55;
       this.wy *= 0.55;
       if (eng) {
@@ -2288,6 +2293,7 @@ var Trackball = class {
   endDrag() {
     this.dragging = false;
     this.brokenOut = false;
+    this.audio?.onRelease();
     try {
       this.engine?.tbUp();
     } catch {
@@ -2346,6 +2352,7 @@ var Trackball = class {
       this.hapticAccumRad = 0;
       this.brokenOut = false;
     }
+    this.audio?.update(this.wx, this.wy, dt);
   }
   /**
    * Returns normalized steering vector for marble physics (-1..1 in screen space).
@@ -2700,6 +2707,213 @@ var Input = class {
   }
 };
 
+// src/engine/trackball_audio.ts
+var DEFAULT_TUNING = {
+  maxOmega: 32,
+  whineGain: 0.35,
+  whineF1: 420,
+  whineF2: 1280,
+  whineQ: 14,
+  pitchMin: 0.6,
+  pitchMax: 2.2,
+  growlGain: 0.18,
+  rumbleGain: 0.45,
+  alphaMax: 40,
+  rumbleAttack: 5e-3,
+  rumbleRelease: 0.12,
+  slapGain: 0.6,
+  slapOmegaRef: 15,
+  tickGain: 0,
+  tickStepRad: Math.PI / 30,
+  tickMaxHz: 35
+};
+function pinkNoiseBuffer(ctx, seconds = 2) {
+  const n = Math.floor(ctx.sampleRate * seconds);
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, peak = 0;
+  for (let i = 0; i < n; i++) {
+    const w = Math.random() * 2 - 1;
+    b0 = 0.99886 * b0 + w * 0.0555179;
+    b1 = 0.99332 * b1 + w * 0.0750759;
+    b2 = 0.969 * b2 + w * 0.153852;
+    b3 = 0.8665 * b3 + w * 0.3104856;
+    b4 = 0.55 * b4 + w * 0.5329522;
+    b5 = -0.7616 * b5 - w * 0.016898;
+    const p = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362;
+    b6 = w * 0.115926;
+    d[i] = p;
+    if (Math.abs(p) > peak) peak = Math.abs(p);
+  }
+  const k = 0.25 / (peak || 1);
+  for (let i = 0; i < n; i++) d[i] *= k;
+  return buf;
+}
+function whiteBurstBuffer(ctx, seconds = 0.05) {
+  const n = Math.floor(ctx.sampleRate * seconds);
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * 0.8;
+  return buf;
+}
+var TrackballAudio = class {
+  constructor(ctx, destination, tuning = {}) {
+    this.ctx = ctx;
+    this.t = { ...DEFAULT_TUNING, ...tuning };
+    this.out = ctx.createGain();
+    this.out.gain.value = 1;
+    this.out.connect(destination);
+    this.burst = whiteBurstBuffer(ctx);
+    this.noise = ctx.createBufferSource();
+    this.noise.buffer = pinkNoiseBuffer(ctx);
+    this.noise.loop = true;
+    this.noise.start(0, Math.random() * 1.5);
+    this.res1 = ctx.createBiquadFilter();
+    this.res1.type = "bandpass";
+    this.res1.frequency.value = this.t.whineF1;
+    this.res1.Q.value = this.t.whineQ;
+    this.res2 = ctx.createBiquadFilter();
+    this.res2.type = "bandpass";
+    this.res2.frequency.value = this.t.whineF2;
+    this.res2.Q.value = this.t.whineQ;
+    this.growl = ctx.createBiquadFilter();
+    this.growl.type = "bandpass";
+    this.growl.frequency.value = 180;
+    this.growl.Q.value = 1.2;
+    const growlGain = ctx.createGain();
+    growlGain.gain.value = this.t.growlGain;
+    this.whineGain = ctx.createGain();
+    this.whineGain.gain.value = 0;
+    this.pan = ctx.createStereoPanner();
+    this.noise.connect(this.res1).connect(this.whineGain);
+    this.noise.connect(this.res2).connect(this.whineGain);
+    this.noise.connect(this.growl).connect(growlGain).connect(this.whineGain);
+    this.whineGain.connect(this.pan).connect(this.out);
+    this.rumbleLP1 = ctx.createBiquadFilter();
+    this.rumbleLP1.type = "lowpass";
+    this.rumbleLP1.frequency.value = 180;
+    this.rumbleLP1.Q.value = 0.9;
+    this.rumbleLP2 = ctx.createBiquadFilter();
+    this.rumbleLP2.type = "lowpass";
+    this.rumbleLP2.frequency.value = 180;
+    this.rumbleLP2.Q.value = 0.9;
+    this.rumbleGain = ctx.createGain();
+    this.rumbleGain.gain.value = 0;
+    this.noise.connect(this.rumbleLP1).connect(this.rumbleLP2).connect(this.rumbleGain).connect(this.out);
+  }
+  out;
+  enabled = true;
+  t;
+  noise;
+  burst;
+  // layer 1: whine (two resonators) + growl
+  res1;
+  res2;
+  growl;
+  whineGain;
+  pan;
+  // layer 2: rumble
+  rumbleLP1;
+  rumbleLP2;
+  rumbleGain;
+  // state
+  lastSpeed = 0;
+  alphaEnv = 0;
+  tickAccum = 0;
+  lastTickAt = 0;
+  setEnabled(on) {
+    this.enabled = on;
+    if (!on) {
+      this.whineGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.02);
+      this.rumbleGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.02);
+    }
+  }
+  /**
+   * Call once per frame after the physics step. wx/wy in rad/s (screen-down and screen-right), dt in seconds.
+   * Pitch and level of the whine follow speed; the rumble follows how fast the speed is changing.
+   */
+  update(wx, wy, dt) {
+    if (!this.enabled || dt <= 0) return;
+    const now = this.ctx.currentTime;
+    const speed = Math.hypot(wx, wy);
+    const s = Math.min(1, speed / this.t.maxOmega);
+    const ratio = this.t.pitchMin + (this.t.pitchMax - this.t.pitchMin) * s;
+    this.res1.frequency.setTargetAtTime(this.t.whineF1 * ratio, now, 0.03);
+    this.res2.frequency.setTargetAtTime(this.t.whineF2 * ratio, now, 0.03);
+    this.growl.frequency.setTargetAtTime(120 + 180 * s, now, 0.03);
+    const level = speed < 0.3 ? 0 : this.t.whineGain * Math.pow(s, 1.2);
+    this.whineGain.gain.setTargetAtTime(level, now, 0.03);
+    this.pan.pan.setTargetAtTime(speed > 0.3 ? Math.max(-0.6, Math.min(0.6, wy / speed * 0.6)) : 0, now, 0.05);
+    const alpha = Math.abs(speed - this.lastSpeed) / dt;
+    this.lastSpeed = speed;
+    const target = Math.min(1, alpha / this.t.alphaMax);
+    const tc = target > this.alphaEnv ? this.t.rumbleAttack : this.t.rumbleRelease;
+    this.alphaEnv += (target - this.alphaEnv) * Math.min(1, dt / tc);
+    this.rumbleGain.gain.setTargetAtTime(this.t.rumbleGain * this.alphaEnv, now, 0.01);
+    if (this.t.tickGain > 0 && speed > 0.3) {
+      this.tickAccum += speed * dt;
+      if (this.tickAccum >= this.t.tickStepRad) {
+        this.tickAccum %= this.t.tickStepRad;
+        if (now - this.lastTickAt >= 1 / this.t.tickMaxHz) {
+          this.lastTickAt = now;
+          this.transient(3e3, 1.5, 2e-3, this.t.tickGain * (0.3 + 0.7 * s));
+        }
+      }
+    } else this.tickAccum = 0;
+  }
+  /** finger lands on the ball; omega = its speed at that moment (slap only if it was actually spinning) */
+  onGrab(omega) {
+    if (!this.enabled || omega < 2) return;
+    const k = Math.sqrt(Math.min(1, omega / this.t.slapOmegaRef));
+    this.transient(2500, 0.8, 0.012, this.t.slapGain * k);
+    this.clunk(90, 0.04, this.t.slapGain * 0.8 * k);
+  }
+  /** static friction broke: a soft mechanical tock */
+  onBreakout() {
+    if (this.enabled) this.transient(200, 2, 8e-3, 0.15);
+  }
+  /** spinning the ball against its motion: a short scrub plus a clunk */
+  onBrake(omega) {
+    if (!this.enabled) return;
+    const k = Math.min(1, omega / this.t.maxOmega);
+    this.transient(3e3, 0.7, 0.06, 0.25 + 0.35 * k);
+    this.clunk(110, 0.03, 0.3 * k);
+  }
+  /** finger lifted: nothing to play; the whine keeps following ω as the physics decays */
+  onRelease() {
+  }
+  // ---- one-shots -------------------------------------------------------------------------------------------
+  transient(centreHz, q, seconds, gain) {
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.burst;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = centreHz;
+    bp.Q.value = q;
+    const g = this.ctx.createGain();
+    const now = this.ctx.currentTime;
+    g.gain.setValueAtTime(gain, now);
+    g.gain.exponentialRampToValueAtTime(1e-3, now + seconds);
+    src.connect(bp).connect(g).connect(this.out);
+    src.start(now);
+    src.stop(now + seconds + 5e-3);
+  }
+  clunk(hz, seconds, gain) {
+    const osc = this.ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = hz;
+    const g = this.ctx.createGain();
+    const now = this.ctx.currentTime;
+    g.gain.setValueAtTime(gain, now);
+    g.gain.exponentialRampToValueAtTime(1e-3, now + seconds);
+    osc.frequency.setValueAtTime(hz * 1.4, now);
+    osc.frequency.exponentialRampToValueAtTime(hz, now + seconds * 0.5);
+    osc.connect(g).connect(this.out);
+    osc.start(now);
+    osc.stop(now + seconds + 5e-3);
+  }
+};
+
 // src/engine/audio.ts
 var BGM = {
   practice: "bgm/practice-race.mp3",
@@ -2725,6 +2939,9 @@ var SFX = {
 var ROOT = "/audio/";
 var Sound = class {
   ctx = null;
+  trackballAudio = null;
+  sfxBus = null;
+  onInit;
   buffers = /* @__PURE__ */ new Map();
   bgmEl = null;
   bgmKey = "";
@@ -2747,8 +2964,19 @@ var Sound = class {
       return;
     }
     try {
-      this.ctx = new AudioContext();
+      this.ctx = new AudioContext({ latencyHint: "interactive" });
       void this.ctx.resume();
+      this.sfxBus = this.ctx.createGain();
+      this.sfxBus.gain.value = this.muted ? 0 : this.sfxVolume;
+      this.sfxBus.connect(this.ctx.destination);
+      this.trackballAudio = new TrackballAudio(this.ctx, this.sfxBus, {
+        whineGain: 0.28,
+        // tuned: sitting at ~-18 dBFS under arcade tunes
+        alphaMax: 45
+        // tuned: steady roll is clean; aggressive whips light up chassis rumble
+      });
+      this.trackballAudio.setEnabled(!this.muted && this.sfxVolume > 0);
+      this.onInit?.(this);
     } catch {
       this.ctx = null;
       return;
@@ -2773,11 +3001,19 @@ var Sound = class {
   setSfxVolume(v) {
     this.sfxVolume = clamp01(v);
     localStorage.setItem("mm_sfx", String(v));
+    if (this.sfxBus && this.ctx) {
+      this.sfxBus.gain.setTargetAtTime(this.muted ? 0 : this.sfxVolume, this.ctx.currentTime, 0.02);
+    }
+    this.trackballAudio?.setEnabled(!this.muted && this.sfxVolume > 0);
   }
   setMuted(m) {
     this.muted = m;
     localStorage.setItem("mm_muted", m ? "1" : "0");
     if (this.bgmEl) this.bgmEl.volume = m ? 0 : this.musicVolume;
+    if (this.sfxBus && this.ctx) {
+      this.sfxBus.gain.setTargetAtTime(m ? 0 : this.sfxVolume, this.ctx.currentTime, 0.02);
+    }
+    this.trackballAudio?.setEnabled(!m && this.sfxVolume > 0);
     if (m) {
       this.stopRoll();
       this.stopTrackballRoll();
@@ -4826,6 +5062,33 @@ var Screens = class {
   rain = [];
   connectVisible = false;
   menuDelay = 0;
+  authPending = null;
+  authCancelTimer = 0;
+  authSuccessTimer = 0;
+  setAuthPending(provider) {
+    this.authPending = provider;
+    this.authCancelTimer = 0;
+    this.authSuccessTimer = 0;
+  }
+  startAuthCancelTimer(seconds = 2) {
+    if (this.authPending) {
+      this.authCancelTimer = seconds;
+    }
+  }
+  clearAuthPending() {
+    this.authPending = null;
+    this.authCancelTimer = 0;
+    localStorage.removeItem("mm_auth_nonce");
+  }
+  onAuthSuccess(handle) {
+    this.authPending = null;
+    this.authCancelTimer = 0;
+    this.g.playerName = handle;
+    this.g.sound.sfx("item");
+    if (this.g.screen === "name") {
+      this.authSuccessTimer = 0.5;
+    }
+  }
   enter(screen) {
     this.idle = 0;
     if (screen === "menu") {
@@ -4889,6 +5152,14 @@ Instructions for Codex / AI Agent:
     this.blink += dt;
     this.idle += dt;
     if (this.copiedTimer > 0) this.copiedTimer -= dt;
+    if (this.authCancelTimer > 0) {
+      this.authCancelTimer -= dt;
+      if (this.authCancelTimer <= 0) this.clearAuthPending();
+    }
+    if (this.authSuccessTimer > 0) {
+      this.authSuccessTimer -= dt;
+      if (this.authSuccessTimer <= 0) this.finishName();
+    }
     const presses = g.input.takePresses();
     const clicks = g.input.takeClicks();
     const any = presses.length > 0 || clicks.length > 0;
@@ -5015,6 +5286,21 @@ Instructions for Codex / AI Agent:
   }
   updateName(presses, clicks) {
     const g = this.g;
+    if (this.authPending) {
+      for (const p of presses) {
+        if (p === "Escape") {
+          this.clearAuthPending();
+          return;
+        }
+      }
+      return;
+    }
+    if (this.authSuccessTimer > 0) {
+      if (presses.length > 0 || clicks.length > 0) {
+        this.finishName();
+        return;
+      }
+    }
     const colX = [366, 507, 647, 787, 927, 1067, 1207];
     const rowY = [383, 508, 632, 759];
     const img = g.assets.screenCache.get("pickname_base") || g.assets.screenCache.get("pickname");
@@ -5277,11 +5563,25 @@ Instructions for Codex / AI Agent:
       r.screenCtx.font = `bold ${fontSize}px "Courier New", monospace`;
       r.screenCtx.textBaseline = "middle";
       r.screenCtx.textAlign = "center";
-      r.screenCtx.fillStyle = "#ffe019";
-      const blinkChar = Math.floor(this.blink * 3) % 2 === 0 ? "_" : " ";
-      const displayName = (g.playerName || "").toUpperCase().slice(0, NAME_MAX);
-      const padded = (displayName + blinkChar).padEnd(NAME_MAX, "_");
-      r.screenCtx.fillText(padded, sx(806), sy(895));
+      if (this.authPending) {
+        const isGh = this.authPending === "github";
+        const bx = isGh ? 628 : 751, by = 209, bw = isGh ? 99 : 98, bh = 81;
+        const pulse = 0.5 + 0.5 * Math.sin(this.blink * 10);
+        r.screenCtx.strokeStyle = `rgba(255, 224, 25, ${pulse})`;
+        r.screenCtx.lineWidth = Math.max(2, Math.round(4 * (rh / ih)));
+        r.screenCtx.strokeRect(sx(bx), sy(by), bw / iw * rw, bh / ih * rh);
+        r.screenCtx.fillStyle = "#ffe019";
+        const dots = ".".repeat(1 + Math.floor(this.blink * 3) % 3);
+        r.screenCtx.fillText(`CONNECTING${dots}`, sx(806), sy(895));
+      } else {
+        r.screenCtx.fillStyle = "#ffe019";
+        const blinkChar = Math.floor(this.blink * 3) % 2 === 0 ? "_" : " ";
+        const isHandle = g.playerName && g.playerName.startsWith("@");
+        const maxLen = isHandle ? 16 : NAME_MAX;
+        const displayName = (g.playerName || "").toUpperCase().slice(0, maxLen);
+        const padded = isHandle ? displayName : (displayName + blinkChar).padEnd(NAME_MAX, "_");
+        r.screenCtx.fillText(padded, sx(806), sy(895));
+      }
     } else {
       r.textC("PLAYER 1", VIEW_W / 2, 30, "lavender");
       r.textC("ENTER YOUR NAME.", VIEW_W / 2, 46, "lavender");
@@ -6171,6 +6471,9 @@ var Game = class {
     this.net.onLeaderboard = (top) => {
       if (top.length) this.rollers = top.slice(0, 10).map((e, i) => ({ name: e.name, score: e.score, intelligence: e.intelligence || "Natural", rank: e.rank ?? i + 1 }));
     };
+    this.sound.onInit = (s) => {
+      this.input.trackball.audio = s.trackballAudio;
+    };
     this.webmcp = new WebMCP(this);
   }
   screen = "boot";
@@ -6962,10 +7265,10 @@ var Game = class {
       const info = this.remoteInfo.get(id);
       if (info?.role === "ai" || this.mode === "ai" && !this.isAgentPage) continue;
       const p = r.project(o.u, o.v, o.z);
-      const tag = info?.role === "ai" ? "AI" : (info?.name ?? "P2").slice(0, 6);
+      const tag = (info?.name ?? "P2").slice(0, 6);
       const w = r.font.width(tag) + 4;
       const bx = Math.round(p.x - w / 2), by = p.y - 34;
-      r.ctx.strokeStyle = info?.role === "ai" ? "#ff5a5a" : "#8a90e6";
+      r.ctx.strokeStyle = "#8a90e6";
       r.ctx.lineWidth = 1;
       r.ctx.beginPath();
       r.ctx.moveTo(p.x + 0.5, by + 10);
@@ -6974,7 +7277,7 @@ var Game = class {
       r.ctx.fillStyle = "#000";
       r.ctx.fillRect(bx, by, w, 10);
       r.ctx.strokeRect(bx + 0.5, by + 0.5, w - 1, 9);
-      r.font.draw(r.ctx, tag, bx + 2, by + 1, info?.role === "ai" ? "orange" : "lavender");
+      r.font.draw(r.ctx, tag, bx + 2, by + 1, "lavender");
     }
     const labels = [];
     for (const p of this.popups) labels.push({ text: p.text, u: p.u, v: p.v, z: p.z, dy: -20 - Math.min(6, p.t * 6) });
@@ -7618,8 +7921,12 @@ async function boot() {
       input.trackball.enableHaptics = vh.checked;
     };
   }
+  sound.onInit = (s) => {
+    input.trackball.audio = s.trackballAudio;
+  };
   const unlock = () => {
     sound.init();
+    if (sound.trackballAudio) input.trackball.audio = sound.trackballAudio;
   };
   window.addEventListener("keydown", unlock, { once: true });
   canvas.addEventListener("mousedown", unlock, { once: true });
@@ -7665,18 +7972,23 @@ async function boot() {
   const applyUser = (handle, provider = "twitter") => {
     window.__MM__ = { ...window.__MM__ || {}, user: handle };
     game.playerName = handle;
+    game.screens.onAuthSuccess(handle);
   };
   const user = window.__MM__?.user;
   if (user) {
     game.playerName = user;
   }
   window.triggerAuth = (provider) => {
+    game.screens.setAuthPending(provider);
     const nb2 = window.NativeBridge;
     if (nb2 && nb2.launchAuth) {
       const nonce = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
       localStorage.setItem("mm_auth_nonce", nonce);
       const err = nb2.launchAuth(`${location.origin}/auth/${provider}?app=${nonce}`);
-      if (err) console.warn("[auth] could not open browser:", err);
+      if (err) {
+        console.warn("[auth] could not open browser:", err);
+        game.screens.clearAuthPending();
+      }
     } else {
       window.location.href = `/auth/${provider}`;
     }
@@ -7685,7 +7997,14 @@ async function boot() {
   if (nb) {
     window.addEventListener("contextmenu", (e) => e.preventDefault());
     window.onAuthTabEvent = (event) => {
-      if (event === 6 && localStorage.getItem("mm_auth_nonce")) console.info("[auth] login tab hidden; waiting for the redirect or the user to retry");
+      if (event === 6) {
+        if (localStorage.getItem("mm_auth_nonce")) {
+          console.info("[auth] login tab hidden; waiting for redirect or cancel timeout");
+          game.screens.startAuthCancelTimer(2);
+        } else {
+          game.screens.clearAuthPending();
+        }
+      }
     };
     window.onAuthComplete = () => {
       const raw = nb.takeAuthResult?.();
@@ -7693,12 +8012,13 @@ async function boot() {
       try {
         const r = JSON.parse(raw);
         if (r.state !== localStorage.getItem("mm_auth_nonce")) {
-          console.warn("[auth] result rejected: nonce mismatch");
+          console.warn("[auth] result rejected: nonce mismatch. got:", r.state, "expected:", localStorage.getItem("mm_auth_nonce"));
           return;
         }
         localStorage.removeItem("mm_auth_nonce");
         if (r.error || !r.user) {
           console.warn("[auth] login failed:", r.error);
+          game.screens.clearAuthPending();
           return;
         }
         document.cookie = `mm_user=${encodeURIComponent(r.user)}; Path=/; Max-Age=2592000; SameSite=Lax`;
@@ -7707,6 +8027,7 @@ async function boot() {
         trackEvent("login", { provider: r.provider || "twitter" });
       } catch (err) {
         console.warn("[auth] bad result", err);
+        game.screens.clearAuthPending();
       }
     };
     window.onAuthComplete();

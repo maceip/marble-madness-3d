@@ -117,6 +117,7 @@ export class Game {
     this.net.onStart = (stage) => { if (this.isAgentPage) { this.sound.init(); this.newGame(Math.max(0, stage - 1)); } };
     this.net.onBump = (iu, iv) => { this.marble.impU += iu; this.marble.impV += iv; this.sound.sfx('bounce', 0.6); };
     this.net.onLeaderboard = (top) => { if (top.length) this.rollers = top.slice(0, 10).map((e, i) => ({ name: e.name, score: e.score, intelligence: (e as any).intelligence || 'Natural', rank: (e as any).rank ?? (i + 1) })); };
+    this.sound.onInit = (s) => { this.input.trackball.audio = s.trackballAudio; };
     this.webmcp = new WebMCP(this);
   }
 
@@ -787,14 +788,14 @@ export class Game {
       const info = this.remoteInfo.get(id);
       if (info?.role === 'ai' || (this.mode === 'ai' && !this.isAgentPage)) continue;
       const p = r.project(o.u, o.v, o.z);
-      const tag = info?.role === 'ai' ? 'AI' : (info?.name ?? 'P2').slice(0, 6);
+      const tag = (info?.name ?? 'P2').slice(0, 6);
       const w = r.font.width(tag) + 4;
       const bx = Math.round(p.x - w / 2), by = p.y - 34;
-      r.ctx.strokeStyle = info?.role === 'ai' ? '#ff5a5a' : '#8a90e6'; r.ctx.lineWidth = 1;
+      r.ctx.strokeStyle = '#8a90e6'; r.ctx.lineWidth = 1;
       r.ctx.beginPath(); r.ctx.moveTo(p.x + 0.5, by + 10); r.ctx.lineTo(p.x + 0.5, p.y - 14); r.ctx.stroke();
       r.ctx.fillStyle = '#000'; r.ctx.fillRect(bx, by, w, 10);
       r.ctx.strokeRect(bx + 0.5, by + 0.5, w - 1, 9);
-      r.font.draw(r.ctx, tag, bx + 2, by + 1, info?.role === 'ai' ? 'orange' : 'lavender');
+      r.font.draw(r.ctx, tag, bx + 2, by + 1, 'lavender');
     }
 
     const labels: Label[] = [];

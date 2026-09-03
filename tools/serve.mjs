@@ -41,16 +41,16 @@ if (typeof process.loadEnvFile === 'function') {
 }
 
 const PORT = +(process.env.PORT || 3000);
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '0.0.0.0';
 const PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN || '';
 const LEADERBOARD_FILE = process.env.LEADERBOARD_FILE || path.join(root, 'data', 'leaderboard.json');
 
-const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID || 'ZHdzYWFaOFNQRjlwM0xnSVZKQV86MTpjaQ';
-const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET || 'tZ8QtN6IiElwc4kUCFAo3u02lVow3C74YgYKgRingf0AZhOJ0V';
+const TWITTER_CLIENT_ID = process.env.TWITTER_CLIENT_ID || '';
+const TWITTER_CLIENT_SECRET = process.env.TWITTER_CLIENT_SECRET || '';
 const TWITTER_CALLBACK = process.env.TWITTER_CALLBACK || 'https://marbles.secure.build/callback/twitter';
 
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || 'Ov23li0rwXID5O8ZxfGZ';
-const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || 'bb5f0f61d78d0f11e475b62c4f064e3e61ce06cc';
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || '';
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || '';
 const GITHUB_CALLBACK = process.env.GITHUB_CALLBACK || 'https://marbles.secure.build/callback/github';
 /** custom scheme the Android host registers (see tiny-apk-haptics/): <scheme>://oauth-callback */
 const APP_SCHEME = process.env.APP_SCHEME || 'marbles';
@@ -160,7 +160,7 @@ function parseCookies(req) {
 function serveFile(res, filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const st = statSync(filePath);
-  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Content-Length': st.size, 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300' });
+  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Content-Length': st.size, 'Cache-Control': (ext === '.html' || ext === '.js') ? 'no-cache' : 'public, max-age=300' });
   createReadStream(filePath).pipe(res);
 }
 function serveIndex(req, res, lobbyFromPath) {
