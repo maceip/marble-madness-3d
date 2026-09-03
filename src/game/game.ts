@@ -5,6 +5,7 @@ import { Sound } from '../engine/audio';
 import { Marble, MarbleEvent } from '../engine/physics';
 import { StageDef, zonesAt, pipeAt, topAt, HeightMap, attachHeightMap, HmComponent, supportAt, highestBelow, inRect, heightOn } from '../engine/level';
 import { toWorld } from '../engine/iso';
+import { surfaceMapPolygon } from '../engine/level';
 import { STAGES } from '../levels';
 import {
   VIEW_H, VIEW_W, PROGRESS_STEP, PROGRESS_POINTS, TIME_CAP, WAND_BONUS, TIMEZONE_PERIOD, TIMEZONE_BONUS,
@@ -102,6 +103,64 @@ export class Game {
     this.webmcp = new WebMCP(this);
   }
 
+  /** inspector overlay (F1 or ?debug=1): shows collision components, marble coordinates, click-to-teleport */
+  debug = false;
+  debugCanvas: HTMLCanvasElement | null = null;
+  debugStageId = -1;
+  toast = { text: '', t: 0 };
+
+  toggleDebug(): void { this.debug = !this.debug; this.showToast(this.debug ? 'INSPECTOR ON  F2=COPY REPORT  CLICK=TELEPORT' : 'INSPECTOR OFF'); }
+
+  showToast(text: string): void { this.toast = { text, t: 3 }; }
+
+  /** all surfaces that could be under map pixel (mx,my) at their own heights, best (highest) first */
+  pickAtPixel(mx: number, my: number): { u: number; v: number; z: number; name: string }[] {
+    const out: { u: number; v: number; z: number; name: string }[] = [];
+    for (const s of this.stage.surfaces) {
+      if (s.kind === 'wall') continue;
+      if (s.hm) {
+        const hm = s.hm.map;
+        const x = Math.round(mx), y = Math.round(my);
+        if (x < 0 || y < 0 || x >= hm.width || y >= hm.height) continue;
+        if (hm.labels[y * hm.width + x] !== s.hm.comp.id) continue;
+        // solve (u,v): z = a + b x + c y directly in map space
+        const c = s.hm.comp;
+        const z = c.pieces ? c.pieces[0].a + c.pieces[0].b * x + c.pieces[0].c * y : c.a + c.b * x + c.c * y;
+        const w = toWorld(mx, my, z);
+        out.push({ u: w.u, v: w.v, z, name: s.name ?? `hm${c.id}` });
+      } else {
+        // planar manual surface: iterate z (a few Newton steps) then test the footprint
+        let z = s.z0;
+        for (let i = 0; i < 6; i++) { const w = toWorld(mx, my, z); z = heightOn(s, w.u, w.v); }
+        const w = toWorld(mx, my, z);
+        if (inRect(s, w.u, w.v)) out.push({ u: w.u, v: w.v, z, name: s.name ?? `#${s.id}` });
+      }
+    }
+    out.sort((a, b) => b.z - a.z);
+    return out;
+  }
+
+  /** debug click: teleport the marble onto whatever is drawn at that view pixel */
+  debugClick(viewX: number, viewY: number): void {
+    const mx = viewX + this.r.cam.x, my = viewY + this.r.cam.y;
+    const picks = this.pickAtPixel(mx, my);
+    if (!picks.length) { this.showToast(`NOTHING AT ${Math.round(mx)},${Math.round(my)}`); return; }
+    const p = picks[0];
+    this.marble.place(p.u, p.v, p.z);
+    this.showToast(`TELEPORT ${Math.round(mx)},${Math.round(my)} Z${Math.round(p.z)} ${p.name.toUpperCase()}`);
+  }
+
+  /** F2: copy a one-line report of where the marble is */
+  copyReport(): void {
+    const m = this.marble;
+    const mx = Math.round((m.u - m.v) * 8), my = Math.round((m.u + m.v) * 4 - m.z);
+    const under = this.stage.surfaces.filter((s) => inRect(s, m.u, m.v)).map((s) => `${s.name ?? s.id}${s.kind === 'wall' ? '[wall]' : ''}@${heightOn(s, m.u, m.v).toFixed(0)}`).join(' ');
+    const line = `stage${this.stageIdx + 1} px=${mx},${my} z=${m.z.toFixed(0)} u=${m.u.toFixed(1)} v=${m.v.toFixed(1)} support=${m.support ? m.support.s.name : 'none'} grounded=${m.grounded} under=[${under}] blocked=${m.lastBlock || '-'}`;
+    console.log('[report]', line);
+    void navigator.clipboard?.writeText(line).catch(() => {});
+    this.showToast('REPORT COPIED: ' + line.slice(0, 40));
+  }
+
   /** debug: what is under map pixel (mx,my) assuming height z */
   probe(mx: number, my: number, z: number): unknown {
     const w = toWorld(mx, my, z);
@@ -138,6 +197,7 @@ export class Game {
   async start(): Promise<void> {
     void this.fetchRollers();
     const q = new URLSearchParams(location.search);
+    if (q.has('debug')) this.debug = true;
     const stage = q.get('stage');
     if (stage) {
       this.playerName = 'TEST';
@@ -575,8 +635,14 @@ export class Game {
     }
     r.drawLabels(labels);
 
+    if (this.debug) this.renderDebug();
+
     // HUD
     r.drawHud(fmtScore(this.displayScore), fmtTime(this.timeLeft));
+    if (this.toast.t > 0) {
+      r.ctx.fillStyle = 'rgba(0,0,0,0.75)'; r.ctx.fillRect(0, VIEW_H - 12, VIEW_W, 12);
+      r.text(this.toast.text.slice(0, 36), 2, VIEW_H - 10, 'orange');
+    }
 
     if (this.screen === 'intro') {
       const title = this.stage.name;
@@ -596,6 +662,48 @@ export class Game {
       r.textC(fmtScore(this.bonusCount), bx + bw / 2, by + 32, 'lavender');
       if (this.fade > 0) { r.ctx.fillStyle = `rgba(0,0,0,${this.fade})`; r.ctx.fillRect(0, 0, VIEW_W, VIEW_H); }
     }
+  }
+
+  private renderDebug(): void {
+    const r = this.r; const ctx = r.ctx;
+    const hm = this.stage.heightmap;
+    // coloured component overlay (built once per stage)
+    if (hm && (this.debugStageId !== this.stage.id || !this.debugCanvas)) {
+      const c = document.createElement('canvas'); c.width = hm.width; c.height = hm.height;
+      const cx = c.getContext('2d')!; const img = cx.createImageData(hm.width, hm.height);
+      for (let i = 0; i < hm.labels.length; i++) {
+        const id = hm.labels[i]; if (!id) continue;
+        const h = (id * 47) % 360; const rgb = hsl(h, 0.9, 0.5);
+        img.data[i * 4] = rgb[0]; img.data[i * 4 + 1] = rgb[1]; img.data[i * 4 + 2] = rgb[2]; img.data[i * 4 + 3] = 90;
+      }
+      cx.putImageData(img, 0, 0);
+      this.debugCanvas = c; this.debugStageId = this.stage.id;
+    }
+    if (this.debugCanvas) ctx.drawImage(this.debugCanvas, r.cam.x, r.cam.y, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
+    // manual surfaces as outlines (walls red, floors cyan)
+    for (const s of this.stage.manualSurfaces) {
+      const pts = surfaceMapPolygon(s);
+      ctx.strokeStyle = s.kind === 'wall' ? 'rgba(255,60,60,0.9)' : 'rgba(80,255,255,0.9)';
+      ctx.beginPath();
+      pts.forEach((p, i) => { const x = p.x - r.cam.x, y = p.y - r.cam.y; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+      ctx.closePath(); ctx.stroke();
+    }
+    // component heights at their centroids (only those on screen)
+    if (hm) {
+      for (const c of hm.comps) {
+        const [x0, y0, x1, y1] = c.bbox; const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+        const zc = c.a + c.b * cx + c.c * cy; const sy = cy - r.cam.y;
+        if (sy < 0 || sy > VIEW_H) continue;
+        r.text(`${c.id}:${Math.round(zc)}`, Math.round(cx - r.cam.x) - 8, Math.round(sy), 'white');
+      }
+    }
+    // marble readout
+    const m = this.marble;
+    const mx = Math.round((m.u - m.v) * 8), my = Math.round((m.u + m.v) * 4 - m.z);
+    ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 30, 150, 30);
+    r.text(`PX ${mx},${my} Z${Math.round(m.z)}`, 2, 32, 'cyan');
+    r.text(`${(m.support ? m.support.s.name ?? '' : 'AIR').toUpperCase().slice(0, 14)} ${m.grounded ? '' : 'FALL'}`, 2, 42, 'cyan');
+    r.text(`U${m.u.toFixed(1)} V${m.v.toFixed(1)} S${m.speed.toFixed(1)}`, 2, 52, 'cyan');
   }
 
   /** choose marble frame(s) from its state */
@@ -664,6 +772,12 @@ async function loadHeightMap(stage: StageDef): Promise<HeightMap | null> {
 }
 
 function clamp(x: number, a: number, b: number): number { return Math.max(a, Math.min(b, x)); }
+
+function hsl(h: number, s: number, l: number): [number, number, number] {
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = l - c / 2;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
 
 export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;

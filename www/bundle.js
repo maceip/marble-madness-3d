@@ -1854,6 +1854,13 @@ function surfaceCorners(s) {
   }
   return [{ u: s.u0, v: s.v0 }, { u: s.u1, v: s.v0 }, { u: s.u1, v: s.v1 }, { u: s.u0, v: s.v1 }];
 }
+function surfaceMapPolygon(s) {
+  const pts = surfaceCorners(s);
+  return pts.map((p) => {
+    const z = heightOn(s, p.u, p.v);
+    return { x: (p.u - p.v) * HALF_W, y: (p.u + p.v) * HALF_H - z };
+  });
+}
 
 // src/engine/physics.ts
 var Marble = class {
@@ -3699,6 +3706,68 @@ var Game = class {
   remote = /* @__PURE__ */ new Map();
   remoteInfo = /* @__PURE__ */ new Map();
   teleportCooldown = 0;
+  /** inspector overlay (F1 or ?debug=1): shows collision components, marble coordinates, click-to-teleport */
+  debug = false;
+  debugCanvas = null;
+  debugStageId = -1;
+  toast = { text: "", t: 0 };
+  toggleDebug() {
+    this.debug = !this.debug;
+    this.showToast(this.debug ? "INSPECTOR ON  F2=COPY REPORT  CLICK=TELEPORT" : "INSPECTOR OFF");
+  }
+  showToast(text) {
+    this.toast = { text, t: 3 };
+  }
+  /** all surfaces that could be under map pixel (mx,my) at their own heights, best (highest) first */
+  pickAtPixel(mx, my) {
+    const out = [];
+    for (const s of this.stage.surfaces) {
+      if (s.kind === "wall") continue;
+      if (s.hm) {
+        const hm = s.hm.map;
+        const x = Math.round(mx), y = Math.round(my);
+        if (x < 0 || y < 0 || x >= hm.width || y >= hm.height) continue;
+        if (hm.labels[y * hm.width + x] !== s.hm.comp.id) continue;
+        const c = s.hm.comp;
+        const z = c.pieces ? c.pieces[0].a + c.pieces[0].b * x + c.pieces[0].c * y : c.a + c.b * x + c.c * y;
+        const w = toWorld(mx, my, z);
+        out.push({ u: w.u, v: w.v, z, name: s.name ?? `hm${c.id}` });
+      } else {
+        let z = s.z0;
+        for (let i = 0; i < 6; i++) {
+          const w2 = toWorld(mx, my, z);
+          z = heightOn(s, w2.u, w2.v);
+        }
+        const w = toWorld(mx, my, z);
+        if (inRect(s, w.u, w.v)) out.push({ u: w.u, v: w.v, z, name: s.name ?? `#${s.id}` });
+      }
+    }
+    out.sort((a, b) => b.z - a.z);
+    return out;
+  }
+  /** debug click: teleport the marble onto whatever is drawn at that view pixel */
+  debugClick(viewX, viewY) {
+    const mx = viewX + this.r.cam.x, my = viewY + this.r.cam.y;
+    const picks = this.pickAtPixel(mx, my);
+    if (!picks.length) {
+      this.showToast(`NOTHING AT ${Math.round(mx)},${Math.round(my)}`);
+      return;
+    }
+    const p = picks[0];
+    this.marble.place(p.u, p.v, p.z);
+    this.showToast(`TELEPORT ${Math.round(mx)},${Math.round(my)} Z${Math.round(p.z)} ${p.name.toUpperCase()}`);
+  }
+  /** F2: copy a one-line report of where the marble is */
+  copyReport() {
+    const m = this.marble;
+    const mx = Math.round((m.u - m.v) * 8), my = Math.round((m.u + m.v) * 4 - m.z);
+    const under = this.stage.surfaces.filter((s) => inRect(s, m.u, m.v)).map((s) => `${s.name ?? s.id}${s.kind === "wall" ? "[wall]" : ""}@${heightOn(s, m.u, m.v).toFixed(0)}`).join(" ");
+    const line = `stage${this.stageIdx + 1} px=${mx},${my} z=${m.z.toFixed(0)} u=${m.u.toFixed(1)} v=${m.v.toFixed(1)} support=${m.support ? m.support.s.name : "none"} grounded=${m.grounded} under=[${under}] blocked=${m.lastBlock || "-"}`;
+    console.log("[report]", line);
+    void navigator.clipboard?.writeText(line).catch(() => {
+    });
+    this.showToast("REPORT COPIED: " + line.slice(0, 40));
+  }
   /** debug: what is under map pixel (mx,my) assuming height z */
   probe(mx, my, z) {
     const w = toWorld(mx, my, z);
@@ -3734,6 +3803,7 @@ var Game = class {
   async start() {
     void this.fetchRollers();
     const q = new URLSearchParams(location.search);
+    if (q.has("debug")) this.debug = true;
     const stage = q.get("stage");
     if (stage) {
       this.playerName = "TEST";
@@ -4230,7 +4300,13 @@ var Game = class {
       labels.push({ text: "SEC", u: this.marble.u, v: this.marble.v, z: this.marble.z, dy: -22 });
     }
     r.drawLabels(labels);
+    if (this.debug) this.renderDebug();
     r.drawHud(fmtScore(this.displayScore), fmtTime(this.timeLeft));
+    if (this.toast.t > 0) {
+      r.ctx.fillStyle = "rgba(0,0,0,0.75)";
+      r.ctx.fillRect(0, VIEW_H - 12, VIEW_W, 12);
+      r.text(this.toast.text.slice(0, 36), 2, VIEW_H - 10, "orange");
+    }
     if (this.screen === "intro") {
       const title = this.stage.name;
       const bw = 232, bh = 30;
@@ -4255,6 +4331,61 @@ var Game = class {
         r.ctx.fillRect(0, 0, VIEW_W, VIEW_H);
       }
     }
+  }
+  renderDebug() {
+    const r = this.r;
+    const ctx = r.ctx;
+    const hm = this.stage.heightmap;
+    if (hm && (this.debugStageId !== this.stage.id || !this.debugCanvas)) {
+      const c = document.createElement("canvas");
+      c.width = hm.width;
+      c.height = hm.height;
+      const cx = c.getContext("2d");
+      const img = cx.createImageData(hm.width, hm.height);
+      for (let i = 0; i < hm.labels.length; i++) {
+        const id = hm.labels[i];
+        if (!id) continue;
+        const h = id * 47 % 360;
+        const rgb = hsl(h, 0.9, 0.5);
+        img.data[i * 4] = rgb[0];
+        img.data[i * 4 + 1] = rgb[1];
+        img.data[i * 4 + 2] = rgb[2];
+        img.data[i * 4 + 3] = 90;
+      }
+      cx.putImageData(img, 0, 0);
+      this.debugCanvas = c;
+      this.debugStageId = this.stage.id;
+    }
+    if (this.debugCanvas) ctx.drawImage(this.debugCanvas, r.cam.x, r.cam.y, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
+    for (const s of this.stage.manualSurfaces) {
+      const pts = surfaceMapPolygon(s);
+      ctx.strokeStyle = s.kind === "wall" ? "rgba(255,60,60,0.9)" : "rgba(80,255,255,0.9)";
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const x = p.x - r.cam.x, y = p.y - r.cam.y;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.stroke();
+    }
+    if (hm) {
+      for (const c of hm.comps) {
+        const [x0, y0, x1, y1] = c.bbox;
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+        const zc = c.a + c.b * cx + c.c * cy;
+        const sy = cy - r.cam.y;
+        if (sy < 0 || sy > VIEW_H) continue;
+        r.text(`${c.id}:${Math.round(zc)}`, Math.round(cx - r.cam.x) - 8, Math.round(sy), "white");
+      }
+    }
+    const m = this.marble;
+    const mx = Math.round((m.u - m.v) * 8), my = Math.round((m.u + m.v) * 4 - m.z);
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(0, 30, 150, 30);
+    r.text(`PX ${mx},${my} Z${Math.round(m.z)}`, 2, 32, "cyan");
+    r.text(`${(m.support ? m.support.s.name ?? "" : "AIR").toUpperCase().slice(0, 14)} ${m.grounded ? "" : "FALL"}`, 2, 42, "cyan");
+    r.text(`U${m.u.toFixed(1)} V${m.v.toFixed(1)} S${m.speed.toFixed(1)}`, 2, 52, "cyan");
   }
   /** choose marble frame(s) from its state */
   marbleSprites(m, img, out) {
@@ -4331,6 +4462,11 @@ async function loadHeightMap(stage) {
 function clamp2(x, a, b) {
   return Math.max(a, Math.min(b, x));
 }
+function hsl(h, s, l) {
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(h / 60 % 2 - 1)), m = l - c / 2;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
 function mulberry32(seed) {
   let a = seed >>> 0;
   return () => {
@@ -4371,6 +4507,21 @@ async function boot() {
   window.addEventListener("keydown", unlock, { once: true });
   canvas.addEventListener("mousedown", unlock, { once: true });
   canvas.addEventListener("touchstart", unlock, { once: true });
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "F1") {
+      e.preventDefault();
+      game.toggleDebug();
+    }
+    if (e.code === "F2") {
+      e.preventDefault();
+      game.copyReport();
+    }
+  });
+  canvas.addEventListener("click", (e) => {
+    if (!game.debug || game.screen !== "race" && game.screen !== "intro") return;
+    const rect = canvas.getBoundingClientRect();
+    game.debugClick((e.clientX - rect.left) / renderer.scale, (e.clientY - rect.top) / renderer.scale);
+  });
   await game.start();
   let last = performance.now();
   const loop = (now) => {

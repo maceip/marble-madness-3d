@@ -31,6 +31,16 @@ async function boot(): Promise<void> {
   canvas.addEventListener('mousedown', unlock, { once: true });
   canvas.addEventListener('touchstart', unlock, { once: true });
 
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'F1') { e.preventDefault(); game.toggleDebug(); }
+    if (e.code === 'F2') { e.preventDefault(); game.copyReport(); }
+  });
+  canvas.addEventListener('click', (e) => {
+    if (!game.debug || (game.screen !== 'race' && game.screen !== 'intro')) return;
+    const rect = canvas.getBoundingClientRect();
+    game.debugClick((e.clientX - rect.left) / renderer.scale, (e.clientY - rect.top) / renderer.scale);
+  });
+
   await game.start();
 
   let last = performance.now();
