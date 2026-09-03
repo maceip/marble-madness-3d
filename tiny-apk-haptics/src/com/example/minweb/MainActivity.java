@@ -606,8 +606,9 @@ public class MainActivity extends Activity {
      * High Rollers table between them, drawn with the game's own 8x8 bitmap font. Landscape falls back to the plain art.
      */
     static final class TitleSplash extends View {
-        /** row cuts in the 1080x608 asset: 0..CUT_A = header + logo, CUT_B..end = PRESS START + icons */
-        static final int CUT_A = 491, CUT_B = 501;
+        /** content boxes measured in the 1080x608 asset: A = header + logo (tight to its edges, the art has a
+         *  baked-in empty leaderboard box below it that we skip), B = PRESS START + icons */
+        static final int A_Y1 = 261, A_X0 = 273, A_X1 = 780, B_Y0 = 511, B_Y1 = 602, B_X0 = 424, B_X1 = 646;
         static final int BLUE = 0xFF4A7DFF;
         Bitmap art, font; JSONObject glyphs; int cell = 8, stride = 32; String[][] rows = new String[0][];
         final Paint bmp = new Paint(); final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -632,30 +633,43 @@ public class MainActivity extends Activity {
         @Override protected void onDraw(Canvas c) {
             if (art == null) return;
             int W = getWidth(), H = getHeight();
-            float k = W / (float) art.getWidth();
-            int fs = Math.max(2, Math.round(W / 360f));              // 8 px glyphs -> 24 px on a 1080-wide screen
-            int rowH = cell * fs * 2;
+            int fs = Math.max(2, Math.round(Math.min(W, H) / 320f));   // 8 px glyphs -> 32 px on a 1280-wide phone
+            int rowH = Math.round(cell * fs * 1.7f);
             int tableH = rows.length == 0 ? 0 : rowH * (rows.length + 1);
-            int hA = Math.round(CUT_A * k), hB = Math.round((art.getHeight() - CUT_B) * k), gap = rowH / 2;
-            int total = hA + (tableH > 0 ? gap + tableH + gap : gap) + hB;
-            if (total > H) {                                             // landscape / short screen: plain letterboxed art
-                float kk = Math.min(W / (float) art.getWidth(), H / (float) art.getHeight());
-                int dw = Math.round(art.getWidth() * kk), dh = Math.round(art.getHeight() * kk);
-                dst.set((W - dw) / 2, (H - dh) / 2, (W + dw) / 2, (H + dh) / 2);
-                c.drawBitmap(art, null, dst, bmp);
+            if (W > H) {                                                 // landscape: logo + footer left, High Rollers right
+                int colW = Math.round(W * 0.55f);
+                float k = Math.min(colW / (float) (A_X1 - A_X0), H * 0.62f / A_Y1);
+                int wA = Math.round((A_X1 - A_X0) * k), hA = Math.round(A_Y1 * k);
+                float kB = Math.min(k, colW * 0.6f / (B_X1 - B_X0));
+                int wB = Math.round((B_X1 - B_X0) * kB), hB = Math.round((B_Y1 - B_Y0) * kB);
+                int gap = rowH;
+                int total = hA + gap + hB;
+                int y = (H - total) / 2, cx = colW / 2;
+                src.set(A_X0, 0, A_X1, A_Y1); dst.set(cx - wA / 2, y, cx + wA / 2, y + hA);
+                c.drawBitmap(art, src, dst, bmp);
+                y += hA + gap;
+                src.set(B_X0, B_Y0, B_X1, B_Y1); dst.set(cx - wB / 2, y, cx + wB / 2, y + hB);
+                c.drawBitmap(art, src, dst, bmp);
+                if (tableH > 0) drawTable(c, colW + Math.round(W * 0.02f), W - Math.round(W * 0.03f), (H - tableH) / 2, fs, rowH);
                 return;
             }
-            int y = (H - total) / 2;
-            src.set(0, 0, art.getWidth(), CUT_A); dst.set(0, y, W, y + hA);
+            // portrait: header + logo at the full width, the table, then PRESS START + icons
+            float k = W / (float) (A_X1 - A_X0);
+            int hA = Math.round(A_Y1 * k);
+            float kB = Math.min(k, W * 0.6f / (B_X1 - B_X0));
+            int wB = Math.round((B_X1 - B_X0) * kB), hB = Math.round((B_Y1 - B_Y0) * kB);
+            int gap = rowH;
+            int total = hA + gap + (tableH > 0 ? tableH + gap : 0) + hB;
+            int y = Math.max(0, (H - total) / 2);
+            src.set(A_X0, 0, A_X1, A_Y1); dst.set(0, y, W, y + hA);
             c.drawBitmap(art, src, dst, bmp);
             y += hA + gap;
-            if (tableH > 0) { drawTable(c, W, y, fs, rowH); y += tableH + gap; }
-            src.set(0, CUT_B, art.getWidth(), art.getHeight()); dst.set(0, y, W, y + hB);
+            if (tableH > 0) { drawTable(c, Math.round(W * 0.05f), Math.round(W * 0.95f), y, fs, rowH); y += tableH + gap; }
+            src.set(B_X0, B_Y0, B_X1, B_Y1); dst.set((W - wB) / 2, y, (W + wB) / 2, y + hB);
             c.drawBitmap(art, src, dst, bmp);
         }
 
-        private void drawTable(Canvas c, int W, int top, int fs, int rowH) {
-            int x0 = Math.round(W * 0.05f), x1 = Math.round(W * 0.95f);
+        private void drawTable(Canvas c, int x0, int x1, int top, int fs, int rowH) {
             int cw = cell * fs;
             int rankW = 4 * cw, intelW = 14 * cw;
             int xRank = x0 + rankW, xIntel = x1 - intelW;
