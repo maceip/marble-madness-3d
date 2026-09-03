@@ -228,10 +228,12 @@ export class Game {
       this.go('connect');
       return;
     }
-    if ((window as any).__MM__?.user) {
+    const userParam = q.get('user');
+    if (userParam) {
+      this.playerName = userParam;
+      (window as any).__MM__ = { ...((window as any).__MM__ || {}), user: userParam };
+    } else if ((window as any).__MM__?.user) {
       this.playerName = (window as any).__MM__.user;
-    } else if (!this.playerName) {
-      this.playerName = '@MACEIP';
     }
     this.go('title');
   }
@@ -740,7 +742,7 @@ export class Game {
         r.present();
         this.renderAITracker();
         break;
-      case 'title': case 'menu': case 'connect':
+      case 'title': case 'menu': case 'name': case 'connect':
         this.screens.render();
         break;
       default:

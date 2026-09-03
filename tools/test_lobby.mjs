@@ -12,9 +12,10 @@ await human.goto('http://127.0.0.1:3000/');
 await human.waitForFunction(() => window.game && window.game.screen !== 'boot', null, { timeout: 20000 });
 const lobby = await human.evaluate(() => window.game.lobbyId);
 console.log('lobby', lobby);
-await human.keyboard.press('Enter'); await human.waitForTimeout(250);   // title -> menu
+await human.keyboard.press('Enter'); await human.waitForTimeout(450);   // title -> menu (wait for debounce)
 await human.keyboard.press('ArrowDown'); await human.waitForTimeout(150); // select 2 PLAYERS
-await human.keyboard.press('Enter'); await human.waitForTimeout(500);   // confirm -> connect screen
+await human.keyboard.press('Enter'); await human.waitForTimeout(450);   // menu -> name screen
+await human.keyboard.press('Enter'); await human.waitForTimeout(500);   // confirm name -> connect screen
 console.log('human screen', await human.evaluate(() => window.game.screen), 'panel text:', await human.evaluate(() => document.getElementById('connect-text')?.value));
 await human.screenshot({ path: 'artifacts/browser/lobby_connect.png' });
 await agent.goto(`http://127.0.0.1:3000/${lobby}`);

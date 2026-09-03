@@ -14,7 +14,5 @@ await page.keyboard.press('Enter'); await shot('menu');
 await page.keyboard.press('ArrowDown'); await shot('menu2');
 await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter'); await shot('name');
 for (const k of ['KeyR', 'KeyE', 'KeyX']) await page.keyboard.press(k);
-await shot('name_typed');
-await page.keyboard.press('Enter'); await shot('control');
 await page.keyboard.press('Enter'); await page.waitForTimeout(800); await shot('intro');
 await browser.close();

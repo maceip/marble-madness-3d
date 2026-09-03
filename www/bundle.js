@@ -1795,7 +1795,7 @@ var Assets = class {
     tick();
     tick();
     this.font = new BitmapFont(fontImg, fontMeta);
-    const screenNames = ["title_base", "title2", "select_base", "select", "player2webmcp_base", "player2webmcp", "cursor"];
+    const screenNames = ["title_base", "title2", "select_base", "select", "player2webmcp_base", "player2webmcp", "cursor", "pickname_base", "pickname"];
     await Promise.all(screenNames.map(async (n) => {
       try {
         const im = await loadImage(ASSET_ROOT + `screens/${n}.png`);
@@ -4825,12 +4825,16 @@ var Screens = class {
   idle = 0;
   rain = [];
   connectVisible = false;
+  menuDelay = 0;
   enter(screen) {
     this.idle = 0;
-    if (screen === "menu") this.cursor = 0;
+    if (screen === "menu") {
+      this.cursor = 0;
+      this.menuDelay = 0.35;
+    }
     if (screen === "name") {
-      this.nameCur = { r: 0, c: 0 };
-      this.g.playerName = "";
+      this.nameCur = { r: 3, c: 3 };
+      if (!this.g.playerName) this.g.playerName = "";
     }
     if (screen === "control") this.cursor = 1;
     if (screen === "congrats") {
@@ -4846,15 +4850,8 @@ var Screens = class {
   chooseMode(idx) {
     const g = this.g;
     g.sound.sfx("item");
-    if (idx === 0) {
-      g.mode = "1p";
-      g.beginMode();
-      g.newGame(0);
-    } else {
-      g.mode = "ai";
-      g.beginMode();
-      g.go("connect");
-    }
+    g.mode = idx === 0 ? "1p" : "ai";
+    g.go("name");
   }
   async copyAgentLink() {
     const g = this.g;
@@ -4907,6 +4904,10 @@ Instructions for Codex / AI Agent:
         } else if (this.idle > 12) g.go("highrollers");
         break;
       case "menu": {
+        if (this.menuDelay > 0) {
+          this.menuDelay -= dt;
+          break;
+        }
         for (const p of presses) {
           if (p === "ArrowUp" || p === "KeyW" || p === "ArrowDown" || p === "KeyS") {
             this.cursor = 1 - this.cursor;
@@ -4914,8 +4915,12 @@ Instructions for Codex / AI Agent:
           }
           if (p === "Enter" || p === "Space") {
             this.chooseMode(this.cursor);
+            return;
           }
-          if (p === "Escape") g.go("title");
+          if (p === "Escape") {
+            g.go("title");
+            return;
+          }
         }
         for (const clk of clicks) {
           const img = g.assets.screenCache.get("select_base") || g.assets.screenCache.get("select");
@@ -4924,29 +4929,21 @@ Instructions for Codex / AI Agent:
             const rw = img.width * scale, rh = img.height * scale;
             const ry = (g.r.canvas.height - rh) / 2;
             const iy = (clk.y - ry) * (img.height / rh);
-            if (iy >= 400 && iy <= 485) {
-              if (this.cursor === 0) this.chooseMode(0);
-              else {
-                this.cursor = 0;
-                g.sound.sfx("tick", 0.4);
-              }
-            } else if (iy > 485 && iy <= 580) {
-              if (this.cursor === 1) this.chooseMode(1);
-              else {
-                this.cursor = 1;
-                g.sound.sfx("tick", 0.4);
-              }
-            } else {
-              this.chooseMode(this.cursor);
+            if (iy >= 390 && iy <= 475) {
+              this.chooseMode(0);
+              return;
+            } else if (iy > 475 && iy <= 570) {
+              this.chooseMode(1);
+              return;
             }
-          } else {
-            this.chooseMode(this.cursor);
           }
+          this.chooseMode(this.cursor);
+          return;
         }
         break;
       }
       case "name":
-        this.updateName(presses);
+        this.updateName(presses, clicks);
         break;
       case "control": {
         for (const p of presses) {
@@ -4987,7 +4984,7 @@ Instructions for Codex / AI Agent:
         break;
       }
       case "gameover":
-        if (this.idle > 4 || any) g.go("highrollers");
+        if (this.idle > 4 || any) g.go("title");
         break;
       case "congrats": {
         for (const m of this.rain) {
@@ -5008,7 +5005,7 @@ Instructions for Codex / AI Agent:
         }
         if (any && this.idle > 4 || this.idle > 30) {
           g.sound.stopBgm();
-          g.go("highrollers");
+          g.go("title");
         }
         break;
       }
@@ -5016,8 +5013,59 @@ Instructions for Codex / AI Agent:
         break;
     }
   }
-  updateName(presses) {
+  updateName(presses, clicks) {
     const g = this.g;
+    const colX = [366, 507, 647, 787, 927, 1067, 1207];
+    const rowY = [383, 508, 632, 759];
+    const img = g.assets.screenCache.get("pickname_base") || g.assets.screenCache.get("pickname");
+    for (const clk of clicks) {
+      if (img) {
+        const scale = Math.min(g.r.canvas.width / img.width, g.r.canvas.height / img.height);
+        const rw = img.width * scale, rh = img.height * scale;
+        const rx = (g.r.canvas.width - rw) / 2, ry = (g.r.canvas.height - rh) / 2;
+        const ix = (clk.x - rx) * (img.width / rw);
+        const iy = (clk.y - ry) * (img.height / rh);
+        if (ix >= 615 && ix <= 735 && iy >= 195 && iy <= 300) {
+          g.sound.sfx("item");
+          window.triggerAuth?.("github");
+          return;
+        }
+        if (ix >= 740 && ix <= 860 && iy >= 195 && iy <= 300) {
+          g.sound.sfx("item");
+          window.triggerAuth?.("twitter");
+          return;
+        }
+        let matchedGrid = false;
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 7; c++) {
+            const cx = colX[c], cy = rowY[r];
+            if (Math.abs(ix - cx) <= 60 && Math.abs(iy - cy) <= 50) {
+              matchedGrid = true;
+              this.nameCur = { r, c };
+              if (r === 3 && c === 5) {
+                g.playerName = g.playerName.slice(0, -1);
+                g.sound.sfx("tick", 0.4);
+              } else if (r === 3 && c === 6) {
+                if (g.playerName.length > 0) this.finishName();
+                return;
+              } else {
+                const ch = LETTERS[r][c];
+                if (ch && g.playerName.length < NAME_MAX) {
+                  g.playerName += ch;
+                  g.sound.sfx("tick", 0.4);
+                }
+              }
+              break;
+            }
+          }
+          if (matchedGrid) break;
+        }
+        if (!matchedGrid && iy >= 850 && g.playerName.length > 0) {
+          this.finishName();
+          return;
+        }
+      }
+    }
     for (const p of presses) {
       if (p.startsWith("Key") && p.length === 4) {
         const ch = p[3];
@@ -5033,6 +5081,7 @@ Instructions for Codex / AI Agent:
       }
       if (p === "Backspace") {
         g.playerName = g.playerName.slice(0, -1);
+        g.sound.sfx("tick", 0.3);
         continue;
       }
       if (p === "Escape") {
@@ -5045,11 +5094,11 @@ Instructions for Codex / AI Agent:
       if (p === "ArrowUp" || p === "KeyW") this.nameCur.r = (this.nameCur.r + 3) % 4;
       if (p === "ArrowDown" || p === "KeyS") this.nameCur.r = (this.nameCur.r + 1) % 4;
       if (p.startsWith("Arrow")) g.sound.sfx("tick", 0.3);
-      if (p === "Enter" && g.playerName.length > 0) {
+      if (p === "Enter") {
         this.finishName();
         return;
       }
-      if (p === "Enter" || p === "Space" || p === "Mouse" || p === "Touch") {
+      if (p === "Space") {
         const { r, c } = this.nameCur;
         if (r === 3 && c === 5) {
           g.playerName = g.playerName.slice(0, -1);
@@ -5070,7 +5119,12 @@ Instructions for Codex / AI Agent:
     const g = this.g;
     if (!g.playerName) g.playerName = "ACE";
     g.sound.sfx("item");
-    g.go("control");
+    g.beginMode();
+    if (g.mode === "ai") {
+      g.go("connect");
+    } else {
+      g.newGame(0);
+    }
   }
   /* ---------------------------------------------------------------------- */
   render() {
@@ -5111,22 +5165,7 @@ Instructions for Codex / AI Agent:
     }
   }
   renderHighRollers() {
-    const g = this.g;
-    const r = g.r;
-    r.logo(VIEW_W / 2, 18);
-    r.textC("HIGH ROLLERS", VIEW_W / 2, 90, "lavender");
-    const rows = g.rollers.slice(0, 10);
-    for (let i = 0; i < 10; i++) {
-      const e = rows[i];
-      const y = 106 + i * 10;
-      const variant = i === 0 ? "lavender" : "orange";
-      const rank = `#${i + 1}`;
-      r.textR(rank, 70, y, variant);
-      if (e) {
-        r.text(e.name.replace(/\[(NI|AI)\]\s*/i, "").slice(0, 6), 78, y, variant);
-        r.textR(fmtScore(e.score), 232, y, variant);
-      }
-    }
+    this.renderTitle();
   }
   renderTitle() {
     const g = this.g;
@@ -5205,22 +5244,62 @@ Instructions for Codex / AI Agent:
   renderName() {
     const g = this.g;
     const r = g.r;
-    r.textC("PLAYER 1", VIEW_W / 2, 30, "lavender");
-    r.textC("ENTER YOUR NAME.", VIEW_W / 2, 46, "lavender");
-    const x0 = 56, y0 = 78, dx = 27, dy = 24;
-    for (let row = 0; row < 4; row++) {
-      for (let c = 0; c < 7; c++) {
-        const ch = LETTERS[row][c];
-        const x = x0 + c * dx, y = y0 + row * dy;
-        const sel = this.nameCur.r === row && this.nameCur.c === c;
-        if (sel) drawFrame(r.ctx, g.assets.sheets.marble, FRAMES.marble.roll[Math.floor(this.blink * 6) % 6], x + 4, y + 4);
-        if (row === 3 && c === 5) r.text("RUB", x - 6, y, "white");
-        else if (row === 3 && c === 6) r.text("END", x - 2, y, "white");
-        else if (ch) r.text(ch, x, y, sel ? "cyan" : "white");
+    const img = g.assets.screenCache.get("pickname_base") || g.assets.screenCache.get("pickname");
+    if (img) {
+      const bounds = r.drawFullScreenImage(img);
+      const { rx, ry, rw, rh } = bounds;
+      const iw = img.width, ih = img.height;
+      const sx = (x) => rx + x / iw * rw;
+      const sy = (y) => ry + y / ih * rh;
+      const colX = [366, 507, 647, 787, 927, 1067, 1207];
+      const rowY = [383, 508, 632, 759];
+      const curX = colX[this.nameCur.c];
+      const curY = rowY[this.nameCur.r];
+      const marbleSize = Math.round(72 / ih * rh);
+      const marbleFrame = FRAMES.marble.roll[Math.floor(this.blink * 6) % 6];
+      const mx = sx(curX) - marbleSize / 2;
+      const my = sy(curY) - marbleSize / 2;
+      const sheet = g.assets.sheets.marble;
+      if (sheet) {
+        r.screenCtx.drawImage(
+          sheet,
+          marbleFrame.x,
+          marbleFrame.y,
+          marbleFrame.w,
+          marbleFrame.h,
+          mx,
+          my,
+          marbleSize,
+          marbleSize
+        );
       }
+      const fontSize = Math.max(16, Math.round(36 / ih * rh));
+      r.screenCtx.font = `bold ${fontSize}px "Courier New", monospace`;
+      r.screenCtx.textBaseline = "middle";
+      r.screenCtx.textAlign = "center";
+      r.screenCtx.fillStyle = "#ffe019";
+      const blinkChar = Math.floor(this.blink * 3) % 2 === 0 ? "_" : " ";
+      const displayName = (g.playerName || "").toUpperCase().slice(0, NAME_MAX);
+      const padded = (displayName + blinkChar).padEnd(NAME_MAX, "_");
+      r.screenCtx.fillText(padded, sx(806), sy(895));
+    } else {
+      r.textC("PLAYER 1", VIEW_W / 2, 30, "lavender");
+      r.textC("ENTER YOUR NAME.", VIEW_W / 2, 46, "lavender");
+      const x0 = 56, y0 = 78, dx = 27, dy = 24;
+      for (let row = 0; row < 4; row++) {
+        for (let c = 0; c < 7; c++) {
+          const ch = LETTERS[row][c];
+          const x = x0 + c * dx, y = y0 + row * dy;
+          const sel = this.nameCur.r === row && this.nameCur.c === c;
+          if (sel) drawFrame(r.ctx, g.assets.sheets.marble, FRAMES.marble.roll[Math.floor(this.blink * 6) % 6], x + 4, y + 4);
+          if (row === 3 && c === 5) r.text("RUB", x - 6, y, "white");
+          else if (row === 3 && c === 6) r.text("END", x - 2, y, "white");
+          else if (ch) r.text(ch, x, y, sel ? "cyan" : "white");
+        }
+      }
+      const name = g.playerName.padEnd(NAME_MAX, "_").split("").join(" ");
+      r.textC(name, VIEW_W / 2, 190, "orange");
     }
-    const name = g.playerName.padEnd(NAME_MAX, "_").split("").join(" ");
-    r.textC(name, VIEW_W / 2, 190, "orange");
   }
   renderControl() {
     const g = this.g;
@@ -6268,10 +6347,12 @@ var Game = class {
       this.go("connect");
       return;
     }
-    if (window.__MM__?.user) {
+    const userParam = q.get("user");
+    if (userParam) {
+      this.playerName = userParam;
+      window.__MM__ = { ...window.__MM__ || {}, user: userParam };
+    } else if (window.__MM__?.user) {
       this.playerName = window.__MM__.user;
-    } else if (!this.playerName) {
-      this.playerName = "@MACEIP";
     }
     this.go("title");
   }
@@ -6835,6 +6916,7 @@ var Game = class {
         break;
       case "title":
       case "menu":
+      case "name":
       case "connect":
         this.screens.render();
         break;
@@ -7580,42 +7662,28 @@ async function boot() {
     }
   };
   const tbContainer = document.getElementById("trackball-container");
-  const authDock = document.getElementById("auth-dock");
-  const twitterHandle = document.getElementById("twitter-handle");
-  const twitterBtn = document.getElementById("twitter-btn");
   const applyUser = (handle, provider = "twitter") => {
     window.__MM__ = { ...window.__MM__ || {}, user: handle };
     game.playerName = handle;
-    const el = document.getElementById(provider === "github" ? "github-handle" : "twitter-handle");
-    if (el) el.textContent = handle;
-    document.getElementById(provider === "github" ? "github-btn" : "twitter-btn")?.classList.add("active");
   };
   const user = window.__MM__?.user;
   if (user) {
-    if (twitterHandle) twitterHandle.textContent = user;
-    twitterBtn?.classList.add("active");
+    game.playerName = user;
   }
+  window.triggerAuth = (provider) => {
+    const nb2 = window.NativeBridge;
+    if (nb2 && nb2.launchAuth) {
+      const nonce = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
+      localStorage.setItem("mm_auth_nonce", nonce);
+      const err = nb2.launchAuth(`${location.origin}/auth/${provider}?app=${nonce}`);
+      if (err) console.warn("[auth] could not open browser:", err);
+    } else {
+      window.location.href = `/auth/${provider}`;
+    }
+  };
   const nb = window.NativeBridge;
   if (nb) {
-    for (const [id, provider] of [["twitter-btn", "twitter"], ["github-btn", "github"]]) {
-      document.getElementById(id)?.addEventListener("click", (e) => {
-        if (!nb.launchAuth) return;
-        e.preventDefault();
-        const nonce = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
-        localStorage.setItem("mm_auth_nonce", nonce);
-        const err = nb.launchAuth(`${location.origin}/auth/${provider}?app=${nonce}`);
-        if (err) console.warn("[auth] could not open browser:", err);
-      });
-    }
     window.addEventListener("contextmenu", (e) => e.preventDefault());
-    for (const id of ["twitter-btn", "github-btn"]) {
-      document.getElementById(id)?.addEventListener("pointerdown", () => {
-        try {
-          nb.hapticClick?.();
-        } catch {
-        }
-      }, { passive: true });
-    }
     window.onAuthTabEvent = (event) => {
       if (event === 6 && localStorage.getItem("mm_auth_nonce")) console.info("[auth] login tab hidden; waiting for the redirect or the user to retry");
     };
@@ -7655,10 +7723,6 @@ async function boot() {
     if (tbContainer) {
       const isRace = game.screen === "race" || game.screen === "intro" || game.screen === "timebonus";
       tbContainer.style.display = isRace ? "flex" : "none";
-    }
-    if (authDock) {
-      const isRace = game.screen === "race" || game.screen === "intro" || game.screen === "timebonus";
-      authDock.style.display = isRace ? "none" : "flex";
     }
     trackballView?.render();
     requestAnimationFrame(loop);

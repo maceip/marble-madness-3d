@@ -17,10 +17,18 @@ export class Screens {
 
   constructor(private g: Game) {}
 
+  menuDelay = 0;
+
   enter(screen: Screen): void {
     this.idle = 0;
-    if (screen === 'menu') this.cursor = 0;
-    if (screen === 'name') { this.nameCur = { r: 0, c: 0 }; this.g.playerName = ''; }
+    if (screen === 'menu') {
+      this.cursor = 0;
+      this.menuDelay = 0.35; // Input debounce so dismissing title doesn't instantly pick 1P
+    }
+    if (screen === 'name') {
+      this.nameCur = { r: 3, c: 3 }; // Hover on Y as shown in pickname.png
+      if (!this.g.playerName) this.g.playerName = '';
+    }
     if (screen === 'control') this.cursor = 1;
     if (screen === 'congrats') {
       this.rain = [];
@@ -35,15 +43,9 @@ export class Screens {
   chooseMode(idx: number): void {
     const g = this.g;
     g.sound.sfx('item');
-    if (idx === 0) {
-      g.mode = '1p';
-      g.beginMode();
-      g.newGame(0);
-    } else {
-      g.mode = 'ai';
-      g.beginMode();
-      g.go('connect');
-    }
+    g.mode = (idx === 0) ? '1p' : 'ai';
+    // Mode selection always proceeds to Pick Name screen (the final screen before playing)
+    g.go('name');
   }
 
   async copyAgentLink(): Promise<void> {
@@ -90,6 +92,10 @@ Instructions for Codex / AI Agent:
         else if (this.idle > 12) g.go('highrollers');
         break;
       case 'menu': {
+        if (this.menuDelay > 0) {
+          this.menuDelay -= dt;
+          break;
+        }
         for (const p of presses) {
           if (p === 'ArrowUp' || p === 'KeyW' || p === 'ArrowDown' || p === 'KeyS') {
             this.cursor = 1 - this.cursor;
@@ -97,8 +103,9 @@ Instructions for Codex / AI Agent:
           }
           if (p === 'Enter' || p === 'Space') {
             this.chooseMode(this.cursor);
+            return;
           }
-          if (p === 'Escape') g.go('title');
+          if (p === 'Escape') { g.go('title'); return; }
         }
         for (const clk of clicks) {
           const img = g.assets.screenCache.get('select_base') || g.assets.screenCache.get('select');
@@ -107,22 +114,20 @@ Instructions for Codex / AI Agent:
             const rw = img.width * scale, rh = img.height * scale;
             const ry = (g.r.canvas.height - rh) / 2;
             const iy = (clk.y - ry) * (img.height / rh);
-            if (iy >= 400 && iy <= 485) {
-              if (this.cursor === 0) this.chooseMode(0);
-              else { this.cursor = 0; g.sound.sfx('tick', 0.4); }
-            } else if (iy > 485 && iy <= 580) {
-              if (this.cursor === 1) this.chooseMode(1);
-              else { this.cursor = 1; g.sound.sfx('tick', 0.4); }
-            } else {
-              this.chooseMode(this.cursor);
+            if (iy >= 390 && iy <= 475) {
+              this.chooseMode(0);
+              return;
+            } else if (iy > 475 && iy <= 570) {
+              this.chooseMode(1);
+              return;
             }
-          } else {
-            this.chooseMode(this.cursor);
           }
+          this.chooseMode(this.cursor);
+          return;
         }
         break;
       }
-      case 'name': this.updateName(presses); break;
+      case 'name': this.updateName(presses, clicks); break;
       case 'control': {
         for (const p of presses) {
           if (p === 'ArrowUp' || p === 'ArrowDown' || p === 'KeyW' || p === 'KeyS') { this.cursor = 1 - this.cursor; g.sound.sfx('tick', 0.4); }
@@ -149,7 +154,6 @@ Instructions for Codex / AI Agent:
             const rx = (g.r.canvas.width - rw) / 2, ry = (g.r.canvas.height - rh) / 2;
             const ix = (clk.x - rx) * (img.width / rw);
             const iy = (clk.y - ry) * (img.height / rh);
-            // Yellow copy button (x: 840..1400, y: 50..190) or instructions card (x: 240..1200, y: 380..680)
             if ((ix >= 840 && ix <= 1400 && iy >= 50 && iy <= 190) || (ix >= 240 && ix <= 1200 && iy >= 380 && iy <= 680)) {
               void this.copyAgentLink();
             }
@@ -160,7 +164,7 @@ Instructions for Codex / AI Agent:
         break;
       }
       case 'gameover':
-        if (this.idle > 4 || any) g.go('highrollers');
+        if (this.idle > 4 || any) g.go('title');
         break;
       case 'congrats': {
         for (const m of this.rain) { m.y += m.vy * dt; if (m.y > VIEW_H + 10) { m.y = -12; m.x = Math.random() * VIEW_W; } }
@@ -170,24 +174,87 @@ Instructions for Codex / AI Agent:
           tally.drained += step; g.score += step;
         }
         if (this.idle > 2.5 && tally.drained >= tally.total && !this.g.scoreSubmitted) { void g.submitScore(); }
-        if ((any && this.idle > 4) || this.idle > 30) { g.sound.stopBgm(); g.go('highrollers'); }
+        if ((any && this.idle > 4) || this.idle > 30) { g.sound.stopBgm(); g.go('title'); }
         break;
       }
       default: break;
     }
   }
 
-  private updateName(presses: string[]): void {
+  private updateName(presses: string[], clicks: { x: number; y: number }[]): void {
     const g = this.g;
+    const colX = [366, 507, 647, 787, 927, 1067, 1207];
+    const rowY = [383, 508, 632, 759];
+
+    // Handle clicks
+    const img = g.assets.screenCache.get('pickname_base') || g.assets.screenCache.get('pickname');
+    for (const clk of clicks) {
+      if (img) {
+        const scale = Math.min(g.r.canvas.width / img.width, g.r.canvas.height / img.height);
+        const rw = img.width * scale, rh = img.height * scale;
+        const rx = (g.r.canvas.width - rw) / 2, ry = (g.r.canvas.height - rh) / 2;
+        const ix = (clk.x - rx) * (img.width / rw);
+        const iy = (clk.y - ry) * (img.height / rh);
+
+        // 1. GitHub button (x: 628..727, y: 209..290)
+        if (ix >= 615 && ix <= 735 && iy >= 195 && iy <= 300) {
+          g.sound.sfx('item');
+          (window as any).triggerAuth?.('github');
+          return;
+        }
+        // 2. Twitter / X button (x: 751..849, y: 209..290)
+        if (ix >= 740 && ix <= 860 && iy >= 195 && iy <= 300) {
+          g.sound.sfx('item');
+          (window as any).triggerAuth?.('twitter');
+          return;
+        }
+
+        // 3. Grid cell clicks
+        let matchedGrid = false;
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 7; c++) {
+            const cx = colX[c], cy = rowY[r];
+            if (Math.abs(ix - cx) <= 60 && Math.abs(iy - cy) <= 50) {
+              matchedGrid = true;
+              this.nameCur = { r, c };
+              if (r === 3 && c === 5) {
+                // RUB
+                g.playerName = g.playerName.slice(0, -1);
+                g.sound.sfx('tick', 0.4);
+              } else if (r === 3 && c === 6) {
+                // END
+                if (g.playerName.length > 0) this.finishName();
+                return;
+              } else {
+                const ch = LETTERS[r][c];
+                if (ch && g.playerName.length < NAME_MAX) {
+                  g.playerName += ch;
+                  g.sound.sfx('tick', 0.4);
+                }
+              }
+              break;
+            }
+          }
+          if (matchedGrid) break;
+        }
+
+        // Click on bottom name area to confirm
+        if (!matchedGrid && iy >= 850 && g.playerName.length > 0) {
+          this.finishName();
+          return;
+        }
+      }
+    }
+
+    // Keyboard inputs
     for (const p of presses) {
       if (p.startsWith('Key') && p.length === 4) {
         const ch = p[3];
         if (g.playerName.length < NAME_MAX) { g.playerName += ch; g.sound.sfx('tick', 0.4); }
-        // move cursor to the letter too
         for (let r = 0; r < LETTERS.length; r++) { const c = LETTERS[r].indexOf(ch); if (c >= 0) this.nameCur = { r, c }; }
         continue;
       }
-      if (p === 'Backspace') { g.playerName = g.playerName.slice(0, -1); continue; }
+      if (p === 'Backspace') { g.playerName = g.playerName.slice(0, -1); g.sound.sfx('tick', 0.3); continue; }
       if (p === 'Escape') { g.go('menu'); return; }
       const cols = 7;
       if (p === 'ArrowLeft' || p === 'KeyA') this.nameCur.c = (this.nameCur.c + cols - 1) % cols;
@@ -195,11 +262,11 @@ Instructions for Codex / AI Agent:
       if (p === 'ArrowUp' || p === 'KeyW') this.nameCur.r = (this.nameCur.r + 3) % 4;
       if (p === 'ArrowDown' || p === 'KeyS') this.nameCur.r = (this.nameCur.r + 1) % 4;
       if (p.startsWith('Arrow')) g.sound.sfx('tick', 0.3);
-      if (p === 'Enter' && g.playerName.length > 0) { this.finishName(); return; }   // Enter confirms a typed name
-      if (p === 'Enter' || p === 'Space' || p === 'Mouse' || p === 'Touch') {
+      if (p === 'Enter') { this.finishName(); return; }
+      if (p === 'Space') {
         const { r, c } = this.nameCur;
-        if (r === 3 && c === 5) { g.playerName = g.playerName.slice(0, -1); g.sound.sfx('tick'); }        // RUB
-        else if (r === 3 && c === 6) { if (g.playerName.length > 0) this.finishName(); }                 // END
+        if (r === 3 && c === 5) { g.playerName = g.playerName.slice(0, -1); g.sound.sfx('tick'); }
+        else if (r === 3 && c === 6) { if (g.playerName.length > 0) this.finishName(); }
         else {
           const ch = LETTERS[r][c];
           if (ch && g.playerName.length < NAME_MAX) { g.playerName += ch; g.sound.sfx('tick', 0.4); }
@@ -212,7 +279,12 @@ Instructions for Codex / AI Agent:
     const g = this.g;
     if (!g.playerName) g.playerName = 'ACE';
     g.sound.sfx('item');
-    g.go('control');
+    g.beginMode();
+    if (g.mode === 'ai') {
+      g.go('connect');
+    } else {
+      g.newGame(0);
+    }
   }
 
   /* ---------------------------------------------------------------------- */
@@ -240,21 +312,8 @@ Instructions for Codex / AI Agent:
   }
 
   private renderHighRollers(): void {
-    const g = this.g; const r = g.r;
-    r.logo(VIEW_W / 2, 18);
-    r.textC('HIGH ROLLERS', VIEW_W / 2, 90, 'lavender');
-    const rows = g.rollers.slice(0, 10);
-    for (let i = 0; i < 10; i++) {
-      const e = rows[i];
-      const y = 106 + i * 10;
-      const variant = i === 0 ? 'lavender' : 'orange';
-      const rank = `#${i + 1}`;
-      r.textR(rank, 70, y, variant);
-      if (e) {
-        r.text(e.name.replace(/\[(NI|AI)\]\s*/i, '').slice(0, 6), 78, y, variant);
-        r.textR(fmtScore(e.score), 232, y, variant);
-      }
-    }
+    // Both beginning and end leaderboards must match completely
+    this.renderTitle();
   }
 
   private renderTitle(): void {
@@ -348,22 +407,63 @@ Instructions for Codex / AI Agent:
 
   private renderName(): void {
     const g = this.g; const r = g.r;
-    r.textC('PLAYER 1', VIEW_W / 2, 30, 'lavender');
-    r.textC('ENTER YOUR NAME.', VIEW_W / 2, 46, 'lavender');
-    const x0 = 56, y0 = 78, dx = 27, dy = 24;
-    for (let row = 0; row < 4; row++) {
-      for (let c = 0; c < 7; c++) {
-        const ch = LETTERS[row][c];
-        const x = x0 + c * dx, y = y0 + row * dy;
-        const sel = this.nameCur.r === row && this.nameCur.c === c;
-        if (sel) drawFrame(r.ctx, g.assets.sheets.marble, FRAMES.marble.roll[Math.floor(this.blink * 6) % 6], x + 4, y + 4);
-        if (row === 3 && c === 5) r.text('RUB', x - 6, y, 'white');
-        else if (row === 3 && c === 6) r.text('END', x - 2, y, 'white');
-        else if (ch) r.text(ch, x, y, sel ? 'cyan' : 'white');
+    const img = g.assets.screenCache.get('pickname_base') || g.assets.screenCache.get('pickname');
+    if (img) {
+      const bounds = r.drawFullScreenImage(img);
+      const { rx, ry, rw, rh } = bounds;
+      const iw = img.width, ih = img.height;
+      const sx = (x: number) => rx + (x / iw) * rw;
+      const sy = (y: number) => ry + (y / ih) * rh;
+
+      // 4x7 letter grid centers matching pickname.png
+      const colX = [366, 507, 647, 787, 927, 1067, 1207];
+      const rowY = [383, 508, 632, 759];
+
+      // Draw marble cursor at selected letter
+      const curX = colX[this.nameCur.c];
+      const curY = rowY[this.nameCur.r];
+      const marbleSize = Math.round((72 / ih) * rh);
+      const marbleFrame = FRAMES.marble.roll[Math.floor(this.blink * 6) % 6];
+      const mx = sx(curX) - marbleSize / 2;
+      const my = sy(curY) - marbleSize / 2;
+      const sheet = g.assets.sheets.marble;
+      if (sheet) {
+        r.screenCtx.drawImage(
+          sheet,
+          marbleFrame.x, marbleFrame.y, marbleFrame.w, marbleFrame.h,
+          mx, my, marbleSize, marbleSize
+        );
       }
+
+      // Draw player name at bottom in arcade yellow font
+      const fontSize = Math.max(16, Math.round((36 / ih) * rh));
+      r.screenCtx.font = `bold ${fontSize}px "Courier New", monospace`;
+      r.screenCtx.textBaseline = 'middle';
+      r.screenCtx.textAlign = 'center';
+      r.screenCtx.fillStyle = '#ffe019';
+      
+      const blinkChar = (Math.floor(this.blink * 3) % 2 === 0) ? '_' : ' ';
+      const displayName = (g.playerName || '').toUpperCase().slice(0, NAME_MAX);
+      const padded = (displayName + blinkChar).padEnd(NAME_MAX, '_');
+      r.screenCtx.fillText(padded, sx(806), sy(895));
+    } else {
+      r.textC('PLAYER 1', VIEW_W / 2, 30, 'lavender');
+      r.textC('ENTER YOUR NAME.', VIEW_W / 2, 46, 'lavender');
+      const x0 = 56, y0 = 78, dx = 27, dy = 24;
+      for (let row = 0; row < 4; row++) {
+        for (let c = 0; c < 7; c++) {
+          const ch = LETTERS[row][c];
+          const x = x0 + c * dx, y = y0 + row * dy;
+          const sel = this.nameCur.r === row && this.nameCur.c === c;
+          if (sel) drawFrame(r.ctx, g.assets.sheets.marble, FRAMES.marble.roll[Math.floor(this.blink * 6) % 6], x + 4, y + 4);
+          if (row === 3 && c === 5) r.text('RUB', x - 6, y, 'white');
+          else if (row === 3 && c === 6) r.text('END', x - 2, y, 'white');
+          else if (ch) r.text(ch, x, y, sel ? 'cyan' : 'white');
+        }
+      }
+      const name = g.playerName.padEnd(NAME_MAX, '_').split('').join(' ');
+      r.textC(name, VIEW_W / 2, 190, 'orange');
     }
-    const name = g.playerName.padEnd(NAME_MAX, '_').split('').join(' ');
-    r.textC(name, VIEW_W / 2, 190, 'orange');
   }
 
   private renderControl(): void {

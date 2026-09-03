@@ -99,45 +99,34 @@ async function boot(): Promise<void> {
   };
 
   const tbContainer = document.getElementById('trackball-container');
-  const authDock = document.getElementById('auth-dock');
-  const twitterHandle = document.getElementById('twitter-handle');
-  const twitterBtn = document.getElementById('twitter-btn');
   const applyUser = (handle: string, provider = 'twitter') => {
     (window as any).__MM__ = { ...((window as any).__MM__ || {}), user: handle };
     game.playerName = handle;
-    const el = document.getElementById(provider === 'github' ? 'github-handle' : 'twitter-handle');
-    if (el) el.textContent = handle;
-    document.getElementById(provider === 'github' ? 'github-btn' : 'twitter-btn')?.classList.add('active');
   };
   const user = (window as any).__MM__?.user;
   if (user) {
-    if (twitterHandle) twitterHandle.textContent = user;
-    twitterBtn?.classList.add('active');
+    game.playerName = user;
   }
+
+  // Global triggerAuth callable from in-game canvas pickname screen
+  (window as any).triggerAuth = (provider: 'github' | 'twitter') => {
+    const nb = (window as any).NativeBridge as { launchAuth?(url: string): string } | undefined;
+    if (nb && nb.launchAuth) {
+      const nonce = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem('mm_auth_nonce', nonce);
+      const err = nb.launchAuth(`${location.origin}/auth/${provider}?app=${nonce}`);
+      if (err) console.warn('[auth] could not open browser:', err);
+    } else {
+      window.location.href = `/auth/${provider}`;
+    }
+  };
 
   // ---- Android host (tiny-apk-haptics): window.NativeBridge is injected by the WebView -------------------
   const nb = (window as any).NativeBridge as {
     onWebReady?(): void; launchAuth?(url: string): string; takeAuthResult?(): string | null;
   } | undefined;
   if (nb) {
-    // the login must run in the system browser (providers block embedded logins; the user's existing
-    // session makes it one tap). The host opens a pre-warmed Chrome Custom Tab and gets the result back
-    // through marbles://oauth-callback; we tag the request with a nonce so we only accept our own result.
-    for (const [id, provider] of [['twitter-btn', 'twitter'], ['github-btn', 'github']] as const) {
-      document.getElementById(id)?.addEventListener('click', (e) => {
-        if (!nb.launchAuth) return;
-        e.preventDefault();
-        const nonce = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, '0')).join('');
-        localStorage.setItem('mm_auth_nonce', nonce);
-        const err = nb.launchAuth(`${location.origin}/auth/${provider}?app=${nonce}`);
-        if (err) console.warn('[auth] could not open browser:', err);
-      });
-    }
-    // in-app polish: no long-press copy/share bars, haptic the instant a dock button is touched
     window.addEventListener('contextmenu', (e) => e.preventDefault());
-    for (const id of ['twitter-btn', 'github-btn']) {
-      document.getElementById(id)?.addEventListener('pointerdown', () => { try { (nb as any).hapticClick?.(); } catch { /* bridge gone */ } }, { passive: true });
-    }
     // Custom Tab lifecycle from the host (1 started, 2 finished, 3 failed, 4 aborted, 5 shown, 6 hidden)
     (window as any).onAuthTabEvent = (event: number) => {
       if (event === 6 && localStorage.getItem('mm_auth_nonce')) console.info('[auth] login tab hidden; waiting for the redirect or the user to retry');
@@ -172,10 +161,6 @@ async function boot(): Promise<void> {
     if (tbContainer) {
       const isRace = game.screen === 'race' || game.screen === 'intro' || game.screen === 'timebonus';
       tbContainer.style.display = isRace ? 'flex' : 'none';
-    }
-    if (authDock) {
-      const isRace = game.screen === 'race' || game.screen === 'intro' || game.screen === 'timebonus';
-      authDock.style.display = isRace ? 'none' : 'flex';
     }
     trackballView?.render();
     requestAnimationFrame(loop);
