@@ -3,6 +3,7 @@ import { Renderer } from './render/renderer';
 import { Input } from './engine/input';
 import { Sound } from './engine/audio';
 import { Game } from './game/game';
+import { trackEvent, trackErrors, flushNativeTelemetry } from './engine/telemetry';
 import { Trackball3DView } from './render/trackball3d';
 
 import * as levelEngine from './engine/level';
@@ -82,6 +83,21 @@ async function boot(): Promise<void> {
 
   await game.start();
 
+  // ---- telemetry (see engine/telemetry.ts): one start event, key screen changes, deaths, login, JS errors
+  trackErrors();
+  const q = new URLSearchParams(location.search);
+  trackEvent('app_start', { install: q.get('install') === '1', tagged: q.get('platform') || null });
+  let lastScreen = game.screen, lastDeaths = game.deaths;
+  const trackScreen = () => {
+    if (game.screen !== lastScreen) {
+      const from = lastScreen; lastScreen = game.screen;
+      if (game.screen === 'race' && from === 'intro') trackEvent('race_start', { stage: game.stageIdx + 1, mode: game.mode });
+      else if (from === 'race' && (game.screen === 'timebonus' || game.screen === 'gameover' || game.screen === 'congrats')) trackEvent('race_end', { stage: game.stageIdx + 1, result: game.screen, score: game.score, deaths: game.deaths });
+      else if (game.screen === 'gameover' || game.screen === 'congrats') trackEvent(game.screen, { stage: game.stageIdx + 1, score: game.score });
+    }
+    if (game.deaths !== lastDeaths) { lastDeaths = game.deaths; trackEvent('death', { stage: game.stageIdx + 1 }); }
+  };
+
   const tbContainer = document.getElementById('trackball-container');
   const authDock = document.getElementById('auth-dock');
   const twitterHandle = document.getElementById('twitter-handle');
@@ -138,10 +154,12 @@ async function boot(): Promise<void> {
         document.cookie = `mm_user=${encodeURIComponent(r.user)}; Path=/; Max-Age=2592000; SameSite=Lax`;
         applyUser(r.user, r.provider || 'twitter');
         input.trackball.vibrate(8);
+        trackEvent('login', { provider: r.provider || 'twitter' });
       } catch (err) { console.warn('[auth] bad result', err); }
     };
     (window as any).onAuthComplete();        // cold start straight from the redirect
     nb.onWebReady?.();                       // the host may lift its native title overlay now
+    flushNativeTelemetry(nb as any, (window as any).__MM__?.nonce);   // parked crash + one-time install proof
   }
 
   let last = performance.now();
@@ -150,6 +168,7 @@ async function boot(): Promise<void> {
     last = now;
     game.update(dt);
     game.render();
+    trackScreen();
     if (tbContainer) {
       const isRace = game.screen === 'race' || game.screen === 'intro' || game.screen === 'timebonus';
       tbContainer.style.display = isRace ? 'flex' : 'none';

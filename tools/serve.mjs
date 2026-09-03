@@ -20,7 +20,7 @@
 //   c->s  { type:'start', stage }                  s->c { type:'start', stage, by }   (2P race start sync)
 //   s->c  { type:'joined'|'left', id, role, name }
 import http from 'node:http';
-import { createReadStream, existsSync, statSync, readFileSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -54,6 +54,34 @@ const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || 'bb5f0f61d78d0f
 const GITHUB_CALLBACK = process.env.GITHUB_CALLBACK || 'https://marbles.secure.build/callback/github';
 /** custom scheme the Android host registers (see tiny-apk-haptics/): <scheme>://oauth-callback */
 const APP_SCHEME = process.env.APP_SCHEME || 'marbles';
+/** telemetry: JSONL file of installs / crashes / events; installs are only counted with a valid app proof */
+const TELEMETRY_FILE = process.env.TELEMETRY_FILE || path.join(root, 'data', 'telemetry.jsonl');
+/** sha256 (hex, no colons) of the APK signing certificate(s); Play's app-signing cert for store builds */
+const APK_CERT_SHA256 = (process.env.APK_CERT_SHA256 || '').toLowerCase().split(',').map((x) => x.replace(/:/g, '').trim()).filter(Boolean);
+const installNonces = new Map();          // nonce -> expiry (single use, 60 s)
+const telemetryTimes = new Map();         // ip -> [timestamps] for rate limiting
+function mintInstallNonce() {
+  const now = Date.now();
+  for (const [k, exp] of installNonces) if (exp < now) installNonces.delete(k);
+  const n = crypto.randomBytes(16).toString('base64url');
+  installNonces.set(n, now + 60_000);
+  return n;
+}
+function telemetryAppend(obj) {
+  try { appendFileSync(TELEMETRY_FILE, JSON.stringify({ ts: new Date().toISOString(), ...obj }) + '\n'); } catch (e) { console.warn('[serve] telemetry write failed', e.message); }
+}
+function telemetryAllowed(ip, perMinute) {
+  const now = Date.now(); const arr = (telemetryTimes.get(ip) || []).filter((t) => now - t < 60_000);
+  if (arr.length >= perMinute) { telemetryTimes.set(ip, arr); return false; }
+  arr.push(now); telemetryTimes.set(ip, arr); return true;
+}
+function readBody(req, limit) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (c) => { body += c; if (body.length > limit) { req.destroy(); reject(new Error('too large')); } });
+    req.on('end', () => resolve(body)); req.on('error', reject);
+  });
+}
 
 /** The Android app starts a login as /auth/<provider>?app=<nonce>; the nonce rides along in the state cookie. */
 function appNonce(url) { const a = url.searchParams.get('app') || ''; return /^[A-Za-z0-9_-]{8,64}$/.test(a) ? a : ''; }
@@ -150,7 +178,7 @@ function serveIndex(req, res, lobbyFromPath) {
   if (setCookies.length) headers['Set-Cookie'] = setCookies;
   let html = readFileSync(path.join(root, 'index.html'), 'utf8');
   const origin = PUBLIC_ORIGIN || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
-  html = html.replace('</head>', `<script>window.__MM__=${JSON.stringify({ lobby, fromPath: !!lobbyFromPath, publicOrigin: origin, user })};</script></head>`);
+  html = html.replace('</head>', `<script>window.__MM__=${JSON.stringify({ lobby, fromPath: !!lobbyFromPath, publicOrigin: origin, user, nonce: mintInstallNonce() })};</script></head>`);
   res.writeHead(200, headers);
   res.end(html);
 }
@@ -387,6 +415,51 @@ const server = http.createServer(async (req, res) => {
         'Set-Cookie': `mm_user=; Path=/; Max-Age=0; SameSite=Lax`,
       });
       return res.end(JSON.stringify({ status: 'ok' }));
+    }
+
+    // ---- telemetry: only from established page sessions (cookie), never from bare requests
+    if (p.startsWith('/api/telemetry/')) {
+      const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
+      if (p === '/api/telemetry/summary' && req.method === 'GET') {
+        const sum = { installs: 0, crashes: 0, events: {}, platforms: {}, since: null };
+        try {
+          for (const line of readFileSync(TELEMETRY_FILE, 'utf8').split('\n')) {
+            if (!line) continue; let r; try { r = JSON.parse(line); } catch { continue; }
+            sum.since = sum.since || r.ts;
+            if (r.type === 'install') sum.installs++;
+            else if (r.type === 'crash') sum.crashes++;
+            else if (r.type === 'event') { sum.events[r.event] = (sum.events[r.event] || 0) + 1; sum.platforms[r.platform] = (sum.platforms[r.platform] || 0) + 1; }
+          }
+        } catch { /* no file yet */ }
+        return sendJson(res, 200, sum);
+      }
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'POST only' });
+      const cookies = parseCookies(req);
+      if (!cookies.mm_lobby) return sendJson(res, 403, { error: 'no session' });
+      if (!telemetryAllowed(ip, p.endsWith('/event') ? 120 : 6)) return sendJson(res, 429, { error: 'slow down' });
+      let payload;
+      try { payload = JSON.parse((await readBody(req, p.endsWith('/crash') ? 32768 : 4096)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad body' }); }
+      if (p === '/api/telemetry/install') {
+        const { nonce, proof, device } = payload;
+        const exp = installNonces.get(nonce);
+        if (!exp || exp < Date.now()) return sendJson(res, 403, { error: 'nonce invalid or expired' });
+        installNonces.delete(nonce);
+        const ok = APK_CERT_SHA256.some((fp) => crypto.createHash('sha256').update(`${nonce}:${fp}`).digest('hex') === String(proof).toLowerCase());
+        if (!ok) { telemetryAppend({ type: 'install_rejected', ip }); return sendJson(res, 403, { error: 'proof rejected' }); }
+        telemetryAppend({ type: 'install', platform: 'android_apk', device });
+        return sendJson(res, 200, { ok: true });
+      }
+      if (p === '/api/telemetry/crash') {
+        telemetryAppend({ type: 'crash', platform: 'android_apk', stack: String(payload.stack || '').slice(0, 16000), device: payload.device });
+        return sendJson(res, 200, { ok: true });
+      }
+      if (p === '/api/telemetry/event') {
+        const event = String(payload.event || '').slice(0, 40); if (!/^[a-z_]+$/.test(event)) return sendJson(res, 400, { error: 'bad event' });
+        const platform = ['web', 'pwa', 'android_apk'].includes(payload.platform) ? payload.platform : 'web';
+        telemetryAppend({ type: 'event', event, platform, meta: payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {} });
+        return sendJson(res, 200, { ok: true });
+      }
+      return sendJson(res, 404, { error: 'unknown telemetry route' });
     }
 
     if (p === '/api/leaderboard' && req.method === 'GET') return sendJson(res, 200, { status: 'ok', top50: leaderboard });

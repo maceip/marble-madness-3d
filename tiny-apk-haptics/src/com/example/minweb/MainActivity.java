@@ -8,7 +8,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.SharedPreferences;
+import android.os.Build;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
@@ -33,7 +38,12 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.InetAddress;
+import java.security.KeyPairGenerator;
+import java.security.KeyStore;
+import java.security.MessageDigest;
 
 /**
  * The whole app. The WebView shows the game from SERVER_ORIGIN (manifest meta-data); this class adds
@@ -65,6 +75,8 @@ public class MainActivity extends Activity {
     private String pendingResult;
     private Vibrator v;
     private boolean tick, lowTick, click, thud;
+    private final TrackballHaptics trackball = new TrackballHaptics();
+    private SharedPreferences prefs;
     /** Custom Tabs navigation events (ICustomTabsCallback.onNavigationEvent) */
     private static final int NAV_STARTED = 1, NAV_FINISHED = 2, NAV_FAILED = 3, NAV_ABORTED = 4, TAB_SHOWN = 5, TAB_HIDDEN = 6;
     /** our end of the Custom Tabs session: Chrome reports tab/navigation events into it (AIDL id 1 -> code 2, oneway) */
@@ -127,6 +139,9 @@ public class MainActivity extends Activity {
         // opaque surface: no alpha blending pass in SurfaceFlinger for this window
         getWindow().setFormat(PixelFormat.OPAQUE);
         super.onCreate(state);
+        prefs = getSharedPreferences("mm", MODE_PRIVATE);
+        System.out.println("[marbles] start, pending crash=" + prefs.contains("crash") + " handler=" + Thread.getDefaultUncaughtExceptionHandler());
+        installCrashHook();
         readConfig();
         v = vibrator();
         if (v != null) {
@@ -165,6 +180,14 @@ public class MainActivity extends Activity {
                 openInBrowser(u);                                            // anything else: Custom Tab
                 return true;
             }
+            /** Chromium's renderer died (OOM or crash). Default would be to kill the app; instead note it as a
+             *  crash report and rebuild the Activity, which gives the game a fresh WebView. */
+            @Override public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail d) {
+                prefs.edit().putString("crash", "WebView renderer gone: " + (d.didCrash() ? "crashed" : "killed by the system (memory)")
+                        + ", priority " + d.rendererPriorityAtExit()).commit();
+                runOnUiThread(MainActivity.this::recreate);
+                return true;
+            }
         });
         root.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
@@ -179,7 +202,156 @@ public class MainActivity extends Activity {
         goFullscreen();
 
         if (handleRedirect(getIntent())) startRequested = true;         // back from the login: no title screen
-        if (state != null) web.restoreState(state); else web.loadUrl(serverOrigin + "/");
+        debugTriggers(getIntent());
+        // the platform tag lets the site tell browser / PWA / app traffic apart; installs are proven separately
+        if (state != null) web.restoreState(state);
+        else web.loadUrl(serverOrigin + "/?platform=android_apk" + (prefs.getBoolean("installed", false) ? "" : "&install=1"));
+    }
+
+    // ------------------------------------------------------------------ telemetry (authentic, via the page's session)
+    /** Java crashes: write the trace synchronously, let the process die, hand it to the page on the next launch. */
+    private void installCrashHook() {
+        final Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            try {
+                StringWriter sw = new StringWriter();
+                e.printStackTrace(new PrintWriter(sw));            // not Log.getStackTraceString: R8 strips Log calls
+                String trace = sw.toString();
+                boolean ok = prefs.edit().putString("crash", trace.substring(0, Math.min(trace.length(), 16000))).commit();
+                System.out.println("[marbles] crash parked=" + ok);
+            } catch (Throwable x) { System.out.println("[marbles] crash park failed " + x); }
+            if (previous != null) previous.uncaughtException(t, e);
+        });
+    }
+
+    /** the parked crash trace (JSON) or null; clears it. The page posts it with its own cookies. */
+    @JavascriptInterface public String consumePendingCrash() {
+        String c = prefs.getString("crash", null);
+        System.out.println("[marbles] consumePendingCrash pending=" + (c != null));
+        if (c == null) return null;
+        prefs.edit().remove("crash").apply();
+        return "{\"stack\":" + json(c) + ",\"device\":" + deviceInfo() + "}";
+    }
+
+    /** model / OS / app version, for crash and event context */
+    @JavascriptInterface public String deviceInfo() {
+        String ver = "?";
+        try { PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0); ver = pi.versionName + " (" + pi.getLongVersionCode() + ")"; } catch (Exception ignored) {}
+        return "{\"model\":" + json(Build.MANUFACTURER + " " + Build.MODEL) + ",\"sdk\":" + Build.VERSION.SDK_INT + ",\"app\":" + json(ver) + "}";
+    }
+
+    /**
+     * Challenge-response install proof. The server minted `nonce` for this page load; we answer with
+     * sha256(nonce + ":" + sha256(our signing certificate)). The server knows the release certificate, so
+     * curl, crawlers and re-signed APKs cannot produce a valid proof. Answered once per device: the flag in
+     * prefs plus a key in the hardware keystore, which survives a data clear.
+     */
+    @JavascriptInterface public String signInstallChallenge(String nonce) {
+        if (nonce == null || !nonce.matches("[A-Za-z0-9_-]{8,64}")) return null;
+        if (prefs.getBoolean("installed", false) || !freshDevice()) { prefs.edit().putBoolean("installed", true).apply(); return null; }
+        try {
+            PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+            byte[] cert = pi.signingInfo.getApkContentsSigners()[0].toByteArray();
+            String fp = hex(MessageDigest.getInstance("SHA-256").digest(cert));
+            String proof = hex(MessageDigest.getInstance("SHA-256").digest((nonce + ":" + fp).getBytes("UTF-8")));
+            prefs.edit().putBoolean("installed", true).apply();
+            return "{\"nonce\":" + json(nonce) + ",\"proof\":" + json(proof) + ",\"device\":" + deviceInfo() + "}";
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** creates the device anchor key on first call; false if it already existed (device already counted) */
+    private boolean freshDevice() {
+        try {
+            KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+            ks.load(null);
+            if (ks.containsAlias("mm_device")) return false;
+            KeyPairGenerator kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore");
+            kpg.initialize(new KeyGenParameterSpec.Builder("mm_device", KeyProperties.PURPOSE_SIGN).setDigests(KeyProperties.DIGEST_SHA256).build());
+            kpg.generateKeyPair();
+            return true;
+        } catch (Exception e) {
+            return true;                                            // no keystore: fall back to the prefs flag alone
+        }
+    }
+
+    private static String hex(byte[] b) {
+        StringBuilder sb = new StringBuilder(b.length * 2);
+        for (byte x : b) sb.append(String.format("%02x", x));
+        return sb.toString();
+    }
+
+    // ------------------------------------------------------------------ trackball haptic engine (bridge)
+    /** finger down; omega = current ball speed (rad/s): catching a spinning ball slips, then thuds */
+    @JavascriptInterface public void tbDown(float omega) { trackball.down(omega); }
+    /** static friction broke: one heavy low tick */
+    @JavascriptInterface public void tbBreakout() { trackball.breakout(); }
+    /** ball rolled dAngle radians under the finger at omega rad/s: bearing ticks every 6 degrees */
+    @JavascriptInterface public void tbRoll(float dAngle, float omega) { trackball.roll(dAngle, omega); }
+    /** finger spinning against the ball's motion */
+    @JavascriptInterface public void tbBrake(float omega) { trackball.brake(omega); }
+    /** finger lifted: silence at once, the ball spins on in audio only */
+    @JavascriptInterface public void tbUp() { trackball.up(); }
+
+    /**
+     * Haptics for a 3-inch, 550 g phenolic arcade trackball on steel rollers. Everything is driven by angle
+     * rolled, never by time: ticks fall where the encoder teeth would (60 per revolution), amplitude follows
+     * speed, and the actuator is muted the instant the finger leaves so the ball feels detached.
+     */
+    final class TrackballHaptics {
+        static final float STEP = (float) Math.toRadians(6);      // 60 ticks per revolution
+        static final float MAX_OMEGA = 32f;                        // matches the web simulation's clamp
+        static final long MIN_GAP_MS = 28;                         // >35 Hz would smear into a buzz: drop ticks instead
+        float accum; boolean touching; long lastTick;
+
+        void down(float omega) {
+            touching = true; accum = 0;
+            if (v == null || omega < 2f) return;
+            float k = Math.min(1f, omega / 15f);
+            VibrationEffect.Composition c = VibrationEffect.startComposition();
+            if (lowTick) { c.addPrimitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, 0.35f, 0).addPrimitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, 0.35f, 18); } // skin slipping on the moving resin
+            if (thud) c.addPrimitive(VibrationEffect.Composition.PRIMITIVE_THUD, k, 30);                 // the ball's energy dumped into the hand
+            else if (click) c.addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK, k, 30);
+            else { v.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK)); return; }
+            v.vibrate(c.compose());
+        }
+
+        void breakout() {
+            if (v == null) return;
+            if (lowTick) v.vibrate(VibrationEffect.startComposition().addPrimitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, 1f, 0).compose());
+            else if (tick) v.vibrate(VibrationEffect.startComposition().addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK, 1f, 0).compose());
+            else v.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK));
+        }
+
+        void roll(float dAngle, float omega) {
+            if (!touching || v == null) return;
+            accum += Math.abs(dAngle);
+            if (accum < STEP) return;
+            int n = (int) (accum / STEP);
+            accum -= n * STEP;
+            long now = android.os.SystemClock.uptimeMillis();
+            if (now - lastTick < MIN_GAP_MS) return;                 // too fast for the actuator: this tooth is skipped
+            lastTick = now;
+            float a = 0.2f + 0.8f * Math.min(1f, omega / MAX_OMEGA);
+            if (n > 1) a = Math.min(1f, a * 1.25f);                 // skipped teeth: one slightly stronger tick
+            if (tick) v.vibrate(VibrationEffect.startComposition().addPrimitive(VibrationEffect.Composition.PRIMITIVE_TICK, a, 0).compose());
+            else v.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK));
+        }
+
+        void brake(float omega) {
+            if (v == null) return;
+            float k = Math.min(1f, 0.4f + omega / MAX_OMEGA);
+            VibrationEffect.Composition c = VibrationEffect.startComposition();
+            if (lowTick) c.addPrimitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, 0.5f, 0).addPrimitive(VibrationEffect.Composition.PRIMITIVE_LOW_TICK, 0.5f, 16);
+            if (click) c.addPrimitive(VibrationEffect.Composition.PRIMITIVE_CLICK, k, 24); else { v.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK)); return; }
+            v.vibrate(c.compose());
+        }
+
+        void up() {
+            touching = false; accum = 0;
+            if (v != null) v.cancel();
+        }
     }
 
     private void readConfig() {
@@ -256,10 +428,22 @@ public class MainActivity extends Activity {
     }
 
     // ------------------------------------------------------------------ login result hand-off
+    /** test builds only (plain-http server, i.e. an emulator against a local server): fault injection from adb
+     *    am start -n <app>/com.example.minweb.MainActivity --ez debug_crash true         Java crash in our process
+     *    am start -n <app>/com.example.minweb.MainActivity --ez debug_renderer_crash true  kill the WebView renderer */
+    private void debugTriggers(Intent intent) {
+        if (intent == null || !serverOrigin.startsWith("http://")) return;
+        boolean crash = intent.getBooleanExtra("debug_crash", false), renderer = intent.getBooleanExtra("debug_renderer_crash", false);
+        intent.removeExtra("debug_crash"); intent.removeExtra("debug_renderer_crash");     // one shot: recreate() re-delivers the intent
+        if (crash) web.postDelayed(() -> { throw new IllegalStateException("debug_crash from adb"); }, 500);
+        if (renderer) web.postDelayed(() -> web.loadUrl("chrome://crash"), 500);
+    }
+
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        debugTriggers(intent);
         if (handleRedirect(intent)) {
             dismissOverlay();
             web.evaluateJavascript("window.onAuthComplete && window.onAuthComplete()", null);
