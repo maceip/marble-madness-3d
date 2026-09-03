@@ -72,6 +72,64 @@ export class Input {
   }
 
   private setupGameCanvasMouse(): void {
+    let canvasTouchId: number | null = null;
+    let canvasLastTouchX = 0, canvasLastTouchY = 0, canvasLastTouchTime = 0;
+    let canvasTouchMoved = false;
+
+    this.canvas.addEventListener('touchstart', (e) => {
+      if (e.changedTouches.length === 0) return;
+      const t = e.changedTouches[0];
+      canvasTouchId = t.identifier;
+      canvasLastTouchX = t.clientX;
+      canvasLastTouchY = t.clientY;
+      canvasLastTouchTime = performance.now();
+      canvasTouchMoved = false;
+      this.anyPress = true;
+      this.pressedQueue.push('Touch');
+      this.trackball.startDrag();
+    }, { passive: true });
+
+    this.canvas.addEventListener('touchmove', (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === canvasTouchId) {
+          const dx = t.clientX - canvasLastTouchX;
+          const dy = t.clientY - canvasLastTouchY;
+          if (Math.hypot(dx, dy) > 3) canvasTouchMoved = true;
+          const now = performance.now();
+          const dt = Math.max(0.008, Math.min(0.05, (now - canvasLastTouchTime) / 1000));
+          canvasLastTouchX = t.clientX;
+          canvasLastTouchY = t.clientY;
+          canvasLastTouchTime = now;
+          this.trackball.dragDelta(dx * 1.25, dy * 1.25, dt);
+          break;
+        }
+      }
+    }, { passive: true });
+
+    const endCanvasTouch = (e: TouchEvent) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier === canvasTouchId) {
+          canvasTouchId = null;
+          this.trackball.endDrag();
+          // If the player simply tapped without dragging, record as a menu click
+          if (!canvasTouchMoved) {
+            const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+            this.clicksQueue.push({
+              x: (t.clientX - rect.left) * scaleX,
+              y: (t.clientY - rect.top) * scaleY,
+            });
+          }
+          break;
+        }
+      }
+    };
+    this.canvas.addEventListener('touchend', endCanvasTouch, { passive: true });
+    this.canvas.addEventListener('touchcancel', endCanvasTouch, { passive: true });
+
     this.canvas.addEventListener('click', (e) => {
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.canvas.width / rect.width;
@@ -80,19 +138,6 @@ export class Input {
         x: (e.clientX - rect.left) * scaleX,
         y: (e.clientY - rect.top) * scaleY,
       });
-    });
-
-    this.canvas.addEventListener('touchend', (e) => {
-      if (e.changedTouches.length > 0) {
-        const t = e.changedTouches[0];
-        const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        this.clicksQueue.push({
-          x: (t.clientX - rect.left) * scaleX,
-          y: (t.clientY - rect.top) * scaleY,
-        });
-      }
     });
 
     this.canvas.addEventListener('mousedown', (e) => {
@@ -173,11 +218,14 @@ export class Input {
 
   private setupTrackballTouch(tb: HTMLCanvasElement): void {
     // Pointer Events for modern browsers / touch screens
+    let lastTbTouchTime = performance.now();
+
     tb.addEventListener('pointerdown', (e) => {
       tb.setPointerCapture(e.pointerId);
       this.activeTouchId = e.pointerId;
       this.lastTouchX = e.clientX;
       this.lastTouchY = e.clientY;
+      lastTbTouchTime = performance.now();
       this.anyPress = true;
       this.pressedQueue.push('Touch');
       this.trackball.startDrag();
@@ -188,9 +236,12 @@ export class Input {
       if (this.activeTouchId !== e.pointerId) return;
       const dx = e.clientX - this.lastTouchX;
       const dy = e.clientY - this.lastTouchY;
+      const now = performance.now();
+      const dt = Math.max(0.008, Math.min(0.05, (now - lastTbTouchTime) / 1000));
       this.lastTouchX = e.clientX;
       this.lastTouchY = e.clientY;
-      this.trackball.dragDelta(dx * 1.6, dy * 1.6);
+      lastTbTouchTime = now;
+      this.trackball.dragDelta(dx * 1.5, dy * 1.5, dt);
       e.preventDefault();
     });
 
@@ -208,6 +259,7 @@ export class Input {
       const t = e.changedTouches[0];
       this.lastTouchX = t.clientX;
       this.lastTouchY = t.clientY;
+      lastTbTouchTime = performance.now();
       this.anyPress = true;
       this.pressedQueue.push('Touch');
       this.trackball.startDrag();
@@ -218,9 +270,12 @@ export class Input {
       const t = e.changedTouches[0];
       const dx = t.clientX - this.lastTouchX;
       const dy = t.clientY - this.lastTouchY;
+      const now = performance.now();
+      const dt = Math.max(0.008, Math.min(0.05, (now - lastTbTouchTime) / 1000));
       this.lastTouchX = t.clientX;
       this.lastTouchY = t.clientY;
-      this.trackball.dragDelta(dx * 1.6, dy * 1.6);
+      lastTbTouchTime = now;
+      this.trackball.dragDelta(dx * 1.5, dy * 1.5, dt);
       e.preventDefault();
     }, { passive: false });
 

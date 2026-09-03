@@ -353,8 +353,16 @@ export class Game {
   /* update                                                                  */
   /* ---------------------------------------------------------------------- */
 
+  /** human side: the agent may already be in the lobby (rematch, or it joined before we came back) */
+  private checkLobbyStart(): void {
+    if (this.mode !== 'ai' || this.isAgentPage || this.agentJoined) return;
+    const ai = [...this.net.players.values()].find((p) => p.role === 'ai');
+    if (ai) this.net.onJoined?.(ai);
+  }
+
   update(dt: number): void {
     this.t += dt;
+    if (this.screen === 'connect') this.checkLobbyStart();
     switch (this.screen) {
       case 'intro': this.updateIntro(dt); break;
       case 'race': this.updateRace(dt); break;

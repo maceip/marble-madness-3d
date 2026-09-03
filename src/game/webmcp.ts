@@ -111,7 +111,7 @@ export class WebMCP {
       },
       {
         name: 'start_or_respawn',
-        description: 'Advance menu screens into the race or confirm ready in Player-vs-AI lobby.',
+        description: 'Advance from a menu screen into a race, or start a new game after game over. If you opened a lobby URL you are the AI player: the human starts every race and rematch from their device; this only reports that you are waiting. Nobody needs to type or click anything.',
         inputSchema: { type: 'object', properties: {} },
         execute: () => this.startOrRespawn(),
       },
@@ -271,6 +271,13 @@ export class WebMCP {
   private startOrRespawn(): unknown {
     const g = this.game;
     this.mark();
+    if (g.isAgentPage) {
+      // the human starts every race from their side; the agent never walks the human's menus
+      if (g.screen === 'race') return { ok: true, screen: 'race', respawning: g.marble.phase === 'dead' || g.marble.phase === 'dying' };
+      if (g.screen === 'intro') return { ok: true, screen: 'intro', note: 'race starting' };
+      if (g.screen === 'gameover' || g.screen === 'congrats' || g.screen === 'timebonus') { g.go('connect'); }
+      return { ok: true, waitingForHuman: true, screen: g.screen, note: 'connected to the lobby; the human starts the race, nothing to do until then' };
+    }
     switch (g.screen) {
       case 'highrollers': case 'title': g.go('menu'); g.sound.init(); return { ok: true, screen: g.screen };
       case 'menu': g.mode = g.mode === 'ai' ? 'ai' : '1p'; g.playerName = g.playerName || 'AGENT'; g.go('control'); return { ok: true, screen: g.screen };

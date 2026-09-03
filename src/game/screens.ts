@@ -148,6 +148,32 @@ Instructions for Codex / AI Agent:
           if (p === 'Escape') { g.go('title'); return; }
         }
         for (const clk of clicks) {
+          const isPortrait = g.r.canvas.height > g.r.canvas.width * 1.15;
+          if (isPortrait) {
+            const cw = g.r.canvas.width, ch = g.r.canvas.height;
+            const cardW = Math.round(cw * 0.86);
+            const cardH = Math.max(70, Math.round(ch * 0.12));
+            const cardX = Math.round((cw - cardW) / 2);
+            const selectImg = g.assets.screenCache.get('select_base') || g.assets.screenCache.get('select');
+            let topY = 40;
+            if (selectImg) {
+              const srcH = Math.round(selectImg.height * 0.35);
+              const drawH = Math.round((cw / selectImg.width) * srcH);
+              topY = drawH + 40;
+            }
+            topY += Math.round(ch * 0.06);
+            const y0 = topY;
+            const y1 = y0 + cardH + Math.round(ch * 0.035);
+            if (clk.x >= cardX && clk.x <= cardX + cardW && clk.y >= y0 && clk.y <= y0 + cardH) {
+              this.chooseMode(0);
+              return;
+            }
+            if (clk.x >= cardX && clk.x <= cardX + cardW && clk.y >= y1 && clk.y <= y1 + cardH) {
+              this.chooseMode(1);
+              return;
+            }
+          }
+
           const img = g.assets.screenCache.get('select_base') || g.assets.screenCache.get('select');
           if (img) {
             const scale = Math.min(g.r.canvas.width / img.width, g.r.canvas.height / img.height);
@@ -182,6 +208,7 @@ Instructions for Codex / AI Agent:
         break;
       }
       case 'connect': {
+        if (g.isAgentPage) break;                 // the agent has nothing to do here but wait
         for (const p of presses) {
           if (p === 'Escape') g.go('menu');
           if (p === 'KeyC' || p === 'Space' || p === 'Enter') void this.copyAgentLink();
@@ -204,7 +231,7 @@ Instructions for Codex / AI Agent:
         break;
       }
       case 'gameover':
-        if (this.idle > 4 || any) g.go('title');
+        if (this.idle > 4 || any) g.go(g.isAgentPage ? 'connect' : 'title');   // the agent returns to the lobby, never to the menus
         break;
       case 'congrats': {
         for (const m of this.rain) { m.y += m.vy * dt; if (m.y > VIEW_H + 10) { m.y = -12; m.x = Math.random() * VIEW_W; } }
@@ -214,7 +241,7 @@ Instructions for Codex / AI Agent:
           tally.drained += step; g.score += step;
         }
         if (this.idle > 2.5 && tally.drained >= tally.total && !this.g.scoreSubmitted) { void g.submitScore(); }
-        if ((any && this.idle > 4) || this.idle > 30) { g.sound.stopBgm(); g.go('title'); }
+        if ((any && this.idle > 4) || this.idle > 30) { g.sound.stopBgm(); g.go(g.isAgentPage ? 'connect' : 'title'); }
         break;
       }
       default: break;
@@ -246,7 +273,74 @@ Instructions for Codex / AI Agent:
 
     // Handle clicks
     const img = g.assets.screenCache.get('pickname_base') || g.assets.screenCache.get('pickname');
+    const isPortrait = g.r.canvas.height > g.r.canvas.width * 1.15;
+
     for (const clk of clicks) {
+      if (isPortrait) {
+        const cw = g.r.canvas.width, ch = g.r.canvas.height;
+        const btnW = Math.round(cw * 0.42);
+        const btnH = Math.max(48, Math.round(ch * 0.055));
+        const btnY = Math.round(ch * 0.15);
+        const ghX = Math.round(cw * 0.06);
+        const twX = Math.round(cw * 0.52);
+
+        // GitHub button
+        if (clk.x >= ghX && clk.x <= ghX + btnW && clk.y >= btnY && clk.y <= btnY + btnH) {
+          g.sound.sfx('item');
+          (window as any).triggerAuth?.('github');
+          return;
+        }
+        // Twitter button
+        if (clk.x >= twX && clk.x <= twX + btnW && clk.y >= btnY && clk.y <= btnY + btnH) {
+          g.sound.sfx('item');
+          (window as any).triggerAuth?.('twitter');
+          return;
+        }
+
+        // Letter grid
+        const gridTop = Math.round(ch * 0.33);
+        const gridW = Math.round(cw * 0.90);
+        const cellW = Math.round(gridW / 7);
+        const cellH = Math.max(46, Math.round(ch * 0.068));
+        const gridLeft = Math.round((cw - gridW) / 2);
+
+        let hitGrid = false;
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 7; c++) {
+            const bx = gridLeft + c * cellW;
+            const by = gridTop + r * cellH;
+            if (clk.x >= bx && clk.x <= bx + cellW && clk.y >= by && clk.y <= by + cellH) {
+              hitGrid = true;
+              this.nameCur = { r, c };
+              if (r === 3 && c === 5) {
+                g.playerName = g.playerName.slice(0, -1);
+                g.sound.sfx('tick', 0.4);
+              } else if (r === 3 && c === 6) {
+                if (g.playerName.length > 0) this.finishName();
+                return;
+              } else {
+                const ch = LETTERS[r][c];
+                if (ch && g.playerName.length < NAME_MAX) {
+                  g.playerName += ch;
+                  g.sound.sfx('tick', 0.4);
+                }
+              }
+              break;
+            }
+          }
+          if (hitGrid) break;
+        }
+
+        // Bottom Start Button
+        const startBtnY = Math.round(ch * 0.82);
+        const startBtnH = Math.max(54, Math.round(ch * 0.075));
+        if (!hitGrid && clk.y >= startBtnY && clk.y <= startBtnY + startBtnH && clk.x >= cw * 0.1 && clk.x <= cw * 0.9) {
+          this.finishName();
+          return;
+        }
+        continue;
+      }
+
       if (img) {
         const scale = Math.min(g.r.canvas.width / img.width, g.r.canvas.height / img.height);
         const rw = img.width * scale, rh = img.height * scale;
@@ -376,6 +470,92 @@ Instructions for Codex / AI Agent:
 
   private renderTitle(): void {
     const g = this.g; const r = g.r;
+    const isPortrait = r.canvas.height > r.canvas.width * 1.15;
+    if (isPortrait) {
+      const cw = r.canvas.width, ch = r.canvas.height;
+      r.screenCtx.fillStyle = '#0a0c16';
+      r.screenCtx.fillRect(0, 0, cw, ch);
+
+      const titleImg = g.assets.screenCache.get('title_base') || g.assets.screenCache.get('title2');
+      let topY = 24;
+      if (titleImg) {
+        const srcH = Math.round(titleImg.height * 0.40);
+        const drawH = Math.round((cw / titleImg.width) * srcH);
+        r.screenCtx.drawImage(titleImg, 0, 0, titleImg.width, srcH, 0, 10, cw, drawH);
+        topY = drawH + 18;
+      }
+
+      r.screenCtx.font = `bold ${Math.round(cw * 0.046)}px "Courier New", monospace`;
+      r.screenCtx.textAlign = 'center';
+      r.screenCtx.textBaseline = 'middle';
+      r.screenCtx.fillStyle = '#ffe019';
+      r.screenCtx.fillText('★ HIGH ROLLERS LEADERBOARD ★', cw / 2, topY);
+      topY += Math.round(ch * 0.035);
+
+      const rows = g.rollers.slice(0, 10);
+      const rowH = Math.max(36, Math.min(56, Math.round((ch * 0.52) / 11)));
+      const fontSize = Math.max(14, Math.round(rowH * 0.42));
+      r.screenCtx.font = `bold ${fontSize}px "Courier New", monospace`;
+
+      r.screenCtx.fillStyle = '#8e96b8';
+      r.screenCtx.textAlign = 'center';
+      r.screenCtx.fillText('#', cw * 0.10, topY);
+      r.screenCtx.textAlign = 'left';
+      r.screenCtx.fillText('PLAYER', cw * 0.22, topY);
+      r.screenCtx.textAlign = 'right';
+      r.screenCtx.fillText('INTEL', cw * 0.90, topY);
+
+      r.screenCtx.strokeStyle = '#272d4a';
+      r.screenCtx.lineWidth = 2;
+      r.screenCtx.beginPath();
+      r.screenCtx.moveTo(cw * 0.06, topY + rowH * 0.4);
+      r.screenCtx.lineTo(cw * 0.94, topY + rowH * 0.4);
+      r.screenCtx.stroke();
+      topY += rowH * 0.8;
+
+      for (let i = 0; i < 10; i++) {
+        const e = rows[i];
+        if (!e) break;
+        const cy = topY + i * rowH;
+
+        r.screenCtx.textAlign = 'center';
+        r.screenCtx.fillStyle = (i === 0) ? '#ffe019' : (i < 3 ? '#ffba3b' : '#c5cbdf');
+        r.screenCtx.fillText(String(e.rank ?? (i + 1)), cw * 0.10, cy);
+
+        const isUser = e.name === '@MACEIP' || (g.playerName && e.name.toUpperCase() === g.playerName.toUpperCase());
+        r.screenCtx.textAlign = 'left';
+        r.screenCtx.fillStyle = isUser ? '#79a8ff' : '#ffffff';
+        r.screenCtx.fillText(e.name, cw * 0.22, cy);
+
+        if (isUser) {
+          const nw = r.screenCtx.measureText(e.name).width;
+          r.screenCtx.strokeStyle = '#79a8ff';
+          r.screenCtx.lineWidth = 2;
+          r.screenCtx.beginPath();
+          r.screenCtx.moveTo(cw * 0.22, cy + fontSize * 0.6);
+          r.screenCtx.lineTo(cw * 0.22 + nw, cy + fontSize * 0.6);
+          r.screenCtx.stroke();
+        }
+
+        const isAI = (e.intelligence || '').toLowerCase().includes('agent') || (e.intelligence || '').toLowerCase().includes('artificial');
+        r.screenCtx.textAlign = 'right';
+        r.screenCtx.fillStyle = isAI ? '#33e0ff' : '#a2b4dc';
+        r.screenCtx.fillText(e.intelligence || 'Natural', cw * 0.90, cy);
+      }
+
+      const btnY = ch - Math.round(ch * 0.09);
+      const pulse = 0.65 + 0.35 * Math.sin(this.blink * 6);
+      r.screenCtx.fillStyle = `rgba(255, 224, 25, ${pulse})`;
+      r.screenCtx.textAlign = 'center';
+      r.screenCtx.font = `900 ${Math.max(16, Math.round(cw * 0.048))}px "Courier New", monospace`;
+      r.screenCtx.fillText('▶ TAP TO START / SELECT MODE ◀', cw / 2, btnY);
+
+      r.screenCtx.fillStyle = '#656b88';
+      r.screenCtx.font = `bold ${Math.max(11, Math.round(cw * 0.028))}px "Courier New", monospace`;
+      r.screenCtx.fillText('ATARI ARCADE · WEBMCP COMPLIANT', cw / 2, btnY + Math.round(ch * 0.035));
+      return;
+    }
+
     const img = g.assets.screenCache.get('title_base') || g.assets.screenCache.get('title2');
     if (img) {
       const bounds = r.drawFullScreenImage(img);
@@ -432,6 +612,85 @@ Instructions for Codex / AI Agent:
 
   private renderMenu(): void {
     const g = this.g; const r = g.r;
+    const isPortrait = r.canvas.height > r.canvas.width * 1.15;
+    if (isPortrait) {
+      const cw = r.canvas.width, ch = r.canvas.height;
+      r.screenCtx.fillStyle = '#0a0c16';
+      r.screenCtx.fillRect(0, 0, cw, ch);
+
+      const selectImg = g.assets.screenCache.get('select_base') || g.assets.screenCache.get('select');
+      let topY = 40;
+      if (selectImg) {
+        const srcH = Math.round(selectImg.height * 0.35);
+        const drawH = Math.round((cw / selectImg.width) * srcH);
+        r.screenCtx.drawImage(selectImg, 0, 0, selectImg.width, srcH, 0, 20, cw, drawH);
+        topY = drawH + 40;
+      }
+
+      r.screenCtx.font = `bold ${Math.round(cw * 0.052)}px "Courier New", monospace`;
+      r.screenCtx.textAlign = 'center';
+      r.screenCtx.textBaseline = 'middle';
+      r.screenCtx.fillStyle = '#ffe019';
+      r.screenCtx.fillText('SELECT GAME MODE', cw / 2, topY);
+      topY += Math.round(ch * 0.06);
+
+      const cardW = Math.round(cw * 0.86);
+      const cardH = Math.max(70, Math.round(ch * 0.12));
+      const cardX = Math.round((cw - cardW) / 2);
+
+      // Card 0: 1 PLAYER
+      const y0 = topY;
+      const is0 = this.cursor === 0;
+      r.screenCtx.fillStyle = is0 ? '#1b223d' : '#111524';
+      r.screenCtx.strokeStyle = is0 ? '#ffe019' : '#333b5c';
+      r.screenCtx.lineWidth = is0 ? 3 : 1.5;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(cardX, y0, cardW, cardH, 12);
+      r.screenCtx.fill();
+      r.screenCtx.stroke();
+
+      r.screenCtx.textAlign = 'center';
+      r.screenCtx.fillStyle = is0 ? '#ffe019' : '#ffffff';
+      r.screenCtx.font = `bold ${Math.round(cardH * 0.32)}px "Courier New", monospace`;
+      r.screenCtx.fillText('1 PLAYER', cw / 2, y0 + cardH * 0.38);
+      r.screenCtx.fillStyle = is0 ? '#79a8ff' : '#8892b0';
+      r.screenCtx.font = `bold ${Math.round(cardH * 0.22)}px "Courier New", monospace`;
+      r.screenCtx.fillText('ARCADE TIME ATTACK CHALLENGE', cw / 2, y0 + cardH * 0.72);
+
+      // Card 1: 2 PLAYERS
+      const y1 = y0 + cardH + Math.round(ch * 0.035);
+      const is1 = this.cursor === 1;
+      r.screenCtx.fillStyle = is1 ? '#1b223d' : '#111524';
+      r.screenCtx.strokeStyle = is1 ? '#ffe019' : '#333b5c';
+      r.screenCtx.lineWidth = is1 ? 3 : 1.5;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(cardX, y1, cardW, cardH, 12);
+      r.screenCtx.fill();
+      r.screenCtx.stroke();
+
+      r.screenCtx.fillStyle = is1 ? '#ffe019' : '#ffffff';
+      r.screenCtx.font = `bold ${Math.round(cardH * 0.32)}px "Courier New", monospace`;
+      r.screenCtx.fillText('2 PLAYERS', cw / 2, y1 + cardH * 0.38);
+      r.screenCtx.fillStyle = is1 ? '#33e0ff' : '#8892b0';
+      r.screenCtx.font = `bold ${Math.round(cardH * 0.22)}px "Courier New", monospace`;
+      r.screenCtx.fillText('HUMAN VS WEBMCP AGENT', cw / 2, y1 + cardH * 0.72);
+
+      // Marble cursor
+      const curCardY = is0 ? y0 : y1;
+      const marbleSize = Math.round(cardH * 0.45);
+      const marbleFrame = FRAMES.marble.roll[Math.floor(this.blink * 6) % 6];
+      const sheet = g.assets.sheets.marble;
+      if (sheet) {
+        r.screenCtx.drawImage(sheet, marbleFrame.x, marbleFrame.y, marbleFrame.w, marbleFrame.h, cardX + 16, curCardY + (cardH - marbleSize) / 2, marbleSize, marbleSize);
+      }
+
+      const botY = ch - Math.round(ch * 0.12);
+      r.screenCtx.fillStyle = '#656b88';
+      r.screenCtx.font = `bold ${Math.max(12, Math.round(cw * 0.032))}px "Courier New", monospace`;
+      r.screenCtx.fillText('TAP TO SELECT MODE · PROCEED TO NAME', cw / 2, botY);
+      return;
+    }
+
     const img = g.assets.screenCache.get('select_base') || g.assets.screenCache.get('select');
     if (img) {
       const bounds = r.drawFullScreenImage(img);
@@ -465,6 +724,140 @@ Instructions for Codex / AI Agent:
 
   private renderName(): void {
     const g = this.g; const r = g.r;
+    const isPortrait = r.canvas.height > r.canvas.width * 1.15;
+    if (isPortrait) {
+      const cw = r.canvas.width, ch = r.canvas.height;
+      r.screenCtx.fillStyle = '#0a0c16';
+      r.screenCtx.fillRect(0, 0, cw, ch);
+
+      let curY = Math.round(ch * 0.05);
+      r.screenCtx.textAlign = 'center';
+      r.screenCtx.textBaseline = 'middle';
+      r.screenCtx.font = `bold ${Math.round(cw * 0.046)}px "Courier New", monospace`;
+      r.screenCtx.fillStyle = '#b6b9d6';
+      r.screenCtx.fillText('PLAYER 1', cw / 2, curY);
+
+      curY += Math.round(ch * 0.035);
+      r.screenCtx.font = `bold ${Math.round(cw * 0.052)}px "Courier New", monospace`;
+      r.screenCtx.fillStyle = '#ffe019';
+      r.screenCtx.fillText('ENTER YOUR NAME', cw / 2, curY);
+
+      // OAuth buttons
+      const btnW = Math.round(cw * 0.42);
+      const btnH = Math.max(48, Math.round(ch * 0.055));
+      const btnY = Math.round(ch * 0.15);
+      const ghX = Math.round(cw * 0.06);
+      const twX = Math.round(cw * 0.52);
+
+      const isGhPending = this.authPending === 'github';
+      r.screenCtx.fillStyle = '#161b22';
+      r.screenCtx.strokeStyle = isGhPending ? '#ffe019' : '#30363d';
+      r.screenCtx.lineWidth = isGhPending ? 3 : 1.5;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(ghX, btnY, btnW, btnH, 8);
+      r.screenCtx.fill();
+      r.screenCtx.stroke();
+
+      r.screenCtx.font = `bold ${Math.max(12, Math.round(btnH * 0.35))}px "Courier New", monospace`;
+      r.screenCtx.fillStyle = isGhPending ? '#ffe019' : '#f0f6fc';
+      r.screenCtx.fillText('🐱 GITHUB', ghX + btnW / 2, btnY + btnH / 2);
+
+      const isTwPending = this.authPending === 'twitter';
+      r.screenCtx.fillStyle = '#0f1419';
+      r.screenCtx.strokeStyle = isTwPending ? '#ffe019' : '#2f3336';
+      r.screenCtx.lineWidth = isTwPending ? 3 : 1.5;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(twX, btnY, btnW, btnH, 8);
+      r.screenCtx.fill();
+      r.screenCtx.stroke();
+
+      r.screenCtx.fillStyle = isTwPending ? '#ffe019' : '#1d9bf0';
+      r.screenCtx.fillText('𝕏 TWITTER', twX + btnW / 2, btnY + btnH / 2);
+
+      // Name Display Card
+      const nameCardY = Math.round(ch * 0.23);
+      const nameCardH = Math.max(50, Math.round(ch * 0.065));
+      r.screenCtx.fillStyle = '#141828';
+      r.screenCtx.strokeStyle = '#ffe019';
+      r.screenCtx.lineWidth = 2;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(cw * 0.1, nameCardY, cw * 0.8, nameCardH, 10);
+      r.screenCtx.fill();
+      r.screenCtx.stroke();
+
+      r.screenCtx.font = `900 ${Math.max(20, Math.round(nameCardH * 0.5))}px "Courier New", monospace`;
+      r.screenCtx.fillStyle = '#ffe019';
+      const blinkChar = (Math.floor(this.blink * 3) % 2 === 0) ? '_' : ' ';
+      const isHandle = g.playerName && g.playerName.startsWith('@');
+      const maxLen = isHandle ? 16 : NAME_MAX;
+      const displayName = (g.playerName || '').toUpperCase().slice(0, maxLen);
+      const padded = isHandle ? displayName : (displayName + blinkChar).padEnd(NAME_MAX, '_');
+      r.screenCtx.fillText(padded, cw / 2, nameCardY + nameCardH / 2);
+
+      // Letter Grid
+      const gridTop = Math.round(ch * 0.33);
+      const gridW = Math.round(cw * 0.90);
+      const cellW = Math.round(gridW / 7);
+      const cellH = Math.max(46, Math.round(ch * 0.068));
+      const gridLeft = Math.round((cw - gridW) / 2);
+
+      for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 7; col++) {
+          const bx = gridLeft + col * cellW;
+          const by = gridTop + row * cellH;
+          const sel = this.nameCur.r === row && this.nameCur.c === col;
+
+          r.screenCtx.fillStyle = sel ? '#243054' : '#111524';
+          r.screenCtx.strokeStyle = sel ? '#ffe019' : '#272f48';
+          r.screenCtx.lineWidth = sel ? 2.5 : 1;
+          r.screenCtx.beginPath();
+          r.screenCtx.roundRect(bx + 3, by + 3, cellW - 6, cellH - 6, 6);
+          r.screenCtx.fill();
+          r.screenCtx.stroke();
+
+          if (sel) {
+            const marbleSize = Math.round(cellH * 0.5);
+            const marbleFrame = FRAMES.marble.roll[Math.floor(this.blink * 6) % 6];
+            const sheet = g.assets.sheets.marble;
+            if (sheet) {
+              r.screenCtx.drawImage(sheet, marbleFrame.x, marbleFrame.y, marbleFrame.w, marbleFrame.h, bx + 6, by + (cellH - marbleSize) / 2, marbleSize, marbleSize);
+            }
+          }
+
+          if (row === 3 && col === 5) {
+            r.screenCtx.fillStyle = '#ff8844';
+            r.screenCtx.font = `bold ${Math.max(12, Math.round(cellH * 0.32))}px "Courier New", monospace`;
+            r.screenCtx.fillText('RUB', bx + cellW / 2 + (sel ? 8 : 0), by + cellH / 2);
+          } else if (row === 3 && col === 6) {
+            r.screenCtx.fillStyle = '#33ffaa';
+            r.screenCtx.font = `bold ${Math.max(12, Math.round(cellH * 0.32))}px "Courier New", monospace`;
+            r.screenCtx.fillText('END', bx + cellW / 2 + (sel ? 8 : 0), by + cellH / 2);
+          } else {
+            const ch = LETTERS[row][col];
+            if (ch) {
+              r.screenCtx.fillStyle = sel ? '#ffe019' : '#ffffff';
+              r.screenCtx.font = `bold ${Math.max(16, Math.round(cellH * 0.42))}px "Courier New", monospace`;
+              r.screenCtx.fillText(ch, bx + cellW / 2 + (sel ? 8 : 0), by + cellH / 2);
+            }
+          }
+        }
+      }
+
+      // Bottom Start Button
+      const startBtnY = Math.round(ch * 0.82);
+      const startBtnH = Math.max(54, Math.round(ch * 0.075));
+      const pulse = 0.75 + 0.25 * Math.sin(this.blink * 8);
+      r.screenCtx.fillStyle = `rgba(255, 210, 63, ${pulse})`;
+      r.screenCtx.beginPath();
+      r.screenCtx.roundRect(cw * 0.1, startBtnY, cw * 0.8, startBtnH, 12);
+      r.screenCtx.fill();
+
+      r.screenCtx.fillStyle = '#000000';
+      r.screenCtx.font = `900 ${Math.max(16, Math.round(startBtnH * 0.38))}px "Courier New", monospace`;
+      r.screenCtx.fillText('▶ START RACE ◀', cw / 2, startBtnY + startBtnH / 2);
+      return;
+    }
+
     const img = g.assets.screenCache.get('pickname_base') || g.assets.screenCache.get('pickname');
     if (img) {
       const bounds = r.drawFullScreenImage(img);
@@ -555,6 +948,17 @@ Instructions for Codex / AI Agent:
   }
 
   private renderConnect(): void {
+    if (this.g.isAgentPage) {
+      // the agent's side of the lobby: nothing to copy, nothing to press — it is waiting for the human
+      const r = this.g.r;
+      r.clear('#000');
+      r.textC('AGENT CONNECTED', VIEW_W / 2, 74, 'cyan');
+      r.textC('LOBBY ' + this.g.lobbyId.slice(0, 8).toUpperCase(), VIEW_W / 2, 92, 'white');
+      r.textC('WAITING FOR THE HUMAN', VIEW_W / 2, 130, 'orange');
+      r.textC('TO START THE RACE', VIEW_W / 2, 142, 'orange');
+      r.textC(this.g.net.connected ? 'LINK OK' : 'RECONNECTING...', VIEW_W / 2, 180, this.g.net.connected ? 'lavender' : 'orange');
+      return;
+    }
     const g = this.g; const r = g.r;
     const img = g.assets.screenCache.get('player2webmcp_base') || g.assets.screenCache.get('player2webmcp');
     if (img) {

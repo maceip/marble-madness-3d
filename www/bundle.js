@@ -5321,6 +5321,7 @@ Instructions for Codex / AI Agent:
         break;
       }
       case "connect": {
+        if (g.isAgentPage) break;
         for (const p of presses) {
           if (p === "Escape") g.go("menu");
           if (p === "KeyC" || p === "Space" || p === "Enter") void this.copyAgentLink();
@@ -5343,7 +5344,7 @@ Instructions for Codex / AI Agent:
         break;
       }
       case "gameover":
-        if (this.idle > 4 || any) g.go("title");
+        if (this.idle > 4 || any) g.go(g.isAgentPage ? "connect" : "title");
         break;
       case "congrats": {
         for (const m of this.rain) {
@@ -5364,7 +5365,7 @@ Instructions for Codex / AI Agent:
         }
         if (any && this.idle > 4 || this.idle > 30) {
           g.sound.stopBgm();
-          g.go("title");
+          g.go(g.isAgentPage ? "connect" : "title");
         }
         break;
       }
@@ -6019,6 +6020,16 @@ Instructions for Codex / AI Agent:
     r.textC("ARROWS/WASD  MOUSE=TRACKBALL", VIEW_W / 2, 200, "orange");
   }
   renderConnect() {
+    if (this.g.isAgentPage) {
+      const r2 = this.g.r;
+      r2.clear("#000");
+      r2.textC("AGENT CONNECTED", VIEW_W / 2, 74, "cyan");
+      r2.textC("LOBBY " + this.g.lobbyId.slice(0, 8).toUpperCase(), VIEW_W / 2, 92, "white");
+      r2.textC("WAITING FOR THE HUMAN", VIEW_W / 2, 130, "orange");
+      r2.textC("TO START THE RACE", VIEW_W / 2, 142, "orange");
+      r2.textC(this.g.net.connected ? "LINK OK" : "RECONNECTING...", VIEW_W / 2, 180, this.g.net.connected ? "lavender" : "orange");
+      return;
+    }
     const g = this.g;
     const r = g.r;
     const img = g.assets.screenCache.get("player2webmcp_base") || g.assets.screenCache.get("player2webmcp");
@@ -6175,6 +6186,8 @@ var Net = class {
   onStart;
   onBump;
   onLeaderboard;
+  /** every lobby tick (20 Hz) — used as a simulation clock when the page is not painting */
+  onTick;
   connect(lobby, role, name) {
     this.lobby = lobby;
     this.role = role;
@@ -6247,16 +6260,18 @@ var Net = class {
         this.onLeft?.({ id, role: m.role, name: String(m.name) });
         break;
       }
-      case "tick": {
-        const seen = /* @__PURE__ */ new Set();
-        for (const p of m.players ?? []) {
-          if (p.id === this.id) continue;
-          seen.add(p.id);
-          this.upsert(p);
+      case "tick":
+        this.onTick?.();
+        {
+          const seen = /* @__PURE__ */ new Set();
+          for (const p of m.players ?? []) {
+            if (p.id === this.id) continue;
+            seen.add(p.id);
+            this.upsert(p);
+          }
+          for (const id of [...this.players.keys()]) if (!seen.has(id)) this.players.delete(id);
+          break;
         }
-        for (const id of [...this.players.keys()]) if (!seen.has(id)) this.players.delete(id);
-        break;
-      }
       case "start":
         this.onStart?.(Number(m.stage) || 1, String(m.by));
         break;
@@ -6396,7 +6411,7 @@ var WebMCP = class {
       },
       {
         name: "start_or_respawn",
-        description: "Advance menu screens into the race or confirm ready in Player-vs-AI lobby.",
+        description: "Advance from a menu screen into a race, or start a new game after game over. If you opened a lobby URL you are the AI player: the human starts every race and rematch from their device; this only reports that you are waiting. Nobody needs to type or click anything.",
         inputSchema: { type: "object", properties: {} },
         execute: () => this.startOrRespawn()
       },
@@ -6582,6 +6597,14 @@ var WebMCP = class {
   startOrRespawn() {
     const g = this.game;
     this.mark();
+    if (g.isAgentPage) {
+      if (g.screen === "race") return { ok: true, screen: "race", respawning: g.marble.phase === "dead" || g.marble.phase === "dying" };
+      if (g.screen === "intro") return { ok: true, screen: "intro", note: "race starting" };
+      if (g.screen === "gameover" || g.screen === "congrats" || g.screen === "timebonus") {
+        g.go("connect");
+      }
+      return { ok: true, waitingForHuman: true, screen: g.screen, note: "connected to the lobby; the human starts the race, nothing to do until then" };
+    }
     switch (g.screen) {
       case "highrollers":
       case "title":
@@ -7170,8 +7193,15 @@ var Game = class {
   /* ---------------------------------------------------------------------- */
   /* update                                                                  */
   /* ---------------------------------------------------------------------- */
+  /** human side: the agent may already be in the lobby (rematch, or it joined before we came back) */
+  checkLobbyStart() {
+    if (this.mode !== "ai" || this.isAgentPage || this.agentJoined) return;
+    const ai = [...this.net.players.values()].find((p) => p.role === "ai");
+    if (ai) this.net.onJoined?.(ai);
+  }
   update(dt) {
     this.t += dt;
+    if (this.screen === "connect") this.checkLobbyStart();
     switch (this.screen) {
       case "intro":
         this.updateIntro(dt);
@@ -8406,12 +8436,28 @@ async function boot() {
     flushNativeTelemetry(nb, window.__MM__?.nonce);
   }
   let last = performance.now();
-  const loop = (now) => {
-    const dt = Math.max(0, Math.min(0.05, (now - last) / 1e3));
+  const pump = (now) => {
+    let elapsed = Math.max(0, (now - last) / 1e3);
     last = now;
-    game.update(dt);
-    game.render();
+    if (elapsed > 0.25) elapsed = 0.25;
+    while (elapsed > 1e-4) {
+      const dt = Math.min(1 / 60, elapsed);
+      game.update(dt);
+      elapsed -= dt;
+    }
     trackScreen();
+  };
+  setInterval(() => {
+    const now = performance.now();
+    if (now - last > 30) pump(now);
+  }, 16);
+  game.net.onTick = () => {
+    const now = performance.now();
+    if (now - last > 30) pump(now);
+  };
+  const loop = (now) => {
+    pump(now);
+    game.render();
     if (tbContainer) {
       const isRace = game.screen === "race" || game.screen === "intro" || game.screen === "timebonus";
       tbContainer.style.display = isRace ? "flex" : "none";

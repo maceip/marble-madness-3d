@@ -180,13 +180,24 @@ async function boot(): Promise<void> {
     flushNativeTelemetry(nb as any, (window as any).__MM__?.nonce);   // parked crash + one-time install proof
   }
 
+  // Simulation clock. The game must keep real time even when this page is not painting: an agent's embedded
+  // browser may paint only on demand and a hidden tab stops requestAnimationFrame entirely, which used to leave
+  // the AI marble frozen while the human raced on. Physics steps from wall-clock time from whichever source fires
+  // first — rAF, a 60 Hz interval, or a lobby tick (WebSocket messages are never throttled) — in 1/60 s slices,
+  // catching up at most a quarter second after a stall. Rendering stays on rAF.
   let last = performance.now();
-  const loop = (now: number) => {
-    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); // RAF's first timestamp can precede performance.now()
+  const pump = (now: number) => {
+    let elapsed = Math.max(0, (now - last) / 1000);
     last = now;
-    game.update(dt);
-    game.render();
+    if (elapsed > 0.25) elapsed = 0.25;
+    while (elapsed > 1e-4) { const dt = Math.min(1 / 60, elapsed); game.update(dt); elapsed -= dt; }
     trackScreen();
+  };
+  setInterval(() => { const now = performance.now(); if (now - last > 30) pump(now); }, 16);
+  game.net.onTick = () => { const now = performance.now(); if (now - last > 30) pump(now); };
+  const loop = (now: number) => {
+    pump(now);
+    game.render();
     if (tbContainer) {
       const isRace = game.screen === 'race' || game.screen === 'intro' || game.screen === 'timebonus';
       tbContainer.style.display = isRace ? 'flex' : 'none';

@@ -62,11 +62,11 @@ export class Trackball {
   }
 
   constructor(opts: TrackballOptions = {}) {
-    this.radius = opts.radius ?? 70;
-    this.friction = opts.friction ?? 3.2;
+    this.radius = opts.radius ?? 65;
+    this.friction = opts.friction ?? 1.35;
     this.maxOmega = opts.maxOmega ?? 32;
-    this.inertia = opts.inertia ?? 3.8;
-    this.stictionPx = opts.stictionPx ?? 14;
+    this.inertia = opts.inertia ?? 2.2;
+    this.stictionPx = opts.stictionPx ?? 3;
     this.hapticStepRad = opts.hapticStepRad ?? 0.35;
     if (opts.enableHaptics !== undefined) this.enableHaptics = opts.enableHaptics;
   }
@@ -79,7 +79,7 @@ export class Trackball {
     this.dragAccumPx = 0;
     const speed = Math.hypot(this.wx, this.wy);
     // If ball is already spinning fast, breakout is already broken
-    this.brokenOut = speed > 1.5;
+    this.brokenOut = speed > 1.2;
     this.audio?.onGrab(speed);
     try { this.engine?.tbDown(speed); } catch { /* bridge gone */ }
   }
@@ -105,28 +105,28 @@ export class Trackball {
       }
     }
 
-    // Convert pixel delta to angular impulse (rad/s) with heavy ball rotational mass
-    const impulseK = 0.12 / (1.0 + this.inertia * 0.35);
-    const targetWx = (dy / this.radius) / Math.max(0.016, dt) * impulseK;
-    const targetWy = (dx / this.radius) / Math.max(0.016, dt) * impulseK;
+    // Convert pixel delta to angular impulse (rad/s)
+    const effectiveDt = Math.max(0.008, Math.min(0.064, dt));
+    const targetWx = (dy / this.radius) / effectiveDt;
+    const targetWy = (dx / this.radius) / effectiveDt;
 
     // Check for counter-spinning (braking against current spin)
-    const dot = this.wx * targetWx + this.wy * targetWy;
     const currentSpeed = Math.hypot(this.wx, this.wy);
     const targetSpeed = Math.hypot(targetWx, targetWy);
+    const dot = targetSpeed > 0.01 && currentSpeed > 0.01 ? (this.wx * targetWx + this.wy * targetWy) / (currentSpeed * targetSpeed) : 0;
 
     const eng = this.engine;
-    if (currentSpeed > 2.5 && targetSpeed > 1.2 && dot < -0.25 * currentSpeed * targetSpeed) {
+    if (currentSpeed > 2.5 && targetSpeed > 1.2 && dot < -0.25) {
       // Counter-braking! Palm on the heavy ball absorbs momentum
       this.audio?.onBrake(currentSpeed);
-      this.wx *= 0.55;
-      this.wy *= 0.55;
+      this.wx *= 0.45;
+      this.wy *= 0.45;
       if (eng) { try { eng.tbBrake(currentSpeed); } catch { /* bridge gone */ } } else this.vibrate([8, 12, 8]);
     } else {
-      // Pumping: steady spin-up against heavy ball inertia
-      const accelDamp = 0.18 / (1.0 + this.inertia * 0.25);
-      this.wx += targetWx * accelDamp;
-      this.wy += targetWy * accelDamp;
+      // Pumping: responsive acceleration towards finger velocity with heavy-ball smoothing
+      const blend = Math.min(0.85, (effectiveDt * 18.0) / (1.0 + this.inertia * 0.15));
+      this.wx += (targetWx - this.wx) * blend;
+      this.wy += (targetWy - this.wy) * blend;
       if (eng) { try { eng.tbRoll(dist / this.radius, Math.hypot(this.wx, this.wy)); } catch { /* bridge gone */ } }
     }
 
@@ -222,10 +222,10 @@ export class Trackball {
    */
   getSteer(): { ax: number; ay: number } {
     const sp = Math.hypot(this.wx, this.wy);
-    if (sp < 0.1) return { ax: 0, ay: 0 };
-    // Progressive analog curve: fine subtle control at low speed, high velocity when spun hard
-    const norm = Math.min(1.0, sp / (this.maxOmega * 0.85));
-    const mag = Math.pow(norm, 1.35);
+    if (sp < 0.04) return { ax: 0, ay: 0 };
+    // Responsive arcade curve: gentle rolls move immediately, strong spins deliver full acceleration
+    const norm = Math.min(1.0, sp / (this.maxOmega * 0.65));
+    const mag = Math.min(1.0, Math.pow(norm, 0.85));
     return {
       ax: (this.wy / sp) * mag,
       ay: (this.wx / sp) * mag,

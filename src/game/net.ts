@@ -35,6 +35,8 @@ export class Net {
   onStart?: (stage: number, by: string) => void;
   onBump?: (iu: number, iv: number, from: string) => void;
   onLeaderboard?: (top: { name: string; score: number }[]) => void;
+  /** every lobby tick (20 Hz) — used as a simulation clock when the page is not painting */
+  onTick?: () => void;
 
   connect(lobby: string, role: NetRole, name: string): void {
     this.lobby = lobby; this.role = role; this.wantName = name;
@@ -83,7 +85,8 @@ export class Net {
         this.onLeft?.({ id, role: m.role as NetRole, name: String(m.name) });
         break;
       }
-      case 'tick': {
+      case 'tick':
+        this.onTick?.(); {
         const seen = new Set<string>();
         for (const p of (m.players as RemoteState[]) ?? []) {
           if (p.id === this.id) continue;
