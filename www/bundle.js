@@ -2192,6 +2192,7 @@ var Trackball = class {
   radius;
   friction;
   maxOmega;
+  inertia;
   stictionPx;
   hapticStepRad;
   enableHaptics = true;
@@ -2202,11 +2203,19 @@ var Trackball = class {
   // Haptics timing & ratchet
   hapticAccumRad = 0;
   lastHapticTime = 0;
+  /** Android host: the native engine (tbDown/tbRoll/tbBreakout/tbBrake/tbUp) drives the actuator from these
+   *  physical events, on the input path, with angle-based bearing ticks; the JS ratchet below is the web fallback */
+  get engine() {
+    if (!this.enableHaptics) return null;
+    const nb = window.NativeBridge;
+    return nb && typeof nb.tbRoll === "function" ? nb : null;
+  }
   constructor(opts = {}) {
     this.radius = opts.radius ?? 70;
-    this.friction = opts.friction ?? 3.8;
+    this.friction = opts.friction ?? 3.2;
     this.maxOmega = opts.maxOmega ?? 32;
-    this.stictionPx = opts.stictionPx ?? 6;
+    this.inertia = opts.inertia ?? 3.8;
+    this.stictionPx = opts.stictionPx ?? 14;
     this.hapticStepRad = opts.hapticStepRad ?? 0.35;
     if (opts.enableHaptics !== void 0) this.enableHaptics = opts.enableHaptics;
   }
@@ -2217,6 +2226,10 @@ var Trackball = class {
     this.dragging = true;
     this.dragAccumPx = 0;
     this.brokenOut = Math.hypot(this.wx, this.wy) > 1.5;
+    try {
+      this.engine?.tbDown(Math.hypot(this.wx, this.wy));
+    } catch {
+    }
   }
   /**
    * Called on each touch/mouse move delta (in screen pixels).
@@ -2229,24 +2242,43 @@ var Trackball = class {
       this.dragAccumPx += dist2;
       if (this.dragAccumPx >= this.stictionPx) {
         this.brokenOut = true;
-        this.vibrate(8);
+        const eng2 = this.engine;
+        if (eng2) {
+          try {
+            eng2.tbBreakout();
+          } catch {
+          }
+        } else this.vibrate(8);
       } else {
         return;
       }
     }
-    const impulseK = 0.45;
-    const targetWx = dy / this.radius / Math.max(8e-3, dt) * impulseK;
-    const targetWy = dx / this.radius / Math.max(8e-3, dt) * impulseK;
+    const impulseK = 0.12 / (1 + this.inertia * 0.35);
+    const targetWx = dy / this.radius / Math.max(0.016, dt) * impulseK;
+    const targetWy = dx / this.radius / Math.max(0.016, dt) * impulseK;
     const dot = this.wx * targetWx + this.wy * targetWy;
     const currentSpeed = Math.hypot(this.wx, this.wy);
     const targetSpeed = Math.hypot(targetWx, targetWy);
-    if (currentSpeed > 3 && targetSpeed > 2 && dot < -0.3 * currentSpeed * targetSpeed) {
-      this.wx *= 0.35;
-      this.wy *= 0.35;
-      this.vibrate([8, 12, 8]);
+    const eng = this.engine;
+    if (currentSpeed > 2.5 && targetSpeed > 1.2 && dot < -0.25 * currentSpeed * targetSpeed) {
+      this.wx *= 0.55;
+      this.wy *= 0.55;
+      if (eng) {
+        try {
+          eng.tbBrake(currentSpeed);
+        } catch {
+        }
+      } else this.vibrate([8, 12, 8]);
     } else {
-      this.wx += targetWx * 0.35;
-      this.wy += targetWy * 0.35;
+      const accelDamp = 0.18 / (1 + this.inertia * 0.25);
+      this.wx += targetWx * accelDamp;
+      this.wy += targetWy * accelDamp;
+      if (eng) {
+        try {
+          eng.tbRoll(dist2 / this.radius, Math.hypot(this.wx, this.wy));
+        } catch {
+        }
+      }
     }
     this.clampVelocity();
   }
@@ -2256,6 +2288,10 @@ var Trackball = class {
   endDrag() {
     this.dragging = false;
     this.brokenOut = false;
+    try {
+      this.engine?.tbUp();
+    } catch {
+    }
   }
   /**
    * Direct programmatic spin (used by WebMCP AI agent and keyboard torque).
@@ -2264,12 +2300,12 @@ var Trackball = class {
   spin(dx, dy, speed) {
     const norm = Math.hypot(dx, dy) || 1;
     const s = Math.max(0.1, Math.min(100, speed));
-    const radDelta = s / 100 * this.maxOmega * 0.4;
+    const radDelta = s / 100 * (this.maxOmega / (1 + this.inertia * 2.8));
     const curSpeed = Math.hypot(this.wx, this.wy);
     const dot = (this.wy * dx + this.wx * dy) / norm;
-    if (curSpeed > 3 && dot < -0.3 * curSpeed) {
-      this.wx *= 0.4;
-      this.wy *= 0.4;
+    if (curSpeed > 2.5 && dot < -0.25 * curSpeed) {
+      this.wx *= 0.55;
+      this.wy *= 0.55;
       this.vibrate([8, 12, 8]);
     }
     this.wy += dx / norm * radDelta;
@@ -2289,7 +2325,7 @@ var Trackball = class {
       const az = 0;
       this.rotateAroundAxis(ax, ay, az, angle);
       const now = performance.now();
-      if (this.dragging && speed > 0.4 && speed < 3.5) {
+      if (this.dragging && speed > 0.4 && speed < 3.5 && !this.engine) {
         this.hapticAccumRad += angle;
         if (this.hapticAccumRad > 0.45 && now - this.lastHapticTime > 75) {
           this.vibrate(2);
@@ -2301,12 +2337,14 @@ var Trackball = class {
       const decay = Math.exp(-this.friction * dt);
       this.wx *= decay;
       this.wy *= decay;
-      if (speed < 0.05) {
+      if (speed < 0.12) {
         this.wx = 0;
         this.wy = 0;
+        this.brokenOut = false;
       }
     } else {
       this.hapticAccumRad = 0;
+      this.brokenOut = false;
     }
   }
   /**
@@ -2314,8 +2352,9 @@ var Trackball = class {
    */
   getSteer() {
     const sp = Math.hypot(this.wx, this.wy);
-    if (sp < 0.08) return { ax: 0, ay: 0 };
-    const mag = Math.min(1, sp / (this.maxOmega * 0.7));
+    if (sp < 0.1) return { ax: 0, ay: 0 };
+    const norm = Math.min(1, sp / (this.maxOmega * 0.85));
+    const mag = Math.pow(norm, 1.35);
     return {
       ax: this.wy / sp * mag,
       ay: this.wx / sp * mag
@@ -2514,7 +2553,7 @@ var Input = class {
     });
     window.addEventListener("mousemove", (e) => {
       if (this.pointerLocked) {
-        this.trackball.dragDelta(e.movementX * 1.2, e.movementY * 1.2);
+        this.trackball.dragDelta(e.movementX * 0.5, e.movementY * 0.5);
         const len = Math.hypot(e.movementX, e.movementY);
         if (len > 1) {
           this.aimVector = { dx: e.movementX / len, dy: e.movementY / len };
@@ -2530,21 +2569,23 @@ var Input = class {
         const ddx = e.clientX - this.dragStartX;
         const ddy = e.clientY - this.dragStartY;
         const len = Math.hypot(ddx, ddy);
-        if (len > 4) {
+        if (len > 8) {
           this.aimVector = { dx: ddx / len, dy: ddy / len };
         }
+      } else {
+        this.trackball.dragDelta(dx * 0.5, dy * 0.5);
       }
-      this.trackball.dragDelta(dx * 0.8, dy * 0.8);
     });
     window.addEventListener("wheel", (e) => {
       e.preventDefault();
       const delta = e.deltaY;
-      if (Math.abs(delta) < 0.5) return;
+      if (Math.abs(delta) < 0.2) return;
       const sign = Math.sign(delta);
-      const speed = Math.min(100, Math.abs(delta) * 0.85);
+      const rawDelta = e.deltaMode === 1 ? delta * 18 : e.deltaMode === 2 ? delta * 80 : delta;
+      const stepIntensity = Math.min(20, Math.abs(rawDelta) / 28 * 4);
       const dirX = this.aimVector.dx * sign;
       const dirY = this.aimVector.dy * sign;
-      this.trackball.spin(dirX, dirY, speed);
+      this.trackball.spin(dirX, dirY, stepIntensity);
     }, { passive: false });
     document.addEventListener("pointerlockchange", () => {
       this.pointerLocked = document.pointerLockElement === this.canvas;
@@ -7144,6 +7185,54 @@ function mulberry32(seed) {
   };
 }
 
+// src/engine/telemetry.ts
+function platform() {
+  if (window.NativeBridge) return "android_apk";
+  if (window.matchMedia?.("(display-mode: standalone)").matches) return "pwa";
+  return "web";
+}
+function trackEvent(event, metadata = {}) {
+  const payload = JSON.stringify({ event, metadata, platform: platform(), ts: Date.now() });
+  try {
+    if (navigator.sendBeacon && navigator.sendBeacon("/api/telemetry/event", new Blob([payload], { type: "application/json" }))) return;
+  } catch {
+  }
+  fetch("/api/telemetry/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true, credentials: "include" }).catch(() => {
+  });
+}
+function trackErrors() {
+  let budget = 5;
+  const send = (message, location2, stack) => {
+    if (budget-- <= 0) return;
+    trackEvent("js_error", { message: String(message).slice(0, 300), location: location2.slice(0, 200), stack: stack ? String(stack).slice(0, 1500) : null });
+  };
+  window.addEventListener("error", (e) => send(e.message, `${e.filename}:${e.lineno}:${e.colno}`, e.error?.stack ?? null));
+  window.addEventListener("unhandledrejection", (e) => {
+    const r = e.reason;
+    send(r?.message ?? String(r), "promise", r?.stack ?? null);
+  });
+}
+function flushNativeTelemetry(bridge, installNonce) {
+  try {
+    const crash = bridge.consumePendingCrash?.();
+    if (crash) {
+      fetch("/api/telemetry/crash", { method: "POST", headers: { "Content-Type": "application/json" }, body: crash, credentials: "include" }).catch(() => {
+      });
+    }
+  } catch {
+  }
+  try {
+    if (installNonce && bridge.signInstallChallenge) {
+      const proof = bridge.signInstallChallenge(installNonce);
+      if (proof) {
+        fetch("/api/telemetry/install", { method: "POST", headers: { "Content-Type": "application/json" }, body: proof, credentials: "include" }).catch(() => {
+        });
+      }
+    }
+  } catch {
+  }
+}
+
 // src/render/trackball3d.ts
 var VS_SOURCE = `
 attribute vec2 a_pos;
@@ -7473,6 +7562,23 @@ async function boot() {
     game.debugClick((e.clientX - rect.left) / renderer.scale, (e.clientY - rect.top) / renderer.scale);
   });
   await game.start();
+  trackErrors();
+  const q = new URLSearchParams(location.search);
+  trackEvent("app_start", { install: q.get("install") === "1", tagged: q.get("platform") || null });
+  let lastScreen = game.screen, lastDeaths = game.deaths;
+  const trackScreen = () => {
+    if (game.screen !== lastScreen) {
+      const from = lastScreen;
+      lastScreen = game.screen;
+      if (game.screen === "race" && from === "intro") trackEvent("race_start", { stage: game.stageIdx + 1, mode: game.mode });
+      else if (from === "race" && (game.screen === "timebonus" || game.screen === "gameover" || game.screen === "congrats")) trackEvent("race_end", { stage: game.stageIdx + 1, result: game.screen, score: game.score, deaths: game.deaths });
+      else if (game.screen === "gameover" || game.screen === "congrats") trackEvent(game.screen, { stage: game.stageIdx + 1, score: game.score });
+    }
+    if (game.deaths !== lastDeaths) {
+      lastDeaths = game.deaths;
+      trackEvent("death", { stage: game.stageIdx + 1 });
+    }
+  };
   const tbContainer = document.getElementById("trackball-container");
   const authDock = document.getElementById("auth-dock");
   const twitterHandle = document.getElementById("twitter-handle");
@@ -7530,12 +7636,14 @@ async function boot() {
         document.cookie = `mm_user=${encodeURIComponent(r.user)}; Path=/; Max-Age=2592000; SameSite=Lax`;
         applyUser(r.user, r.provider || "twitter");
         input.trackball.vibrate(8);
+        trackEvent("login", { provider: r.provider || "twitter" });
       } catch (err) {
         console.warn("[auth] bad result", err);
       }
     };
     window.onAuthComplete();
     nb.onWebReady?.();
+    flushNativeTelemetry(nb, window.__MM__?.nonce);
   }
   let last = performance.now();
   const loop = (now) => {
@@ -7543,6 +7651,7 @@ async function boot() {
     last = now;
     game.update(dt);
     game.render();
+    trackScreen();
     if (tbContainer) {
       const isRace = game.screen === "race" || game.screen === "intro" || game.screen === "timebonus";
       tbContainer.style.display = isRace ? "flex" : "none";

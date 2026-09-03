@@ -11,9 +11,10 @@
 
 export interface TrackballOptions {
   radius?: number;          // virtual touch radius in px (default 70)
-  friction?: number;        // bearing friction coefficient (default 3.8)
+  friction?: number;        // bearing friction coefficient (default 3.2)
   maxOmega?: number;        // maximum angular velocity in rad/s (default 32)
-  stictionPx?: number;      // drag px needed to break static friction (default 6)
+  inertia?: number;         // heavy ball rotational mass / inertia (default 3.8)
+  stictionPx?: number;      // drag px needed to break static friction (default 14)
   hapticStepRad?: number;   // radians per encoder ratchet tick (default 0.35 rad ~ 20 deg)
   enableHaptics?: boolean;  // whether haptics are enabled
 }
@@ -35,6 +36,7 @@ export class Trackball {
   radius: number;
   friction: number;
   maxOmega: number;
+  inertia: number;
   stictionPx: number;
   hapticStepRad: number;
   enableHaptics = true;
@@ -48,11 +50,20 @@ export class Trackball {
   private hapticAccumRad = 0;
   private lastHapticTime = 0;
 
+  /** Android host: the native engine (tbDown/tbRoll/tbBreakout/tbBrake/tbUp) drives the actuator from these
+   *  physical events, on the input path, with angle-based bearing ticks; the JS ratchet below is the web fallback */
+  private get engine(): { tbDown(o: number): void; tbRoll(a: number, o: number): void; tbBreakout(): void; tbBrake(o: number): void; tbUp(): void } | null {
+    if (!this.enableHaptics) return null;
+    const nb = (window as unknown as { NativeBridge?: { tbRoll?: unknown } }).NativeBridge;
+    return nb && typeof nb.tbRoll === 'function' ? (nb as never) : null;
+  }
+
   constructor(opts: TrackballOptions = {}) {
     this.radius = opts.radius ?? 70;
-    this.friction = opts.friction ?? 3.8;
+    this.friction = opts.friction ?? 3.2;
     this.maxOmega = opts.maxOmega ?? 32;
-    this.stictionPx = opts.stictionPx ?? 6;
+    this.inertia = opts.inertia ?? 3.8;
+    this.stictionPx = opts.stictionPx ?? 14;
     this.hapticStepRad = opts.hapticStepRad ?? 0.35;
     if (opts.enableHaptics !== undefined) this.enableHaptics = opts.enableHaptics;
   }
@@ -65,6 +76,7 @@ export class Trackball {
     this.dragAccumPx = 0;
     // If ball is already spinning fast, breakout is already broken
     this.brokenOut = Math.hypot(this.wx, this.wy) > 1.5;
+    try { this.engine?.tbDown(Math.hypot(this.wx, this.wy)); } catch { /* bridge gone */ }
   }
 
   /**
@@ -79,34 +91,36 @@ export class Trackball {
       this.dragAccumPx += dist;
       if (this.dragAccumPx >= this.stictionPx) {
         this.brokenOut = true;
-        this.vibrate(8); // Crisp breakout click
+        const eng = this.engine;
+        if (eng) { try { eng.tbBreakout(); } catch { /* bridge gone */ } } else this.vibrate(8); // Crisp breakout click
       } else {
         // Still resisting: slight elastic nudge
         return;
       }
     }
 
-    // Convert pixel delta to angular impulse (rad/s)
-    // Rolling down (+dy) corresponds to positive pitch wx
-    // Rolling right (+dx) corresponds to positive yaw wy
-    const impulseK = 0.45;
-    const targetWx = (dy / this.radius) / Math.max(0.008, dt) * impulseK;
-    const targetWy = (dx / this.radius) / Math.max(0.008, dt) * impulseK;
+    // Convert pixel delta to angular impulse (rad/s) with heavy ball rotational mass
+    const impulseK = 0.12 / (1.0 + this.inertia * 0.35);
+    const targetWx = (dy / this.radius) / Math.max(0.016, dt) * impulseK;
+    const targetWy = (dx / this.radius) / Math.max(0.016, dt) * impulseK;
 
     // Check for counter-spinning (braking against current spin)
     const dot = this.wx * targetWx + this.wy * targetWy;
     const currentSpeed = Math.hypot(this.wx, this.wy);
     const targetSpeed = Math.hypot(targetWx, targetWy);
 
-    if (currentSpeed > 3.0 && targetSpeed > 2.0 && dot < -0.3 * currentSpeed * targetSpeed) {
-      // Counter-braking! Apply strong resistance and buzz
-      this.wx *= 0.35;
-      this.wy *= 0.35;
-      this.vibrate([8, 12, 8]);
+    const eng = this.engine;
+    if (currentSpeed > 2.5 && targetSpeed > 1.2 && dot < -0.25 * currentSpeed * targetSpeed) {
+      // Counter-braking! Palm on the heavy ball absorbs momentum
+      this.wx *= 0.55;
+      this.wy *= 0.55;
+      if (eng) { try { eng.tbBrake(currentSpeed); } catch { /* bridge gone */ } } else this.vibrate([8, 12, 8]);
     } else {
-      // Pumping: compound angular velocity
-      this.wx += targetWx * 0.35;
-      this.wy += targetWy * 0.35;
+      // Pumping: steady spin-up against heavy ball inertia
+      const accelDamp = 0.18 / (1.0 + this.inertia * 0.25);
+      this.wx += targetWx * accelDamp;
+      this.wy += targetWy * accelDamp;
+      if (eng) { try { eng.tbRoll(dist / this.radius, Math.hypot(this.wx, this.wy)); } catch { /* bridge gone */ } }
     }
 
     this.clampVelocity();
@@ -118,6 +132,7 @@ export class Trackball {
   endDrag(): void {
     this.dragging = false;
     this.brokenOut = false;
+    try { this.engine?.tbUp(); } catch { /* bridge gone */ }   // silence at once: the ball is now free of the hand
   }
 
   /**
@@ -127,14 +142,15 @@ export class Trackball {
   spin(dx: number, dy: number, speed: number): void {
     const norm = Math.hypot(dx, dy) || 1;
     const s = Math.max(0.1, Math.min(100, speed));
-    const radDelta = (s / 100) * this.maxOmega * 0.4;
+    // Heavy ball inertia scales the impulse down so a single pulse does not snap to max speed
+    const radDelta = (s / 100) * (this.maxOmega / (1.0 + this.inertia * 2.8));
     
     // Check counter-spin
     const curSpeed = Math.hypot(this.wx, this.wy);
     const dot = (this.wy * dx + this.wx * dy) / norm;
-    if (curSpeed > 3.0 && dot < -0.3 * curSpeed) {
-      this.wx *= 0.4;
-      this.wy *= 0.4;
+    if (curSpeed > 2.5 && dot < -0.25 * curSpeed) {
+      this.wx *= 0.55;
+      this.wy *= 0.55;
       this.vibrate([8, 12, 8]);
     }
 
@@ -166,7 +182,7 @@ export class Trackball {
       // Distance-threshold haptic ticks (Low Speed Only: under 3.5 rad/s):
       // Enforces at most once every 75ms past a fixed arc to prevent Android motor washout
       const now = performance.now();
-      if (this.dragging && speed > 0.4 && speed < 3.5) {
+      if (this.dragging && speed > 0.4 && speed < 3.5 && !this.engine) {   // web fallback ratchet only
         this.hapticAccumRad += angle;
         if (this.hapticAccumRad > 0.45 && now - this.lastHapticTime > 75) {
           this.vibrate(2); // Shortest possible tick
@@ -180,12 +196,14 @@ export class Trackball {
       const decay = Math.exp(-this.friction * dt);
       this.wx *= decay;
       this.wy *= decay;
-      if (speed < 0.05) {
+      if (speed < 0.12) {
         this.wx = 0;
         this.wy = 0;
+        this.brokenOut = false; // Re-engage static stiction at rest
       }
     } else {
       this.hapticAccumRad = 0;
+      this.brokenOut = false;
     }
   }
 
@@ -194,8 +212,10 @@ export class Trackball {
    */
   getSteer(): { ax: number; ay: number } {
     const sp = Math.hypot(this.wx, this.wy);
-    if (sp < 0.08) return { ax: 0, ay: 0 };
-    const mag = Math.min(1.0, sp / (this.maxOmega * 0.7));
+    if (sp < 0.1) return { ax: 0, ay: 0 };
+    // Progressive analog curve: fine subtle control at low speed, high velocity when spun hard
+    const norm = Math.min(1.0, sp / (this.maxOmega * 0.85));
+    const mag = Math.pow(norm, 1.35);
     return {
       ax: (this.wy / sp) * mag,
       ay: (this.wx / sp) * mag,

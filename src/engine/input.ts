@@ -122,7 +122,7 @@ export class Input {
 
     window.addEventListener('mousemove', (e) => {
       if (this.pointerLocked) {
-        this.trackball.dragDelta(e.movementX * 1.2, e.movementY * 1.2);
+        this.trackball.dragDelta(e.movementX * 0.5, e.movementY * 0.5);
         const len = Math.hypot(e.movementX, e.movementY);
         if (len > 1) {
           this.aimVector = { dx: e.movementX / len, dy: e.movementY / len };
@@ -140,26 +140,30 @@ export class Input {
         const ddx = e.clientX - this.dragStartX;
         const ddy = e.clientY - this.dragStartY;
         const len = Math.hypot(ddx, ddy);
-        if (len > 4) {
+        if (len > 8) {
           this.aimVector = { dx: ddx / len, dy: ddy / len };
         }
+      } else {
+        this.trackball.dragDelta(dx * 0.5, dy * 0.5);
       }
-      this.trackball.dragDelta(dx * 0.8, dy * 0.8);
     });
 
     // Scroll wheel rolling: wheel is the accelerator; holding left click + moving mouse sets direction
     window.addEventListener('wheel', (e) => {
       e.preventDefault();
       const delta = e.deltaY;
-      if (Math.abs(delta) < 0.5) return;
+      if (Math.abs(delta) < 0.2) return;
 
       const sign = Math.sign(delta);
-      const speed = Math.min(100, Math.abs(delta) * 0.85);
+      // Normalize wheel delta across browsers / trackpads (lines vs pixels)
+      // 1 notch delivers a measured physical push (intensity ~ 3 to 6 out of 100), not an instant warp to 100% speed!
+      const rawDelta = (e.deltaMode === 1 ? delta * 18 : (e.deltaMode === 2 ? delta * 80 : delta));
+      const stepIntensity = Math.min(20, Math.abs(rawDelta) / 28 * 4.0);
 
       // Scroll forward/down pushes in aim direction; scroll backward reverses/brakes
       const dirX = this.aimVector.dx * sign;
       const dirY = this.aimVector.dy * sign;
-      this.trackball.spin(dirX, dirY, speed);
+      this.trackball.spin(dirX, dirY, stepIntensity);
     }, { passive: false });
 
     document.addEventListener('pointerlockchange', () => {
