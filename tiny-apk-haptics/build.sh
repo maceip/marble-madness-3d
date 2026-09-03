@@ -61,6 +61,7 @@ fi
 # 4. APK
 cp build/base.apk build/unsigned.apk
 (cd build/dex && zip -9 -q -u ../unsigned.apk classes.dex)
+# 4-byte alignment for uncompressed entries; 16 KB page alignment (-P 16) only matters for native .so files, and there are none
 "$ZIPALIGN" -f -p 4 build/unsigned.apk build/aligned.apk
 "$APKSIGNER" sign --ks .keys/upload.jks --ks-key-alias upload --ks-pass pass:marbles --key-pass pass:marbles \
     --min-sdk-version "$MIN_SDK" --v1-signing-enabled false --v2-signing-enabled true --v3-signing-enabled true \

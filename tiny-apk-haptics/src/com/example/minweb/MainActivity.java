@@ -8,14 +8,20 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
+import android.os.Process;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
-import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -24,10 +30,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import java.net.InetAddress;
 
@@ -35,30 +38,34 @@ import java.net.InetAddress;
  * The whole app. The WebView shows the game from SERVER_ORIGIN (manifest meta-data); this class adds
  *   - window.NativeBridge: rich haptics (Composition primitives), the browser login, the result hand-off,
  *     the "web is ready" signal and a few diagnostics;
- *   - a native title overlay painted on frame 1 while Chromium boots underneath;
- *   - a pre-warmed Chrome Custom Tabs service (raw Binder warmup) so the login tab opens without a cold start.
+ *   - a native title mask (one flat View, one draw call) painted on frame 1 while Chromium boots underneath;
+ *   - Chrome Custom Tabs pre-warmed over raw Binder: warmup(), a session, and a mayLaunchUrl() hint for the
+ *     login origin, so the login tab opens hot and already connected.
  *
  * Login: page -> launchAuth(SERVER/auth/<provider>?app=<nonce>) -> Custom Tab -> provider -> SERVER/callback
  *        -> <scheme>://oauth-callback?user&provider&state=<nonce> -> onNewIntent -> parked -> page pulls it
  *        with takeAuthResult() (works on cold start too, the page asks on load).
  */
 public class MainActivity extends Activity {
-    private static final int BG = 0xFF000000, FG = 0xFFCFD2FF, ACCENT = 0xFFFFE019, BTN = 0xFF070918;
+    private static final int BG = 0xFF000000, FG = 0xFFCFD2FF, ACCENT = 0xFFFFE019, BTN = 0xFF070918, BTN_EDGE = 0xFF283066;
     private static final String CUSTOM_TABS_ACTION = "android.support.customtabs.action.CustomTabsService";
     private static final String CUSTOM_TABS_IFACE = "android.support.customtabs.ICustomTabsService";
-    /** ICustomTabsService.warmup(long): AIDL id 1 + FIRST_CALL_TRANSACTION */
-    private static final int TXN_WARMUP = 2;
+    private static final String CUSTOM_TABS_CALLBACK = "android.support.customtabs.ICustomTabsCallback";
+    private static final String EXTRA_SESSION = "android.support.customtabs.extra.SESSION";
+    /** ICustomTabsService AIDL ids + FIRST_CALL_TRANSACTION(1): warmup=1, newSession=2, mayLaunchUrl=3 */
+    private static final int TXN_WARMUP = 2, TXN_NEW_SESSION = 3, TXN_MAY_LAUNCH_URL = 4;
 
     private String serverOrigin = "https://marbles.secure.build";
     private String serverHost = "marbles.secure.build";
     private WebView web;
-    private LinearLayout overlay;
-    private Button startBtn;
+    private TitleMask overlay;
     private boolean webReady, startRequested, bound;
-    private volatile boolean warmed;
+    private volatile boolean warmed, session, hinted;
     private String pendingResult;
     private Vibrator v;
     private boolean tick, lowTick, click, thud;
+    /** our end of the Custom Tabs session (Chrome talks back to it; we ignore what it says) */
+    private final Binder tabsCallback = new Binder();
 
     private Vibrator vibrator() {
         VibratorManager vm = (VibratorManager) getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
@@ -68,21 +75,42 @@ public class MainActivity extends Activity {
 
     private final ServiceConnection tabsConnection = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder service) {
-            Parcel data = Parcel.obtain(), reply = Parcel.obtain();
-            try {
-                data.writeInterfaceToken(CUSTOM_TABS_IFACE);
-                data.writeLong(0);
-                boolean ok = service.transact(TXN_WARMUP, data, reply, 0);
-                reply.readException();
-                warmed = ok && reply.readInt() != 0;
-            } catch (Exception ignored) {
-            } finally { data.recycle(); reply.recycle(); }
+            warmed = transactBool(service, TXN_WARMUP, p -> p.writeLong(0));
+            session = warmed && transactBool(service, TXN_NEW_SESSION, p -> p.writeStrongBinder(tabsCallback));
+            // hint the login origin: Chrome pre-connects (DNS + TCP + TLS) and may pre-render; the nonce
+            // added at click time does not matter for the connection warm-up
+            hinted = session && transactBool(service, TXN_MAY_LAUNCH_URL, p -> {
+                p.writeStrongBinder(tabsCallback);
+                p.writeInt(1); Uri.parse(serverOrigin + "/auth/github").writeToParcel(p, 0);   // in Uri url
+                p.writeInt(0);                                                                   // in Bundle extras (null)
+                p.writeInt(-1);                                                                  // in List<Bundle> otherLikelyBundles (null)
+            });
+            System.out.println("[marbles] custom tabs warmup=" + warmed + " session=" + session + " mayLaunchUrl=" + hinted);
         }
-        @Override public void onServiceDisconnected(ComponentName name) {}
+        @Override public void onServiceDisconnected(ComponentName name) { session = false; }
     };
+
+    private interface ParcelWriter { void write(Parcel p); }
+
+    private static boolean transactBool(IBinder service, int code, ParcelWriter body) {
+        Parcel data = Parcel.obtain(), reply = Parcel.obtain();
+        try {
+            data.writeInterfaceToken(CUSTOM_TABS_IFACE);
+            body.write(data);
+            boolean ok = service.transact(code, data, reply, 0);       // false = code unknown to this browser
+            reply.readException();
+            return ok && reply.readInt() != 0;
+        } catch (Exception e) {
+            return false;
+        } finally { data.recycle(); reply.recycle(); }
+    }
 
     @Override
     protected void onCreate(Bundle state) {
+        // boot on an elevated main thread; the kernel scheduler favours us over background daemons for these ms
+        try { Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_DISPLAY); } catch (Exception ignored) {}
+        // opaque surface: no alpha blending pass in SurfaceFlinger for this window
+        getWindow().setFormat(PixelFormat.OPAQUE);
         super.onCreate(state);
         readConfig();
         v = vibrator();
@@ -98,12 +126,21 @@ public class MainActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(BG);
 
+        // layer 0: the WebView boots and loads the game underneath, invisible until START
         web = new WebView(this);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
+        s.setDomStorageEnabled(true);                    // localStorage: lobby id, login nonce
         s.setMediaPlaybackRequiresUserGesture(false);
-        s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        s.setCacheMode(WebSettings.LOAD_DEFAULT);        // the game is remote: 200 KB of code + 11 MB of audio want the HTTP cache
+        s.setOffscreenPreRaster(true);                   // raster tiles while hidden behind the title mask
+        s.setGeolocationEnabled(false);
+        s.setNeedInitialFocus(false);
+        s.setSupportZoom(false);
+        s.setBuiltInZoomControls(false);
+        web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        web.setVerticalScrollBarEnabled(false);
+        web.setHorizontalScrollBarEnabled(false);
         web.setBackgroundColor(BG);
         web.addJavascriptInterface(this, "NativeBridge");
         web.setWebViewClient(new WebViewClient() {
@@ -116,10 +153,15 @@ public class MainActivity extends Activity {
         });
         root.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
 
-        overlay = buildOverlay();
+        // layer 1: the title mask, a single flat View (no measure/layout tree, one onDraw)
+        overlay = new TitleMask(this, String.valueOf(getApplicationInfo().loadLabel(getPackageManager())), () -> {
+            hapticClick();
+            if (webReady) dismissOverlay(); else { startRequested = true; overlay.setLoading(); }
+        });
         root.addView(overlay, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(root);
-        goFullscreen();                                                 // needs the decor view: after setContentView
+        getWindow().setBackgroundDrawable(null);         // root paints BG itself: drop the window background layer (no overdraw)
+        goFullscreen();
 
         if (handleRedirect(getIntent())) startRequested = true;         // back from the login: no title screen
         if (state != null) web.restoreState(state); else web.loadUrl(serverOrigin + "/");
@@ -137,31 +179,6 @@ public class MainActivity extends Activity {
         WindowInsetsController c = getWindow().getInsetsController();
         if (c != null) { c.hide(WindowInsets.Type.systemBars()); c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE); }
         getWindow().getDecorView().setKeepScreenOn(true);
-    }
-
-    private LinearLayout buildOverlay() {
-        LinearLayout l = new LinearLayout(this);
-        l.setOrientation(LinearLayout.VERTICAL);
-        l.setGravity(Gravity.CENTER);
-        l.setBackgroundColor(BG);
-        TextView title = new TextView(this);
-        title.setText(getApplicationInfo().loadLabel(getPackageManager()));
-        title.setTextSize(28);
-        title.setTextColor(FG);
-        title.setGravity(Gravity.CENTER);
-        title.setPadding(0, 0, 0, 48);
-        startBtn = new Button(this);
-        startBtn.setText("START");
-        startBtn.setTextColor(ACCENT);
-        startBtn.setBackgroundColor(BTN);
-        startBtn.setPadding(72, 24, 72, 24);
-        startBtn.setOnClickListener(x -> {
-            hapticClick();
-            if (webReady) dismissOverlay(); else { startRequested = true; startBtn.setText("LOADING..."); }
-        });
-        l.addView(title);
-        l.addView(startBtn);
-        return l;
     }
 
     private void dismissOverlay() {
@@ -182,12 +199,12 @@ public class MainActivity extends Activity {
         new Thread(() -> { for (String h : hosts) { try { InetAddress.getAllByName(h); } catch (Exception ignored) {} } }).start();
     }
 
-    /** http(s) URL in a Custom Tab (pre-warmed Chrome) or the default browser; @return "" or an error */
+    /** http(s) URL in the pre-warmed Custom Tab session (or the default browser); @return "" or an error */
     private String openInBrowser(Uri u) {
         if (!"https".equals(u.getScheme()) && !"http".equals(u.getScheme())) return "refused: only http(s) URLs may be opened";
         Intent i = new Intent(Intent.ACTION_VIEW, u);
         Bundle extras = new Bundle();
-        extras.putBinder("android.support.customtabs.extra.SESSION", null);   // Custom Tab request without AndroidX
+        extras.putBinder(EXTRA_SESSION, session ? tabsCallback : null);   // our warm session, else a plain Custom Tab
         i.putExtras(extras);
         i.setPackage("com.android.chrome");
         try { startActivity(i); }
@@ -237,7 +254,7 @@ public class MainActivity extends Activity {
     @JavascriptInterface public void onWebReady() { runOnUiThread(() -> { webReady = true; if (startRequested) dismissOverlay(); }); }
     @JavascriptInterface public String takeAuthResult() { String r = pendingResult; pendingResult = null; return r; }
     @JavascriptInterface public String launchAuth(String url) { return openInBrowser(Uri.parse(url)); }
-    @JavascriptInterface public String browserPrewarmed() { return warmed ? "bound+warm" : bound ? "bound" : "no"; }
+    @JavascriptInterface public String browserPrewarmed() { return hinted ? "bound+warm+session+hint" : session ? "bound+warm+session" : warmed ? "bound+warm" : bound ? "bound" : "no"; }
     @JavascriptInterface public String serverOrigin() { return serverOrigin; }
 
     /** capabilities as JSON so the page can adapt */
@@ -274,7 +291,7 @@ public class MainActivity extends Activity {
         if (v != null) v.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK));
     }
 
-    /** plain buzz (ms 1..1000, amplitude 1..255) */
+    /** plain buzz (ms 1..1000) */
     @JavascriptInterface public void vibrate(long ms) {
         if (v != null) v.vibrate(VibrationEffect.createOneShot(Math.max(1, Math.min(ms, 1000)), VibrationEffect.DEFAULT_AMPLITUDE));
     }
@@ -293,5 +310,50 @@ public class MainActivity extends Activity {
         if (bound) { try { unbindService(tabsConnection); } catch (Exception ignored) {} }
         web.destroy();
         super.onDestroy();
+    }
+
+    /**
+     * The frame-1 title screen: one View, three Paints, one onDraw. No TextView/Button/LinearLayout trees,
+     * no measure or layout passes. Draws the app label and a START button in the game's palette.
+     */
+    static final class TitleMask extends View {
+        private final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint btnPaint = new Paint();
+        private final Paint btnEdge = new Paint();
+        private final Paint btnText = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Rect btn = new Rect();
+        private final String title;
+        private final Runnable onStart;
+        private String btnLabel = "START";
+        private final float d;
+
+        TitleMask(Context ctx, String title, Runnable onStart) {
+            super(ctx);
+            this.title = title; this.onStart = onStart;
+            d = ctx.getResources().getDisplayMetrics().density;
+            setBackgroundColor(BG);
+            titlePaint.setColor(FG); titlePaint.setTextSize(28 * d); titlePaint.setTextAlign(Paint.Align.CENTER);
+            btnPaint.setColor(BTN);
+            btnEdge.setColor(BTN_EDGE); btnEdge.setStyle(Paint.Style.STROKE); btnEdge.setStrokeWidth(Math.max(1f, d));
+            btnText.setColor(ACCENT); btnText.setTextSize(16 * d); btnText.setTextAlign(Paint.Align.CENTER); btnText.setFakeBoldText(true);
+        }
+
+        void setLoading() { btnLabel = "LOADING..."; invalidate(); }
+
+        @Override protected void onDraw(Canvas c) {
+            int cx = getWidth() / 2, cy = getHeight() / 2;
+            c.drawText(title, cx, cy - 24 * d, titlePaint);
+            btn.set((int) (cx - 110 * d), (int) (cy + 8 * d), (int) (cx + 110 * d), (int) (cy + 56 * d));
+            c.drawRect(btn, btnPaint);
+            c.drawRect(btn, btnEdge);
+            c.drawText(btnLabel, cx, btn.centerY() + 6 * d, btnText);
+        }
+
+        @Override public boolean onTouchEvent(MotionEvent e) {
+            if (e.getAction() == MotionEvent.ACTION_UP && btn.contains((int) e.getX(), (int) e.getY())) { performClick(); onStart.run(); }
+            return true;            // swallow everything: nothing may reach the WebView underneath
+        }
+
+        @Override public boolean performClick() { return super.performClick(); }
     }
 }
