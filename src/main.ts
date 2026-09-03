@@ -5,8 +5,23 @@ import { Sound } from './engine/audio';
 import { Game } from './game/game';
 import { Trackball3DView } from './render/trackball3d';
 
+import * as levelEngine from './engine/level';
+import * as physicsEngine from './engine/physics';
+import * as constants from './engine/constants';
+import * as iso from './engine/iso';
+import { STAGES } from './levels';
+
 declare global {
-  interface Window { game?: Game }
+  interface Window {
+    game?: Game;
+    MarbleEngine?: {
+      level: typeof levelEngine;
+      physics: typeof physicsEngine;
+      constants: typeof constants;
+      iso: typeof iso;
+      STAGES: typeof STAGES;
+    };
+  }
 }
 
 async function boot(): Promise<void> {
@@ -21,6 +36,13 @@ async function boot(): Promise<void> {
   const sound = new Sound();
   const game = new Game(assets, renderer, input, sound);
   window.game = game;
+  window.MarbleEngine = {
+    level: levelEngine,
+    physics: physicsEngine,
+    constants,
+    iso,
+    STAGES,
+  };
 
   let trackballView: Trackball3DView | null = null;
   if (trackballCanvas) {

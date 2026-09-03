@@ -53,17 +53,24 @@ export class Renderer {
   }
 
   resize(): void {
-    const w = window.innerWidth, h = window.innerHeight;
+    const parent = this.canvas.parentElement;
+    const w = (parent && parent !== document.body && parent.clientWidth > 0) ? parent.clientWidth : window.innerWidth;
+    const h = (parent && parent !== document.body && parent.clientHeight > 0) ? parent.clientHeight : window.innerHeight;
     this.viewW = VIEW_W;
-    // Adapt viewH to match aspect ratio so game fills the whole screen without black borders
+    // Adapt viewH to match aspect ratio so game fills the container without black borders
     this.viewH = Math.max(VIEW_H, Math.min(640, Math.round(VIEW_W * (h / w))));
     this.off.width = this.viewW;
     this.off.height = this.viewH;
 
     this.canvas.width = w;
     this.canvas.height = h;
-    this.canvas.style.width = '100vw';
-    this.canvas.style.height = '100vh';
+    if (parent === document.body || !parent) {
+      this.canvas.style.width = '100vw';
+      this.canvas.style.height = '100vh';
+    } else {
+      this.canvas.style.width = '100%';
+      this.canvas.style.height = '100%';
+    }
     this.screenCtx.imageSmoothingEnabled = false;
   }
 

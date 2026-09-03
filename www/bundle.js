@@ -1,3 +1,9 @@
+var __defProp = Object.defineProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
 // src/data/frames.ts
 var FRAMES = {
   "marble": {
@@ -1849,9 +1855,49 @@ function drawFrame(ctx, img, f, x, y, flipX = false) {
 }
 
 // src/engine/constants.ts
+var constants_exports = {};
+__export(constants_exports, {
+  ACCEL: () => ACCEL,
+  ARCADE_TIME_ADD: () => ARCADE_TIME_ADD,
+  BIRD_ZAP_RESETS_TO_START: () => BIRD_ZAP_RESETS_TO_START,
+  BOUNCE: () => BOUNCE,
+  BOUNCE_SFX_SPEED: () => BOUNCE_SFX_SPEED,
+  DEATH_ANIM: () => DEATH_ANIM,
+  DEATH_PENALTY: () => DEATH_PENALTY,
+  DIZZY_FALL: () => DIZZY_FALL,
+  DIZZY_TIME: () => DIZZY_TIME,
+  DROP_SNAP: () => DROP_SNAP,
+  FINISH_BONUS: () => FINISH_BONUS,
+  FRICTION: () => FRICTION,
+  GRAVITY: () => GRAVITY,
+  MARBLE_R: () => MARBLE_R,
+  MARBLE_SPRITE_R: () => MARBLE_SPRITE_R,
+  MAX_SPEED: () => MAX_SPEED,
+  PROGRESS_POINTS: () => PROGRESS_POINTS,
+  PROGRESS_STEP: () => PROGRESS_STEP,
+  RESPAWN_DELAY: () => RESPAWN_DELAY,
+  SEC_LEFT_BONUS: () => SEC_LEFT_BONUS,
+  SHATTER_FALL: () => SHATTER_FALL,
+  SLOPE_K: () => SLOPE_K,
+  STEP_UP: () => STEP_UP,
+  TIMEZONE_BONUS: () => TIMEZONE_BONUS,
+  TIMEZONE_PERIOD: () => TIMEZONE_PERIOD,
+  TIME_BONUS_PER_SEC: () => TIME_BONUS_PER_SEC,
+  TIME_CAP: () => TIME_CAP,
+  TWO_PLAYER_TELEPORT_PENALTY: () => TWO_PLAYER_TELEPORT_PENALTY,
+  TWO_PLAYER_TRAIL_MARGIN: () => TWO_PLAYER_TRAIL_MARGIN,
+  VIEW_H: () => VIEW_H,
+  VIEW_W: () => VIEW_W,
+  VOID_FALL_TIME: () => VOID_FALL_TIME,
+  WALL_MAX: () => WALL_MAX,
+  WAND_BONUS: () => WAND_BONUS,
+  WAND_FREEZE: () => WAND_FREEZE,
+  WON_RACE_BONUS: () => WON_RACE_BONUS
+});
 var VIEW_W = 288;
 var VIEW_H = 240;
 var MARBLE_R = 0.55;
+var MARBLE_SPRITE_R = 8;
 var ACCEL = 26;
 var FRICTION = 2;
 var MAX_SPEED = 16;
@@ -1886,6 +1932,15 @@ var WON_RACE_BONUS = 5;
 var TWO_PLAYER_TRAIL_MARGIN = 40;
 
 // src/engine/iso.ts
+var iso_exports = {};
+__export(iso_exports, {
+  HALF_H: () => HALF_H,
+  HALF_W: () => HALF_W,
+  depthKey: () => depthKey,
+  screenDirToWorld: () => screenDirToWorld,
+  toMap: () => toMap,
+  toWorld: () => toWorld
+});
 var HALF_W = 8;
 var HALF_H = 4;
 function toMap(u, v, z) {
@@ -1906,6 +1961,9 @@ function screenDirToWorld(ax, ay) {
     dv *= mIn / mOut;
   }
   return { du, dv };
+}
+function depthKey(u, v, z) {
+  return (u + v) * HALF_H + z * 1e-3;
 }
 
 // src/render/renderer.ts
@@ -1933,15 +1991,22 @@ var Renderer = class {
   viewW = VIEW_W;
   viewH = VIEW_H;
   resize() {
-    const w = window.innerWidth, h = window.innerHeight;
+    const parent = this.canvas.parentElement;
+    const w = parent && parent !== document.body && parent.clientWidth > 0 ? parent.clientWidth : window.innerWidth;
+    const h = parent && parent !== document.body && parent.clientHeight > 0 ? parent.clientHeight : window.innerHeight;
     this.viewW = VIEW_W;
     this.viewH = Math.max(VIEW_H, Math.min(640, Math.round(VIEW_W * (h / w))));
     this.off.width = this.viewW;
     this.off.height = this.viewH;
     this.canvas.width = w;
     this.canvas.height = h;
-    this.canvas.style.width = "100vw";
-    this.canvas.style.height = "100vh";
+    if (parent === document.body || !parent) {
+      this.canvas.style.width = "100vw";
+      this.canvas.style.height = "100vh";
+    } else {
+      this.canvas.style.width = "100%";
+      this.canvas.style.height = "100%";
+    }
     this.screenCtx.imageSmoothingEnabled = false;
   }
   /** world → view pixel */
@@ -2847,7 +2912,30 @@ function clamp01(x) {
   return Math.max(0, Math.min(1, x));
 }
 
+// src/engine/physics.ts
+var physics_exports = {};
+__export(physics_exports, {
+  Marble: () => Marble
+});
+
 // src/engine/level.ts
+var level_exports = {};
+__export(level_exports, {
+  HeightMap: () => HeightMap,
+  LevelBuilder: () => LevelBuilder,
+  attachHeightMap: () => attachHeightMap,
+  computeFloorMin: () => computeFloorMin,
+  gradientOn: () => gradientOn,
+  heightOn: () => heightOn,
+  highestBelow: () => highestBelow,
+  inRect: () => inRect,
+  pipeAt: () => pipeAt,
+  supportAt: () => supportAt,
+  surfaceCorners: () => surfaceCorners,
+  surfaceMapPolygon: () => surfaceMapPolygon,
+  topAt: () => topAt,
+  zonesAt: () => zonesAt
+});
 var HeightMap = class {
   constructor(width, height, labels, comps) {
     this.width = width;
@@ -6872,6 +6960,13 @@ async function boot() {
   const sound = new Sound();
   const game = new Game(assets, renderer, input, sound);
   window.game = game;
+  window.MarbleEngine = {
+    level: level_exports,
+    physics: physics_exports,
+    constants: constants_exports,
+    iso: iso_exports,
+    STAGES
+  };
   let trackballView = null;
   if (trackballCanvas) {
     trackballView = new Trackball3DView(trackballCanvas, input.trackball);
