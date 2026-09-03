@@ -96,7 +96,7 @@ check('browser integration has no page or console errors', errors.length === 0, 
 const unsupportedContext = await browser.newContext({ viewport: { width: 1180, height: 820 } });
 const unsupported = await unsupportedContext.newPage();
 await unsupported.goto(BASE);
-await unsupported.waitForFunction(() => window.game?.chromeAgent?.availability !== 'unknown' && window.game?.chromeAgent?.availability !== 'checking', null, { timeout: 20000 });
+await unsupported.waitForFunction(() => typeof window.game?.go === 'function' && window.game.chromeAgent.availability !== 'unknown' && window.game.chromeAgent.availability !== 'checking', null, { timeout: 20000 });
 await unsupported.evaluate(() => { window.game.mode = 'ai'; window.game.playerName = 'HUMAN'; window.game.go('connect'); });
 check('unsupported Chrome keeps the existing Codex flow without a dead button', await unsupported.locator('#ui-chrome-ai').isHidden());
 await unsupportedContext.close();
