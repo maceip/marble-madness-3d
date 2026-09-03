@@ -48,15 +48,29 @@ export class Screens {
 
   async copyAgentLink(): Promise<void> {
     const g = this.g;
-    const url = `${g.publicOrigin}/${g.lobbyId}`;
-    const text = `Open ${url} in your embedded browser and use webmcp to compete`;
+    const origin = g.publicOrigin || location.origin;
+    const url = `${origin}/${g.lobbyId}`;
+    const text = `Play 2-Player Marble Madness against me using WebMCP!
+
+Challenge URL:
+${url}
+
+Instructions for Codex / AI Agent:
+1. Open the Challenge URL above in your embedded browser.
+2. WebMCP tools will automatically register in your session:
+   - steer_trackball(du, dv): apply steering impulse
+   - spin_trackball(velocity_u, velocity_v): direct velocity fling
+   - apply_brake(factor): slow down around sharp corners
+   - get_game_state(): read position, speed, and hazard telemetry
+   - wait_for_tick(): synchronize with next 60Hz physics tick
+3. Race as the Red AI Marble against my Blue Marble and beat me to the finish line!`;
     try {
       await navigator.clipboard.writeText(text);
     } catch {
       const ta = document.getElementById('connect-text') as HTMLTextAreaElement | null;
       if (ta) { ta.value = text; ta.select(); document.execCommand('copy'); }
     }
-    this.copiedTimer = 1.8;
+    this.copiedTimer = 2.4;
     g.sound.sfx('item');
   }
 
@@ -135,8 +149,8 @@ export class Screens {
             const rx = (g.r.canvas.width - rw) / 2, ry = (g.r.canvas.height - rh) / 2;
             const ix = (clk.x - rx) * (img.width / rw);
             const iy = (clk.y - ry) * (img.height / rh);
-            // Yellow copy button in 1448x1086: x: 840..1400, y: 50..190
-            if (ix >= 840 && ix <= 1400 && iy >= 50 && iy <= 190) {
+            // Yellow copy button (x: 840..1400, y: 50..190) or instructions card (x: 240..1200, y: 380..680)
+            if ((ix >= 840 && ix <= 1400 && iy >= 50 && iy <= 190) || (ix >= 240 && ix <= 1200 && iy >= 380 && iy <= 680)) {
               void this.copyAgentLink();
             }
           } else {

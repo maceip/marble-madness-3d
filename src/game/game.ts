@@ -17,6 +17,7 @@ import { Screens } from './screens';
 import { Net, RemotePlayer } from './net';
 import { WebMCP } from './webmcp';
 import { TWO_PLAYER_TELEPORT_PENALTY, TWO_PLAYER_TRAIL_MARGIN, ARCADE_TIME_ADD, WON_RACE_BONUS } from '../engine/constants';
+import { AITrackerOverlay } from '../render/ai_tracker';
 
 export type Mode = '1p' | 'ai' | 'multi';
 export type Screen = 'boot' | 'highrollers' | 'title' | 'menu' | 'name' | 'control' | 'connect' | 'intro' | 'race' | 'timebonus' | 'gameover' | 'congrats';
@@ -90,6 +91,7 @@ export class Game {
   /** remote marbles keyed by network id */
   remote = new Map<string, Marble>();
   remoteInfo = new Map<string, RemotePlayer>();
+  aiTrackers = new Map<string, AITrackerOverlay>();
   teleportCooldown = 0;
   /** 2P (arcade rules, 2player_longplay.mov): race outcome bookkeeping */
   finished = false;
@@ -452,7 +454,7 @@ export class Game {
       rm.rollDist += Math.hypot(p.vu, p.vv) * dt;
       this.remoteInfo.set(p.id, p);
     }
-    for (const id of [...this.remote.keys()]) if (!seen.has(id)) { this.remote.delete(id); this.remoteInfo.delete(id); }
+    for (const id of [...this.remote.keys()]) if (!seen.has(id)) { this.remote.delete(id); this.remoteInfo.delete(id); this.aiTrackers.delete(id); }
     this.others = [...this.remote.values()];
     // marble-marble bumps
     if (m.phase === 'alive' && !m.inPipe) {
@@ -736,6 +738,7 @@ export class Game {
       case 'intro': case 'race': case 'timebonus':
         this.renderRace();
         r.present();
+        this.renderAITracker();
         break;
       case 'title': case 'menu': case 'connect':
         this.screens.render();
@@ -780,6 +783,7 @@ export class Game {
     for (const [id, o] of this.remote) {
       if (o.phase === 'hidden') continue;
       const info = this.remoteInfo.get(id);
+      if (info?.role === 'ai' || (this.mode === 'ai' && !this.isAgentPage)) continue;
       const p = r.project(o.u, o.v, o.z);
       const tag = info?.role === 'ai' ? 'AI' : (info?.name ?? 'P2').slice(0, 6);
       const w = r.font.width(tag) + 4;
@@ -856,6 +860,49 @@ export class Game {
         r.textC(fmtScore(this.bonusCount), bx + bw / 2, by + 32, 'lavender');
       }
       if (this.fade > 0) { r.ctx.fillStyle = `rgba(0,0,0,${this.fade})`; r.ctx.fillRect(0, 0, VIEW_W, VIEW_H); }
+    }
+  }
+
+  private renderAITracker(): void {
+    const r = this.r;
+    // Don't render tracker on the AI agent's own screen; only on human player view
+    if (this.isAgentPage) return;
+
+    for (const [id, o] of this.remote) {
+      const info = this.remoteInfo.get(id);
+      const isAI = info?.role === 'ai' || (this.mode === 'ai' && !this.isAgentPage);
+      if (!isAI || o.phase === 'hidden') continue;
+
+      let tracker = this.aiTrackers.get(id);
+      if (!tracker) {
+        tracker = new AITrackerOverlay();
+        this.aiTrackers.set(id, tracker);
+      }
+
+      // Project 3D isometric position to 2D screen coordinates
+      const p = r.project(o.u, o.v, o.z);
+      const screenX = (p.x / r.viewW) * r.canvas.width;
+      const screenY = (p.y / r.viewH) * r.canvas.height;
+      const vx = (o.vu - o.vv) * 8 * (r.canvas.width / r.viewW);
+      const vy = ((o.vu + o.vv) * 4 - o.vz) * (r.canvas.height / r.viewH);
+
+      tracker.render(
+        r.screenCtx,
+        {
+          id,
+          name: info?.name || 'AGENT',
+          role: 'ai',
+          screenX,
+          screenY,
+          worldZ: o.z,
+          vx,
+          vy,
+          visible: o.phase === 'alive',
+        },
+        r.canvas.width,
+        r.canvas.height,
+        this.raceTime,
+      );
     }
   }
 
