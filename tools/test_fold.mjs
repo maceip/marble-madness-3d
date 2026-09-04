@@ -23,7 +23,7 @@ for (const size of SIZES) {
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
   await page.goto(BASE + '/?stage=1', { waitUntil: 'load' });
-  await page.waitForFunction(() => window.game && window.game.stage && typeof window.game.go === 'function', null, { timeout: 20000 });
+  await page.waitForFunction(() => window.game && window.game.stage && ['intro', 'race'].includes(window.game.screen), null, { timeout: 20000 });
 
   const ff = await page.evaluate(() => {
     const cw = window.game.r.canvas.width, ch = window.game.r.canvas.height;
@@ -43,9 +43,11 @@ for (const size of SIZES) {
       const g = window.game;
       const cw = g.r.canvas.width;
       const t = g.screens.debugTargets();
-      const named = t.column || t.card0 || t.optA || t.copy || t.playAgain || t.start;
-      const boxes = Object.values(t).filter((b) => b.w < cw * 0.995 || named === b);
-      const widest = named || boxes.reduce((a, b) => (b.w > a.w ? b : a), boxes[0] || { w: 0, x: cw / 2 });
+      const selector = { title: '.ui-lb', menu: '.ui-modes', name: '#ui-keys', connect: '.ui-connect-box', rematch: '#ui-play-again', congrats: '#ui-win-rows' }[screen];
+      const el = selector ? document.querySelector(selector) : null;
+      const er = el?.getBoundingClientRect();
+      const named = screen === 'control' ? t.optA : er ? { x: er.left + er.width / 2, w: er.width } : t.column || t.start;
+      const widest = named || { w: cw, x: cw / 2 };
       const left = widest.x - widest.w / 2;
       const right = cw - (widest.x + widest.w / 2);
       return { screen: g.screen, cw, widest: widest.w, left, right, frac: widest.w / cw };

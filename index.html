@@ -545,6 +545,17 @@
     #ui-play-again { background: #b7b95c; }
     #ui-exit-lb { background: #26304f; }
 
+    /* Unfolded phone/tablet folds are a distinct posture: use the inner display
+       edge-to-edge instead of inheriting the narrow desktop column caps. */
+    @media (min-width: 680px) and (max-width: 1100px) and (min-aspect-ratio: 18/25) and (max-aspect-ratio: 7/5) {
+      .ui-lb, .ui-modes, .ui-oauth-row, #ui-keys, #ui-name-val,
+      #ui-name-start, .ui-connect-box, #ui-win-rows, .ui-big {
+        width: calc(100vw - 32px);
+        max-width: none;
+      }
+      .ui-logo, .ui-logo-menu { max-width: calc(100vw - 32px); }
+    }
+
     @media (max-width: 520px) {
       .ui-logo { width: min(94vw, 520px); }
       .ui-lb { width: 94vw; padding: 0; border: 2px solid #4ec4ff; border-radius: 0; }
