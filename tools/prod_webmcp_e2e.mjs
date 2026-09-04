@@ -245,6 +245,8 @@ check('immediate fourth race records while third race uploads', await Promise.al
 const rapidCandidate = await agent.waitForFunction(() => window.__rapidShareCandidates?.[0], null, { timeout: 12000 }).then((handle) => handle.jsonValue()).catch(() => null);
 check('prior race candidate survives the live rematch recorder', !!rapidCandidate?.id && await agent.evaluate(() => game.magicRecorder.recorder?.state === 'recording'), JSON.stringify(rapidCandidate));
 if (rapidCandidate?.id) {
+  const recovered = await agent.evaluate(() => window.webmcp.callTool('get_share_candidate'));
+  check('missed push is recoverable from the unreviewed candidate queue', recovered.id === rapidCandidate.id, JSON.stringify(recovered));
   const exact = await agent.evaluate((candidateId) => window.webmcp.callTool('get_share_candidate', { candidateId }), rapidCandidate.id);
   check('candidate ID selects the exact overlapping race', exact.id === rapidCandidate.id && exact.raceId === rapidCandidate.raceId, JSON.stringify(exact));
   const declined = await agent.evaluate((candidateId) => window.webmcp.callTool('share', { candidateId, worthSharing: false }), rapidCandidate.id);

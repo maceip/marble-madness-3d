@@ -31,7 +31,7 @@ export class MagicMomentRecorder {
   private sequence = 0;
   private activeSequence = 0;
   private candidateSequence = 0;
-  private readyCandidates = new Map<string, { sequence: number; candidate: MagicCandidate }>();
+  private readyCandidates = new Map<string, { sequence: number; candidate: MagicCandidate; reviewed: boolean }>();
   private lastOpponentBumpAt = -Infinity;
   private lastCollisionMarkAt = -Infinity;
   private opponentKnockoffs = 0;
@@ -171,11 +171,13 @@ export class MagicMomentRecorder {
     const id = String(candidateId || '').trim();
     const requested = id ? this.readyCandidates.get(id)?.candidate : undefined;
     if (id && !requested) return { status: 'error', error: 'unknown or expired share candidate' };
-    const latest = [...this.readyCandidates.values()].sort((a, b) => b.sequence - a.sequence)[0]?.candidate;
-    // Without an ID, always describe the current race lifecycle. Returning an
-    // older ready item while a new race is processing makes agents review the
-    // wrong race; overlapping candidates are selected explicitly by event ID.
-    const selected = requested || (this.candidate.status === 'idle' ? (latest || this.candidate) : this.candidate);
+    const queued = [...this.readyCandidates.values()]
+      .filter((entry) => !entry.reviewed)
+      .sort((a, b) => a.sequence - b.sequence)[0]?.candidate;
+    // An unreviewed completion wins over a newer active recording, so a missed
+    // push event is recoverable. Reviewed cards stay available by explicit ID
+    // for idempotent retries but never mask the current race lifecycle.
+    const selected = requested || queued || this.candidate;
     return {
       ...selected,
       instruction: selected.status === 'ready'
@@ -214,6 +216,8 @@ export class MagicMomentRecorder {
     try { out = await response.json() as Record<string, unknown>; }
     catch { out = { error: `share service returned ${response.status}` }; }
     if (!response.ok) return { ok: false, ...out };
+    const entry = this.readyCandidates.get(selected.id);
+    if (entry) entry.reviewed = true;
     if (!worthSharing) {
       this.readyCandidates.delete(selected.id);
       if (this.candidate.id === selected.id) this.candidate = { status: 'idle' };
@@ -223,7 +227,7 @@ export class MagicMomentRecorder {
 
   private remember(sequence: number, candidate: MagicCandidate): void {
     if (!candidate.id) return;
-    this.readyCandidates.set(candidate.id, { sequence, candidate });
+    this.readyCandidates.set(candidate.id, { sequence, candidate, reviewed: false });
     while (this.readyCandidates.size > 4) {
       const oldest = [...this.readyCandidates.entries()].sort((a, b) => a[1].sequence - b[1].sequence)[0];
       if (!oldest) break;
