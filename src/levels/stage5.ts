@@ -22,7 +22,7 @@ L.checkpointPx(60, 1060);
 // Checkpoints along the uphill climb
 L.checkpointPx(120, 862, { r: 6, value: 1, id: 'cp1' }); // plaza rim (top of the ribbon)
 L.checkpointPx(60, 701, { r: 6, value: 2, id: 'cp2' });  // V ledge
-L.checkpointPx(194, 414, { r: 6, value: 3, id: 'cp3' }); // orange path
+L.checkpointPx(200, 432, { r: 6, value: 3, id: 'cp3' }); // orange path
 
 // Goal on the summit platform
 L.zonePx('goal', 152, 71, 3.5, undefined, 'goal');
