@@ -428,14 +428,19 @@ const server = http.createServer(async (req, res) => {
           });
         }
         if (meta.reviewed && meta.worthSharing === false) return sendJson(res, 409, { error: 'candidate was already declined' });
-        const start = Math.max(0, Math.min(meta.duration || 0, Number(input.start) || 0));
-        const end = Math.max(start + 0.5, Math.min(meta.duration || start + 8, Number(input.end) || start + 6, start + 8));
-        if (end <= start || end - start > 8.01) return sendJson(res, 400, { error: 'clip must be 0.5 to 8 seconds' });
+        const start = Number(input.start);
+        const end = Number(input.end);
+        const duration = Number(meta.duration);
+        const where = String(input.where || '').trim();
+        if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(duration)
+          || start < 0 || end > duration || end - start < 0.5 || end - start > 8 || !where) {
+          return sendJson(res, 400, { error: 'clip requires finite in-range start/end (0.5 to 8 seconds) and destination' });
+        }
         try { await renderShareGif(id, start, end); }
         catch (error) { console.error('[share render]', error); return sendJson(res, 500, { error: 'GIF render failed' }); }
         Object.assign(meta, {
           reviewed: true, worthSharing: true, rendered: true, start, end,
-          where: String(input.where || 'copy link').slice(0, 40),
+          where: where.slice(0, 40),
           caption: String(input.caption || '').slice(0, 240), renderedAt: new Date().toISOString(),
         });
         try { unlinkSync(sharePath(id, 'source.webm')); } catch { /* already gone */ }

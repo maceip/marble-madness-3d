@@ -49,9 +49,20 @@ if (candidate.status === 'ready') {
   const preview = await agent.request.get(candidate.previewUrl);
   const previewBytes = await preview.body();
   check('candidate contains a compact playable WebM', preview.ok() && /^video\/webm/.test(preview.headers()['content-type'] || '') && previewBytes.length > 64, `${preview.status()} ${previewBytes.length} bytes`);
+  const outsider = await browser.newContext();
+  const privatePreview = await outsider.request.get(candidate.previewUrl);
+  const privateMeta = await outsider.request.get(`${BASE}/api/shares/${candidate.id}`);
+  check('unreviewed source and metadata reject a cookie-less browser', privatePreview.status() === 403 && privateMeta.status() === 403, `${privatePreview.status()} / ${privateMeta.status()}`);
+  await outsider.close();
   const end = Math.min(Number(candidate.duration) || 2, 3);
   const incomplete = await agent.evaluate(() => window.webmcp.callTool('share', { worthSharing: true }));
   check('agent must choose an exact clip window and destination', incomplete.ok === false && /start\/end window and destination/i.test(incomplete.error || ''), JSON.stringify(incomplete));
+  const rejected = await agent.request.post(`${BASE}/api/shares/${candidate.id}/render`, {
+    data: { worthSharing: true, start: -2, end: Number(candidate.duration) + 2, where: '' },
+  });
+  check('server rejects out-of-range clips instead of clamping into ffmpeg', rejected.status() === 400, `${rejected.status()} ${await rejected.text()}`);
+  const stillPrivate = await agent.request.get(candidate.previewUrl);
+  check('rejected render leaves the private source available for a corrected review', stillPrivate.ok(), String(stillPrivate.status()));
   const rendered = await agent.evaluate(({ end }) => window.webmcp.callTool('share', {
     worthSharing: true, start: 0, end, where: 'test card', caption: 'A tiny marble, a large disagreement.',
   }), { end });
@@ -61,9 +72,12 @@ if (candidate.status === 'ready') {
   }), { end });
   check('share rendering is idempotent when an agent retries', retried.ok === true && retried.reused === true && retried.gifUrl === rendered.gifUrl && retried.cardUrl === rendered.cardUrl, JSON.stringify(retried));
   if (rendered.gifUrl) {
-    const gif = await agent.request.get(rendered.gifUrl);
+    const publicContext = await browser.newContext();
+    const gif = await publicContext.request.get(rendered.gifUrl);
     const gifBytes = await gif.body();
-    check('rendered media is a real animated GIF', gif.ok() && gifBytes.subarray(0, 6).toString() === 'GIF89a', `${gif.status()} ${gifBytes.length} bytes`);
+    const publicCard = await publicContext.request.get(rendered.cardUrl);
+    check('rendered media and card are public after review', gif.ok() && gifBytes.subarray(0, 6).toString() === 'GIF89a' && publicCard.ok(), `${gif.status()} ${gifBytes.length} bytes / ${publicCard.status()}`);
+    await publicContext.close();
   }
   const removedSource = await agent.request.get(candidate.previewUrl);
   check('full-race source is deleted after clipping', removedSource.status() === 404, String(removedSource.status()));
