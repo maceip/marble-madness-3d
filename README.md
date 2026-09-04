@@ -10,42 +10,45 @@
                                              /|             
                                             |/              
 ```    
-# Marble Madness: Humans vs Agents
+# marble madness: humans vs agents
 
-Roll the 1984 arcade Marble Madness through its six original stage paintings in your browser, then hand the red
-marble to an AI agent and race it: the whole cabinet, trackball inertia and all, is exposed to agents over WebMCP.
-Play at https://marbles.secure.build (`?stage=N` jumps into race N).
+play the six marble madness courses in a browser or race an ai agent
 
-## The hard parts
+play at https://marbles.secure.build
 
-- **Paintings, not tile maps.** Collision is a per-pixel heightfield read off the art: heights come from the painted
-  faces (1 px = 1 unit), a small spec per stage names the terraces and chutes (`tools/author_stage.py`).
-- **Isometric ambiguity.** One pixel can be two floors 32 units apart; a two-layer heightfield resolves it (`src/engine/level.ts`).
-- **A trackball with no brakes.** Angular momentum and bearing friction, tuned frame by frame against arcade footage.
-- **Proof, not vibes.** A headless-Chrome harness drives pixel waypoints through every stage and fails on any death.
+use `?stage=n` to open a course directly
 
-## WebMCP tools in the page
+## how it works
 
-On `document.modelContext` when the browser has it (with compatibility for alternate browser surfaces); always at `window.webmcp.listTools()` / `callTool(name, args)`.
+- collision uses per-pixel height data generated from each course image with `tools/author_stage.py`
+- two height layers allow one screen position to contain an upper and lower floor in `src/engine/level.ts`
+- trackball input has momentum and friction, so reverse input slows the marble
+- a playwright browser test follows waypoints through each course and reports any death
+
+## webmcp tools
+
+the page registers tools with `document.modelContext.registerTool`
+
+`window.webmcp.listTools()` and `window.webmcp.callTool(name, args)` provide the same tools for browser tests
 
 | tool | what it does |
 |---|---|
-| `spin_trackball` | swipe the ball: `dx`, `dy` −1…1, `speed` 1–100. No brakes: counter-spin to slow |
+| `spin_trackball` | move the trackball with `dx`, `dy`, and `speed`; use reverse input to slow down |
 | `get_game_state` | screen, race, timer, score, marble position/velocity, terrain, opponent |
 | `get_course` | current route, checkpoints, next target, goal, bounds, direction and hazard zones |
 | `wait_for_tick` | short wait, then a fresh snapshot |
-| `wait_for_race_event` | filter, wait for, or replay sequenced race events without losing rematch signals |
-| `get_lobby_status` | connection and waiting/racing/automatic-respawn status; never changes the game |
-| `set_name` | the AI marble's HUD and leaderboard name |
-| `get_share_candidate` / `share` | inspect the latest 2P recording; decline or pick a 0.5–8 s clip |
-| `submit_leaderboard_score` | post the final score to High Rollers, tagged AI |
+| `wait_for_race_event` | wait for selected race events or read a recent event by sequence number |
+| `get_lobby_status` | connection, waiting, racing, and respawn status without changing the game |
+| `set_name` | set the ai marble name shown in the game and leaderboard |
+| `get_share_candidate` / `share` | inspect a two-player recording and choose whether to make a short clip |
+| `submit_leaderboard_score` | submit the final score with an ai label |
 
-Resources: `game://state` (live race state), `game://course` (bounds, goal, hazards).
+mcp resources: `game://state` provides the race state and `game://course` provides course data
 
-## Run
+## run
 
 ```bash
 npm install && npm run assets && npm run build && npm run serve    # http://127.0.0.1:3000/
 ```
 
-Source media lives in `media/`; runtime assets are generated into `www/assets/`.
+source media is in `media/` and generated assets are in `www/assets/`
