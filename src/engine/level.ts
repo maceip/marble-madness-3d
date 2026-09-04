@@ -323,7 +323,9 @@ export class HeightMap {
   /** '' when passable, else why (u,v) stops a marble at zRef: which cell, wall band or terrain height */
   blockReason(u: number, v: number, zRef: number): string {
     const { s, x } = this.cell(u, v);
-    if (s < 0 || s >= this.gH || x < 0 || x >= this.width) return '';
+    // the course is the picture: where the art is cropped at the image border the marble meets an invisible
+    // wall rather than rolling off the side of the world (fuzzing found many deaths at x<0 / x>=width)
+    if (s < 0 || s >= this.gH || x < 0 || x >= this.width) return `picture edge cell(s${s},x${x})`;
     const i = s * this.width + x;
     const lo = this.wLo[i];
     if (!Number.isNaN(lo) && zRef >= lo - 6 && zRef <= this.wHi[i]) return `wall band ${lo.toFixed(0)}-${this.wHi[i].toFixed(0)} cell(s${s},x${x})`;
