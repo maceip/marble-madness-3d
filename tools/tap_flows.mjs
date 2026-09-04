@@ -56,16 +56,14 @@ async function run(size) {
     await page.goto(BASE + '/', { waitUntil: 'load' });
     await page.waitForFunction(() => window.game && typeof window.game.go === 'function' && window.game.stage && window.game.marble, null, { timeout: 20000 });
 
-    // --- 1 PLAYER: title -> menu -> 1P -> build name "ACE" -> control A -> intro ---
+    // --- 1 PLAYER: title -> menu -> tap 1P -> build name "ACE" -> intro ---
     await page.evaluate(() => window.game.go('title'));
     await page.waitForTimeout(150);
     await tap(page, (await targets(page)).start);
     check('title tap -> menu', (await state(page)).screen === 'menu');
     await page.waitForTimeout(450);                                   // menuDelay debounce
     await tap(page, (await targets(page)).card0);
-    let s = await state(page); check('tap 1 PLAYER selects without leaving menu', s.screen === 'menu', `${s.screen}/${s.mode}`);
-    await tap(page, (await targets(page)).start);
-    s = await state(page); check('PRESS START -> name (1p)', s.screen === 'name' && s.mode === '1p', `${s.screen}/${s.mode}`);
+    let s = await state(page); check('tap 1 PLAYER -> name (1p)', s.screen === 'name' && s.mode === '1p', `${s.screen}/${s.mode}`);
     await page.waitForSelector('#ui-key-0-0', { timeout: 4000 });
     for (const cell of ['cell_0_0', 'cell_0_2', 'cell_0_4']) await tap(page, (await targets(page))[cell]);  // A, C, E
     s = await state(page); check('grid taps build name ACE', s.name === 'ACE', `name=${s.name}`);
@@ -73,15 +71,13 @@ async function run(size) {
     await page.waitForFunction(() => ['intro', 'race'].includes(window.game.screen), null, { timeout: 8000 }).catch(() => {});
     s = await state(page); check('START -> intro/race', s.screen === 'intro' || s.screen === 'race', s.screen);
 
-    // --- 2 PLAYER: title -> menu -> 2P -> name -> control B -> connect -> COPY LINK ---
+    // --- 2 PLAYER: title -> menu -> tap 2P -> name -> connect -> COPY LINK ---
     await page.evaluate(() => window.game.go('title'));
     await page.waitForTimeout(150);
     await tap(page, (await targets(page)).start);
     await page.waitForTimeout(450);
     await tap(page, (await targets(page)).card1);
-    s = await state(page); check('tap 2 PLAYERS selects without leaving menu', s.screen === 'menu', `${s.screen}/${s.mode}`);
-    await tap(page, (await targets(page)).start);
-    s = await state(page); check('PRESS START -> name (ai)', s.screen === 'name' && s.mode === 'ai', `${s.screen}/${s.mode}`);
+    s = await state(page); check('tap 2 PLAYERS -> name (ai)', s.screen === 'name' && s.mode === 'ai', `${s.screen}/${s.mode}`);
     await page.waitForSelector('#ui-key-0-1', { timeout: 4000 });
     for (const cell of ['cell_0_1', 'cell_0_1']) await tap(page, (await targets(page))[cell]);   // "BB"
     await tap(page, (await targets(page)).start);
