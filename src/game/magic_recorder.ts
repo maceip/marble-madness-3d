@@ -67,8 +67,22 @@ export class MagicMomentRecorder {
       this.stream = this.canvas.captureStream(15);
       const chunks = this.chunks;
       this.recorder = new MediaRecorder(this.stream, { ...(mimeType ? { mimeType } : {}), videoBitsPerSecond: 240_000 });
-      this.recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
-      this.recorder.start(1000);
+      const recorder = this.recorder;
+      const failActive = (message: string) => {
+        if (this.recorder !== recorder) return;
+        this.closeStream();
+        this.recorder = null;
+        this.chunks = [];
+        this.startedAt = 0;
+        this.raceId = '';
+        this.activeSequence = 0;
+        this.candidate = { status: 'error', raceId, error: message };
+        this.game.webmcp.emit('share_error', { raceId, error: message });
+      };
+      recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+      recorder.addEventListener('error', (event) => failActive(event.error?.message || 'race recording failed'));
+      recorder.addEventListener('stop', () => failActive('race recording stopped unexpectedly'));
+      recorder.start(1000);
       this.candidateSequence = sequence;
       this.candidate = { status: 'recording', raceId };
     } catch (error) {
