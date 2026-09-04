@@ -323,17 +323,18 @@
 
     #ui-name { justify-content: flex-start; gap: 8px; }
     .ui-oauth-row {
-      display: flex; align-items: center; justify-content: center; gap: 12px;
-      flex-wrap: wrap; width: min(96vw, 820px); margin: 6px 0 8px;
+      display: flex; align-items: center; justify-content: center; gap: 24px;
+      flex-wrap: wrap; width: min(96vw, 900px); margin: 10px 0 14px;
     }
     #ui-oauth-hint { margin-top: 8px; }
+    /* 2x the original 260x52 sign-in buttons; on phones the pair still sits side by side (2 x 44vw + gap < 96vw) */
     .ui-oauth {
-      width: min(42vw, 260px); height: 52px; border: 2px solid #394258; border-radius: 8px;
+      width: min(44vw, 400px); height: 104px; border: 3px solid #394258; border-radius: 14px;
       background: #05070f; color: #fff; display: flex; align-items: center; justify-content: center;
-      gap: 9px;
+      gap: 18px;
     }
-    .ui-oauth.on { border-color: #ffe019; box-shadow: 0 0 0 2px #ffe019; }
-    .ui-oauth svg { width: 22px; height: 22px; fill: #fff; }
+    .ui-oauth.on { border-color: #ffe019; box-shadow: 0 0 0 3px #ffe019; }
+    .ui-oauth svg { width: 44px; height: 44px; fill: #fff; }
     #ui-keys {
       display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
       gap: 6px; width: min(96vw, 720px); flex: 0 0 auto; min-height: 0;
@@ -624,9 +625,9 @@
       .ui-key { min-height: 28px; }
       #ui-name { gap: 2px; overflow-y: hidden; }
       #ui-oauth-hint { margin-top: 0; }
-      .ui-oauth-row { margin: 2px 0; gap: 8px; }
-      .ui-oauth { width: 120px; height: 32px; }
-      .ui-oauth svg { width: 16px; height: 16px; }
+      .ui-oauth-row { margin: 2px 0; gap: 16px; }
+      .ui-oauth { width: 200px; height: 56px; gap: 12px; }
+      .ui-oauth svg { width: 28px; height: 28px; }
       #ui-name-val { min-height: 32px; margin: 2px 0; }
       #ui-keys { grid-auto-rows: 28px; }
       #ui-name-start { min-height: 32px; margin-top: 2px; }

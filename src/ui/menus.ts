@@ -196,8 +196,8 @@ export class HtmlMenus {
       pxFill(document.getElementById('ui-name-p1'), font, 'PLAYER 1', 'cyan', sc);
       pxFill(document.getElementById('ui-name-h'), font, 'ENTER YOUR NAME', 'cyan', sc);
       pxFill(document.getElementById('ui-oauth-hint'), font, 'USE YOUR USERNAME INSTEAD', 'cyan', Math.max(1, sc - 1));
-      pxFill(document.getElementById('ui-github-label'), font, 'GITHUB', 'white', sc);
-      pxFill(document.getElementById('ui-twitter-label'), font, 'TWITTER', 'cyan', sc);
+      pxFill(document.getElementById('ui-github-label'), font, 'GITHUB', 'white', sc + 1);
+      pxFill(document.getElementById('ui-twitter-label'), font, 'TWITTER', 'cyan', sc + 1);
       this.ensureKeys(font, sc);
     }
     if (screen === 'connect') {
