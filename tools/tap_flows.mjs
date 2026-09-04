@@ -21,7 +21,11 @@ let fails = 0;
 const log = (s) => console.log(s);
 
 const targets = (page) => page.evaluate(() => window.game.screens.debugTargets());
-const state = (page) => page.evaluate(() => ({ screen: window.game.screen, mode: window.game.mode, name: window.game.playerName, ctrl: window.game.input.controlType, copied: window.game.screens.copiedTimer }));
+const state = (page) => page.evaluate(() => ({
+  screen: window.game.screen, mode: window.game.mode, name: window.game.playerName,
+  ctrl: window.game.input.controlType, copied: window.game.screens.copiedTimer,
+  beatAllStages: window.game.beatAllStages, tallyTotal: window.game.finalTally.total,
+}));
 async function tap(page, tg) {
   if (!tg) throw new Error('missing tap target');
   if (tg.sel) {
@@ -91,7 +95,14 @@ async function run(size) {
     await page.waitForTimeout(150);
     let tg = await targets(page); check('rematch has PLAY AGAIN + EXIT targets', !!tg.playAgain && !!tg.exit);
     await tap(page, tg.exit);
-    s = await state(page); check('rematch EXIT -> title (leaderboard)', s.screen === 'title', s.screen);
+    s = await state(page);
+    check('rematch EXIT -> time-up tally without finish bonus', s.screen === 'congrats' && !s.beatAllStages && s.tallyTotal === 0, `${s.screen}/beat=${s.beatAllStages}/tally=${s.tallyTotal}`);
+    await page.evaluate(() => {
+      window.game.screens.idle = 5;
+      document.getElementById('ui-congrats')?.click();
+    });
+    await page.waitForTimeout(160);
+    s = await state(page); check('tally dismissal -> title (leaderboard)', s.screen === 'title', s.screen);
     await page.evaluate(() => { window.game.mode = 'ai'; window.game.go('rematch'); });
     await page.waitForTimeout(150);
     await tap(page, (await targets(page)).playAgain);
