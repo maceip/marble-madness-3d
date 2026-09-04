@@ -129,7 +129,7 @@ export class WebMCP {
       },
       {
         name: 'share',
-        description: 'Review a completed 2P race recording. Decline it, or render a 0.5-8 second GIF whose first frame says Marble Madness: Humans vs Agents and whose share card links to the app. This prepares a card/link; it never posts to an external account without the user.',
+        description: 'Review a completed 2P race recording. Decline with worthSharing=false, or provide an exact 0.5-8 second start/end window plus destination to render a GIF whose first frame says Marble Madness: Humans vs Agents and whose share card links to the app. This prepares a card/link; it never posts to an external account without the user.',
         inputSchema: {
           type: 'object',
           properties: {

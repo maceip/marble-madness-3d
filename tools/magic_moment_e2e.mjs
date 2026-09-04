@@ -50,6 +50,8 @@ if (candidate.status === 'ready') {
   const previewBytes = await preview.body();
   check('candidate contains a compact playable WebM', preview.ok() && /^video\/webm/.test(preview.headers()['content-type'] || '') && previewBytes.length > 64, `${preview.status()} ${previewBytes.length} bytes`);
   const end = Math.min(Number(candidate.duration) || 2, 3);
+  const incomplete = await agent.evaluate(() => window.webmcp.callTool('share', { worthSharing: true }));
+  check('agent must choose an exact clip window and destination', incomplete.ok === false && /start\/end window and destination/i.test(incomplete.error || ''), JSON.stringify(incomplete));
   const rendered = await agent.evaluate(({ end }) => window.webmcp.callTool('share', {
     worthSharing: true, start: 0, end, where: 'test card', caption: 'A tiny marble, a large disagreement.',
   }), { end });
