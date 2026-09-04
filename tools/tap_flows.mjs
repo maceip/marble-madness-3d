@@ -1,9 +1,11 @@
 // Real tap-interaction test: drives the actual UI with synthetic touch taps at the exact rendered target
 // centers (window.game.screens.debugTargets(), computed from the same layout the renderer uses), across sizes.
 // Verifies: title->menu, mode select, PLAYER NAME CREATION via grid taps, control A/B tap, and the 2P copy button.
-// Fails hard on any console/page error, wrong screen, or wrong state.  BASE=http://127.0.0.1:3200 node tools/tap_flows.mjs
+// Fails hard on any console/page error, wrong screen, or wrong state. This is a
+// production acceptance test; it deliberately cannot fall back to localhost.
 import { chromium } from 'playwright-core';
-const BASE = process.env.BASE || 'http://127.0.0.1:3200';
+const BASE = (process.env.BASE || 'https://marbles.secure.build').replace(/\/$/, '');
+if (BASE !== 'https://marbles.secure.build') throw new Error('This acceptance test only runs against https://marbles.secure.build');
 const ALL_SIZES = [
   { id: 'phone-sm', w: 375, h: 667, m: true },
   { id: 'phone-md', w: 412, h: 915, m: true },
