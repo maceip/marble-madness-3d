@@ -64,7 +64,24 @@ check('both peers enter the race underneath the console', await Promise.all([
 ]).then(() => true).catch(() => false));
 check('agent console remains unchanged through race transition', await agent.evaluate(() => !document.getElementById('agent-console').hidden && document.body.classList.contains('agent-console-active') && getComputedStyle(document.getElementById('game')).display === 'none'));
 
-await agent.screenshot({ path: 'artifacts/prod-agent-console.png' });
+await agent.screenshot({ path: '/tmp/prod-agent-console.png' });
+
+// Codex may render its built-in browser in a narrow desktop pane; fine-pointer panes still need both surfaces.
+const narrowContext = await browser.newContext({ viewport: { width: 600, height: 800 } });
+const narrowAgent = await narrowContext.newPage();
+await narrowAgent.goto(`${BASE}/${crypto.randomUUID()}`); await narrowAgent.waitForFunction(() => window.game?.screens);
+const narrow = await narrowAgent.evaluate(() => ({
+  active: document.body.classList.contains('agent-console-active'),
+  consoleVisible: getComputedStyle(document.getElementById('agent-console')).display !== 'none',
+  trackballVisible: getComputedStyle(document.getElementById('trackball-container')).display === 'flex',
+  terminalVisible: document.getElementById('agent-terminal-log').getBoundingClientRect().height > 0,
+}));
+check('narrow fine-pointer agent pane keeps xterm and trackball visible', Object.values(narrow).every(Boolean), JSON.stringify(narrow));
+
+const edgeContext = await browser.newContext({ viewport: { width: 900, height: 700 } });
+const edgeAgent = await edgeContext.newPage();
+await edgeAgent.goto(`${BASE}/${crypto.randomUUID()}`); await edgeAgent.waitForFunction(() => window.game?.screens);
+check('900px agent pane has no CSS/JS breakpoint split', await edgeAgent.evaluate(() => document.body.classList.contains('agent-console-active') && getComputedStyle(document.getElementById('agent-console')).display !== 'none' && getComputedStyle(document.getElementById('trackball-container')).display === 'flex'));
 
 // The vanity is intentionally desktop agent-only.
 const mobileAgentContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });

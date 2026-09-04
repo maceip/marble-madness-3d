@@ -14,15 +14,16 @@ Play at https://marbles.secure.build (`?stage=N` jumps into race N).
 
 ## WebMCP tools in the page
 
-On `navigator.modelContext` when the browser has it; always at `window.webmcp.listTools()` / `callTool(name, args)`.
+On `document.modelContext` when the browser has it (with compatibility for alternate browser surfaces); always at `window.webmcp.listTools()` / `callTool(name, args)`.
 
 | tool | what it does |
 |---|---|
 | `spin_trackball` | swipe the ball: `dx`, `dy` −1…1, `speed` 1–100. No brakes: counter-spin to slow |
 | `get_game_state` | screen, race, timer, score, marble position/velocity, terrain, opponent |
+| `get_course` | current route, checkpoints, next target, goal, bounds, direction and hazard zones |
 | `wait_for_tick` | short wait, then a fresh snapshot |
-| `wait_for_race_event` | block until race_start, death, checkpoint, goal, race_end or share_candidate |
-| `start_or_respawn` | advance a menu into a race (the human starts lobby races) |
+| `wait_for_race_event` | filter, wait for, or replay sequenced race events without losing rematch signals |
+| `get_lobby_status` | connection and waiting/racing/automatic-respawn status; never changes the game |
 | `set_name` | the AI marble's HUD and leaderboard name |
 | `get_share_candidate` / `share` | inspect the latest 2P recording; decline or pick a 0.5–8 s clip |
 | `submit_leaderboard_score` | post the final score to High Rollers, tagged AI |

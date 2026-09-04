@@ -458,7 +458,7 @@ export class HtmlMenus {
     const lines: { t: string; c: FontVariant }[][] = [
       [{ t: 'COPY + PASTE INTO CODEX:', c: 'white' }],
       [{ t: 'OPEN THIS URL IN YOUR', c: 'white' }],
-      [{ t: 'EMBEDDED BROWSER:', c: 'white' }],
+      [{ t: 'BUILT-IN BROWSER:', c: 'white' }],
       [{ t: origin + '/', c: 'cyan' }],
       [{ t: lobby, c: 'cyan' }],
     ];

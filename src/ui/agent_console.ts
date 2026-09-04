@@ -5,10 +5,10 @@ import { pxCanvas, pxFill } from './pixel';
 type TrafficPhase = 'call' | 'result' | 'error' | 'event' | 'resource';
 interface TrafficDetail { phase: TrafficPhase; name: string; payload?: unknown }
 
-const MAX_LINES = 18;
+const MAX_LINES = 96;
 
 function desktopAgentSurface(game: Game): boolean {
-  return game.isAgentPage && navigator.maxTouchPoints === 0 && window.innerWidth >= 900;
+  return game.isAgentPage && navigator.maxTouchPoints === 0;
 }
 
 function scalar(value: unknown): string {
@@ -33,7 +33,7 @@ function summarize(name: string, payload: unknown): string {
   }
   if (name === 'wait_for_race_event') return p.event ? `${scalar(p.event)}  SCREEN ${scalar((p.state as Record<string, unknown> | undefined)?.screen)}` : `TIMEOUT ${scalar(p.timeout_ms)}MS`;
   if (name === 'set_name') return `NAME ${scalar(p.name)}  ${scalar(p.delivery)}`;
-  if (name === 'start_or_respawn') return `SCREEN ${scalar(p.screen)}  WAIT ${scalar(p.waitingForHuman)}`;
+  if (name === 'get_lobby_status') return `SCREEN ${scalar(p.screen)}  WAIT ${scalar(p.waitingForHuman)}`;
   if (name === 'submit_leaderboard_score') return `NAME ${scalar(p.name)}  SCORE ${scalar(p.score)}`;
   const entries = Object.entries(p).slice(0, 3).map(([k, v]) => `${k.toUpperCase()} ${scalar(v)}`).filter((x) => !x.endsWith(' '));
   return entries.join('  ') || scalar(payload) || 'OK';
@@ -75,6 +75,7 @@ export function agentConsole(game: Game, font: BitmapFont): { active: boolean; t
       row.appendChild(pxCanvas(font, part, variant, 2)); log.appendChild(row);
     }
     while (log.children.length > MAX_LINES) log.firstElementChild?.remove();
+    log.scrollTop = log.scrollHeight;
   };
   add('[BOOT] WEBMCP TRANSPORT ONLINE', 'cyan');
   add(`[LINK] LOBBY ${game.lobbyId.slice(0, 8).toUpperCase()}`, 'lavender');

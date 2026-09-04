@@ -1,6 +1,5 @@
 import type { Game } from './game';
 import { mmTrace } from '../engine/trace';
-import { STAGES } from '../levels';
 import { topAt } from '../engine/level';
 
 /**
@@ -16,6 +15,12 @@ export interface ToolDef {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    idempotentHint?: boolean;
+    openWorldHint?: boolean;
+  };
   execute: (args: Record<string, unknown>) => Promise<unknown> | unknown;
 }
 
@@ -34,6 +39,15 @@ interface ModelContext {
   registerPrompt?(prompt: unknown): void;
 }
 
+const RACE_EVENTS = ['race_start', 'death', 'checkpoint', 'goal', 'race_end', 'share_candidate', 'share_error'] as const;
+type RaceEventName = typeof RACE_EVENTS[number];
+interface RaceEventRecord { sequence: number; event: string; data: unknown; at: number }
+interface EventWaiter {
+  afterSequence: number;
+  events: Set<string> | null;
+  finish: (event: RaceEventRecord) => void;
+}
+
 /** MCP CallToolResult shape: agents expect { content:[{type:'text',text}] }, with structuredContent for machines. */
 function toToolResult(out: unknown): { content: { type: 'text'; text: string }[]; structuredContent: Record<string, unknown>; isError?: boolean } {
   const text = typeof out === 'string' ? out : JSON.stringify(out);
@@ -47,8 +61,10 @@ export class WebMCP {
   resources: ResourceDef[];
   used = false;
   private subscribers = new Set<(event: string, data: unknown) => void>();
-  private eventWaiters: Array<(e: { event: string; data: unknown }) => void> = [];
-  lastEvent: { event: string; data: unknown } | null = null;
+  private eventWaiters: EventWaiter[] = [];
+  private eventSequence = 0;
+  private eventLog: RaceEventRecord[] = [];
+  lastEvent: RaceEventRecord | null = null;
 
   constructor(private game: Game) {
     this.resources = [
@@ -78,14 +94,24 @@ export class WebMCP {
             speed: { type: 'number', minimum: 1, maximum: 100, default: 50, description: 'How hard you swipe the ball (simulates optical encoder tick rate)' },
           },
           required: ['dx', 'dy'],
+          additionalProperties: false,
         },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
         execute: (a) => this.spin(Number(a.dx ?? 0), Number(a.dy ?? 1), Number(a.speed ?? 50)),
       },
       {
         name: 'get_game_state',
         description: 'Read the full game state: race stage, timer, score, marble position, velocity, trackball angular speed, terrain, and opponent position.',
-        inputSchema: { type: 'object', properties: {} },
+        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        annotations: { readOnlyHint: true, openWorldHint: false },
         execute: () => this.state(),
+      },
+      {
+        name: 'get_course',
+        description: 'Read the current stage route, checkpoints, next target, goal, bounds, direction, and hazard-zone kinds before choosing trackball moves.',
+        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        annotations: { readOnlyHint: true, openWorldHint: false },
+        execute: () => this.course(),
       },
       {
         name: 'wait_for_tick',
@@ -93,19 +119,23 @@ export class WebMCP {
         inputSchema: {
           type: 'object',
           properties: { timeout_ms: { type: 'number', minimum: 20, maximum: 1000, default: 100 } },
+          additionalProperties: false,
         },
+        annotations: { readOnlyHint: true, openWorldHint: false },
         execute: (a) => this.waitForTick(Number(a.timeout_ms ?? 100)),
       },
       {
-        name: 'start_or_respawn',
-        description: 'Advance from a menu screen into a race, or start a new game after game over. If you opened a lobby URL you are the AI player: the human starts every race and rematch from their device; this only reports that you are waiting. Nobody needs to type or click anything.',
-        inputSchema: { type: 'object', properties: {} },
-        execute: () => this.startOrRespawn(),
+        name: 'get_lobby_status',
+        description: 'Read whether the agent is connected, waiting for the human, starting, racing, or automatically respawning. Opening the lobby URL joins Player 2 automatically; the human starts races and rematches.',
+        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        annotations: { readOnlyHint: true, openWorldHint: false },
+        execute: () => this.lobbyStatus(),
       },
       {
         name: 'set_name',
-        description: 'Set the display name the human sees for you (the AI marble) during the race and on the leaderboard. Call this once when you join, before the race starts.',
-        inputSchema: { type: 'object', properties: { name: { type: 'string', maxLength: 10, description: 'Your display name, e.g. "GPT-5" or "CODEX"' } }, required: ['name'] },
+        description: 'Set the display name the human sees for the AI marble. This can be your agent or model name. Call it immediately after opening the lobby; if the socket is still connecting, the name is queued safely.',
+        inputSchema: { type: 'object', properties: { name: { type: 'string', maxLength: 10, description: 'Agent or model display name, e.g. "SOL" or "CODEX"' } }, required: ['name'], additionalProperties: false },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
         execute: (a) => {
           const g = this.game;
           this.mark();
@@ -117,14 +147,24 @@ export class WebMCP {
       },
       {
         name: 'wait_for_race_event',
-        description: 'Block until the next race event (race_start, death, checkpoint, goal, race_end, share_candidate, share_error) or the timeout, then return that event plus the full game state. A share_candidate asks you to inspect a recorded 2P race and decide whether/where to clip it. Use this instead of polling get_game_state in a loop.',
-        inputSchema: { type: 'object', properties: { timeout_ms: { type: 'number', minimum: 20, maximum: 5000, default: 2000 } } },
-        execute: (a) => this.waitForEvent(Number(a.timeout_ms ?? 2000)),
+        description: 'Wait for a matching race event and return its sequence plus full state. Filter with events so a delayed share_candidate cannot consume a race_start wait. To recover an event that arrived between calls, pass after_sequence from get_game_state or the previous event. After death, keep waiting: respawn is automatic. After race_end, wait for the human\'s next race_start rematch.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            timeout_ms: { type: 'number', minimum: 20, maximum: 5000, default: 2000 },
+            events: { type: 'array', items: { type: 'string', enum: RACE_EVENTS }, minItems: 1, uniqueItems: true, description: 'Optional event names to wait for.' },
+            after_sequence: { type: 'integer', minimum: 0, description: 'Replay the first matching buffered event newer than this sequence.' },
+          },
+          additionalProperties: false,
+        },
+        annotations: { readOnlyHint: true, openWorldHint: false },
+        execute: (a) => this.waitForEvent(Number(a.timeout_ms ?? 2000), a.events, a.after_sequence),
       },
       {
         name: 'get_share_candidate',
         description: 'Inspect the latest 2P race recording candidate, or a specific candidate from a share_candidate event. When ready, open previewUrl and decide whether it contains a magic moment and the exact clip window.',
-        inputSchema: { type: 'object', properties: { candidateId: { type: 'string', description: 'Optional candidate ID from a share_candidate event, useful when races rematch rapidly.' } } },
+        inputSchema: { type: 'object', properties: { candidateId: { type: 'string', description: 'Optional candidate ID from a share_candidate event, useful when races rematch rapidly.' } }, additionalProperties: false },
+        annotations: { readOnlyHint: true, openWorldHint: false },
         execute: (a) => this.game.magicRecorder.review(a.candidateId),
       },
       {
@@ -141,13 +181,16 @@ export class WebMCP {
             caption: { type: 'string', maxLength: 240, description: 'Optional caption displayed on the share card.' },
           },
           required: ['worthSharing'],
+          additionalProperties: false,
         },
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
         execute: (a) => this.game.magicRecorder.share(a),
       },
       {
         name: 'submit_leaderboard_score',
         description: 'Submit the final score to High Rollers tagged as AI. Optional initials also set your name; prefer set_name at the start.',
-        inputSchema: { type: 'object', properties: { initials: { type: 'string', maxLength: 10 } } },
+        inputSchema: { type: 'object', properties: { initials: { type: 'string', maxLength: 10 } }, additionalProperties: false },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
         execute: async (a) => {
           const g = this.game;
           if (a.initials) g.playerName = String(a.initials).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) || g.playerName || 'AI';
@@ -168,31 +211,41 @@ export class WebMCP {
     window.dispatchEvent(new CustomEvent('mm:mcp-traffic', { detail: { phase, name, payload, at: performance.now() } }));
   }
 
-  /** fire a race event: wakes any wait_for_race_event callers and window.webmcp.subscribe listeners */
+  /** Fire and retain a race event so filtered waits cannot steal one another's signals. */
   emit(event: string, data: unknown = {}): void {
-    this.lastEvent = { event, data };
+    const record: RaceEventRecord = { sequence: ++this.eventSequence, event, data, at: Date.now() };
+    this.lastEvent = record;
+    this.eventLog.push(record);
+    if (this.eventLog.length > 64) this.eventLog.shift();
     this.traffic('event', event, data);
-    const waiters = this.eventWaiters; this.eventWaiters = [];
-    for (const w of waiters) { try { w({ event, data }); } catch (e) { console.warn('[webmcp] waiter error', e); } }
+    const matching = this.eventWaiters.filter((w) => record.sequence > w.afterSequence && (!w.events || w.events.has(event)));
+    for (const w of matching) { try { w.finish(record); } catch (e) { console.warn('[webmcp] waiter error', e); } }
     for (const sub of this.subscribers) { try { sub(event, data); } catch (e) { console.warn('[webmcp] subscriber error', e); } }
   }
   /** @deprecated kept for the window.webmcp mirror; use emit() */
   notifySubscribers(event: string, data: unknown): void { this.emit(event, data); }
 
-  private waitForEvent(timeoutMs: number): Promise<unknown> {
+  private waitForEvent(timeoutMs: number, eventsArg: unknown, afterSequenceArg: unknown): Promise<unknown> {
     this.mark();
     const ms = Number.isFinite(timeoutMs) ? Math.max(20, Math.min(5000, timeoutMs)) : 2000;
+    const events = Array.isArray(eventsArg) ? new Set(eventsArg.filter((event): event is RaceEventName => typeof event === 'string' && (RACE_EVENTS as readonly string[]).includes(event))) : null;
+    const suppliedSequence = Number(afterSequenceArg);
+    const afterSequence = afterSequenceArg !== undefined && Number.isFinite(suppliedSequence)
+      ? Math.max(0, Math.floor(suppliedSequence)) : this.eventSequence;
+    const replay = this.eventLog.find((event) => event.sequence > afterSequence && (!events || events.has(event.event as RaceEventName)));
+    if (replay) return Promise.resolve({ ...replay, state: this.state() });
     return new Promise((resolve) => {
       let done = false;
-      const waiter = (e: { event: string; data: unknown }) => finish(e.event, e.data);
-      const finish = (evt: string, data: unknown) => {
+      let waiter: EventWaiter;
+      const finish = (event: RaceEventRecord) => {
         if (done) return;
         done = true; clearTimeout(to);
         const i = this.eventWaiters.indexOf(waiter);
         if (i >= 0) this.eventWaiters.splice(i, 1);
-        resolve({ event: evt, data, state: this.state() });
+        resolve({ ...event, state: this.state() });
       };
-      const to = setTimeout(() => finish('timeout', null), ms);
+      waiter = { afterSequence, events, finish };
+      const to = setTimeout(() => finish({ sequence: this.eventSequence, event: 'timeout', data: null, at: Date.now() }), ms);
       this.eventWaiters.push(waiter);
     });
   }
@@ -231,7 +284,7 @@ export class WebMCP {
     }
 
     w.webmcp = {
-      listTools: () => this.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })),
+      listTools: () => this.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema, annotations: t.annotations })),
       callTool: async (name: string, args: Record<string, unknown> = {}) => {
         const t = this.tools.find((x) => x.name === name);
         if (!t) { mmTrace('webmcp.unknown', { name }); this.traffic('error', name, { message: 'unknown tool' }); throw new Error(`unknown tool ${name}`); }
@@ -270,7 +323,7 @@ export class WebMCP {
     const tbSpeed = Math.hypot(tb.wx, tb.wy);
 
     return {
-      screen: g.screen, mode: g.mode, lobby: g.lobbyId || null, agentJoined: g.agentJoined,
+      screen: g.screen, mode: g.mode, lobby: g.lobbyId || null, raceId: g.raceId || null, agentJoined: g.agentJoined,
       race: {
         stage: g.stageIdx + 1, name: g.stage.name,
         direction: g.stage.progressDir > 0 ? 'descend (+y)' : 'ascend (-y)',
@@ -280,7 +333,9 @@ export class WebMCP {
         raceOver: g.finished || ['timebonus', 'gameover', 'congrats', 'rematch'].includes(g.screen),
         finalScore: g.score,
       },
+      eventSequence: this.eventSequence,
       lastEvent: this.lastEvent ? this.lastEvent.event : null,
+      lastEventSequence: this.lastEvent?.sequence ?? 0,
       trackball: {
         angularSpeedRpm: Math.round(tbSpeed * 9.55),
         headingDeg: Math.round(((Math.atan2(tb.wx, tb.wy) * 180 / Math.PI) + 360) % 360),
@@ -356,29 +411,27 @@ export class WebMCP {
     return this.state();
   }
 
-  private startOrRespawn(): unknown {
+  private lobbyStatus(): unknown {
     const g = this.game;
     this.mark();
-    if (g.isAgentPage) {
-      // the human starts every race from their side; the agent never walks the human's menus
-      if (g.screen === 'race') return { ok: true, screen: 'race', respawning: g.marble.phase === 'dead' || g.marble.phase === 'dying' };
-      if (g.screen === 'intro') return { ok: true, screen: 'intro', note: 'race starting' };
-      if (g.screen === 'gameover' || g.screen === 'congrats' || g.screen === 'timebonus') { g.go('connect'); }
-      return { ok: true, waitingForHuman: true, screen: g.screen, note: 'connected to the lobby; the human starts the race, nothing to do until then' };
-    }
-    switch (g.screen) {
-      case 'title': g.go('menu'); g.sound.init(); return { ok: true, screen: g.screen };
-      case 'menu': g.mode = g.mode === 'ai' ? 'ai' : '1p'; g.playerName = g.playerName || 'AGENT'; g.go('control'); return { ok: true, screen: g.screen };
-      case 'name': g.playerName = g.playerName || 'AGENT'; g.go('control'); return { ok: true, screen: g.screen };
-      case 'control':
-        if (g.mode === 'ai' && g.net.lobby) { g.agentReady = true; return { ok: true, waitingForHuman: true }; }
-        g.newGame(0); return { ok: true, screen: 'intro' };
-      case 'connect': return { ok: true, waitingForHuman: true };
-      case 'gameover': case 'congrats': g.go('title'); return { ok: true, screen: g.screen };
-      case 'race':
-        if (g.marble.phase === 'dead' || g.marble.phase === 'dying') return { ok: true, respawning: true };
-        return { ok: true, screen: 'race', note: 'already racing' };
-      default: return { ok: true, screen: g.screen, stages: STAGES.length };
-    }
+    const respawning = g.screen === 'race' && (g.marble.phase === 'dead' || g.marble.phase === 'dying');
+    const status = respawning ? 'respawning'
+      : g.screen === 'race' ? 'racing'
+      : g.screen === 'intro' ? 'race_starting'
+      : 'waiting_for_human';
+    return {
+      ok: true,
+      status,
+      connected: g.net.connected,
+      screen: g.screen,
+      lobby: g.lobbyId || null,
+      raceId: g.raceId || null,
+      waitingForHuman: status === 'waiting_for_human',
+      respawning,
+      eventSequence: this.eventSequence,
+      note: status === 'waiting_for_human'
+        ? 'Stay on this page. The human starts the next race or rematch; wait for race_start.'
+        : respawning ? 'Respawn is automatic; keep waiting and then resume racing.' : undefined,
+    };
   }
 }

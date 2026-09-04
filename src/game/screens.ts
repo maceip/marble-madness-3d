@@ -129,8 +129,8 @@ export class Screens {
     const g = this.g;
     const origin = g.publicOrigin || location.origin;
     const url = `${origin}/${g.lobbyId}`;
-    const text = `Open this URL in your embedded browser: ${url}
-Use the page's WebMCP tools to join as Player 2 and race me.`;
+    const text = `Open this URL in your built-in browser: ${url}
+Use the page's site tools to race me as Player 2 and stay for rematches.`;
     try {
       await navigator.clipboard.writeText(text);
     } catch {

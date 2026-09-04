@@ -163,7 +163,7 @@ const lobby = await human.evaluate(() => {
 await human.waitForSelector('#ui-connect:not([hidden])');
 await human.evaluate(() => game.screens.copyAgentLink());
 const copied = await human.evaluate(() => navigator.clipboard.readText());
-const expectedPrompt = `Open this URL in your embedded browser: ${BASE.replace(/\/$/, '')}/${lobby}\nUse the page's WebMCP tools to join as Player 2 and race me.`;
+const expectedPrompt = `Open this URL in your built-in browser: ${BASE.replace(/\/$/, '')}/${lobby}\nUse the page's site tools to race me as Player 2 and stay for rematches.`;
 check('copy-to-Codex prompt is the exact direct instruction', copied === expectedPrompt, `${copied.split('\n').length} lines`);
 const mobileLayout = await human.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth, box: document.querySelector('.ui-connect-box')?.getBoundingClientRect().toJSON() }));
 check('mobile connect screen is contained', mobileLayout.scrollWidth <= mobileLayout.innerWidth && mobileLayout.box?.left >= 0 && mobileLayout.box?.right <= mobileLayout.innerWidth + 1, JSON.stringify(mobileLayout));

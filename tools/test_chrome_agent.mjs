@@ -56,7 +56,7 @@ check('local-agent teaser waits 30 seconds', await page.locator('#ui-agent-tease
 check('clipboard callout uses the supplied icon', await page.locator('#ui-copy .ui-copy-icon').getAttribute('src') === '/assets/screens/parts/copybutton.png');
 await page.locator('#ui-copy').click();
 const copied = await page.evaluate(() => navigator.clipboard.readText());
-check('clipboard copy is a direct embedded-browser instruction', /^Open this URL in your embedded browser: https?:\/\//.test(copied) && /WebMCP tools to join as Player 2/.test(copied));
+check('clipboard copy is a direct built-in-browser instruction', /^Open this URL in your built-in browser: https?:\/\//.test(copied) && /site tools to race me as Player 2 and stay for rematches/.test(copied));
 await page.evaluate(() => { window.game.screens.idle = 31; });
 await page.waitForSelector('#ui-agent-teaser:not([hidden])');
 check('Slippy portal teaser appears after 30 seconds', await page.locator('#ui-agent-teaser').isVisible() && await page.locator('#ui-slippy').isVisible());
