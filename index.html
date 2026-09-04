@@ -201,11 +201,11 @@
     .ui-tap:focus-visible { outline: 2px solid #ffe019; outline-offset: 2px; }
 
     #android-app-prompt {
-      position: fixed; inset: 0; z-index: 90; pointer-events: none;
-      display: flex; align-items: flex-end; justify-content: center;
-      padding: 16px max(12px, env(safe-area-inset-right)) max(18px, calc(env(safe-area-inset-bottom) + 10px)) max(12px, env(safe-area-inset-left));
-      box-sizing: border-box;
-      background: linear-gradient(transparent 42%, rgba(0, 0, 0, .78));
+      position: fixed; z-index: 90;
+      left: max(8px, env(safe-area-inset-left));
+      right: max(8px, env(safe-area-inset-right));
+      bottom: max(58px, calc(env(safe-area-inset-bottom) + 54px));
+      display: flex; justify-content: center; pointer-events: none;
     }
     #android-app-prompt[hidden] { display: none !important; }
     #desktop-controls-help {
@@ -228,21 +228,32 @@
       background: #ffd23f; border: 3px solid #ffe89a; border-radius: 8px;
     }
     .android-app-card {
-      pointer-events: auto; width: min(94vw, 620px); box-sizing: border-box;
-      display: flex; flex-direction: column; align-items: center; gap: 10px;
-      padding: 16px 14px 12px; background: #000;
-      border: 6px double #4ec4ff; border-radius: 14px;
-      box-shadow: 0 0 0 3px #000, 0 12px 40px rgba(0, 0, 0, .9);
+      pointer-events: auto; width: min(100%, 540px); min-height: 78px; box-sizing: border-box;
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px;
+      padding: 8px; background: rgba(2, 4, 10, .96);
+      border: 3px double #4ec4ff; border-radius: 8px;
+      box-shadow: 0 0 0 2px #000, 0 8px 24px rgba(0, 0, 0, .9);
     }
-    .android-app-copy { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 100%; }
-    .android-app-actions { width: 100%; display: flex; gap: 10px; }
+    .android-app-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+    .android-app-benefits { display: flex; flex-wrap: wrap; gap: 3px; }
+    .android-app-benefit {
+      display: flex; align-items: center; min-height: 17px; padding: 2px 4px;
+      border: 1px solid #293a6b; border-radius: 3px; background: #090d1a;
+    }
+    #android-app-pwa-note { opacity: .82; }
+    .android-app-actions { display: flex; align-items: center; gap: 5px; }
     .android-app-actions > * {
-      min-width: 0; min-height: 48px; flex: 1; box-sizing: border-box;
+      min-width: 0; box-sizing: border-box;
       display: flex; align-items: center; justify-content: center;
-      padding: 10px 8px; border-radius: 8px; text-decoration: none;
+      padding: 7px 6px; border-radius: 5px; text-decoration: none;
     }
-    #android-app-open { background: #ffd23f; border: 3px solid #ffe89a; }
-    #android-app-dismiss { background: #111524; border: 3px solid #4a50a8; }
+    #android-app-open { min-width: 92px; min-height: 42px; background: #ffd23f; border: 2px solid #ffe89a; }
+    #android-app-dismiss { width: 30px; height: 30px; padding: 3px; background: #111524; border: 2px solid #4a50a8; }
+    @media (max-width: 390px) {
+      .android-app-card { gap: 5px; padding: 5px 6px; }
+      #android-app-open { min-width: 78px; }
+      #android-app-dismiss { width: 28px; height: 28px; }
+    }
 
     .ui-spread {
       display: flex; justify-content: space-between; align-items: center;
@@ -729,14 +740,19 @@
       <button type="button" class="ui-tap ui-big" id="ui-exit-lb"></button>
     </section>
   </div>
-  <aside id="android-app-prompt" role="dialog" aria-label="Get the Marble Madness Android app" hidden>
+  <aside id="android-app-prompt" role="complementary" aria-label="Get the Marble Madness Android app" hidden>
     <div class="android-app-card">
       <div class="android-app-copy">
-        <div id="android-app-title"></div>
-        <div id="android-app-subtitle"></div>
+        <div id="android-app-title" aria-label="Get the Android app"></div>
+        <div class="android-app-benefits" aria-label="Rich haptics, minimal binary size, and no ads">
+          <span class="android-app-benefit" id="android-app-haptics"></span>
+          <span class="android-app-benefit" id="android-app-size"></span>
+          <span class="android-app-benefit" id="android-app-ads"></span>
+        </div>
+        <div id="android-app-pwa-note"></div>
       </div>
       <div class="android-app-actions">
-        <a class="ui-tap" id="android-app-open" href="https://play.google.com/store/apps/details?id=build.secure.marbles" target="_blank" rel="noopener" aria-label="Open Marble Madness in Google Play"></a>
+        <a class="ui-tap" id="android-app-open" href="https://play.google.com/store/apps/details?id=build.secure.marbles" target="_blank" rel="noopener" aria-label="Install Marble Madness from Google Play"></a>
         <button class="ui-tap" id="android-app-dismiss" type="button" aria-label="Dismiss Android app prompt"></button>
       </div>
     </div>

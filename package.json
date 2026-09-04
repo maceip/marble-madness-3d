@@ -15,6 +15,7 @@
     "levels:overlay": "npm run levels:dump && python3 tools/level_overlay.py",
     "test:physics": "node tools/test_level_physics.mjs",
     "test:chrome-agent": "node tools/test_chrome_agent.mjs",
+    "test:android-install:prod": "node tools/prod_android_install.mjs",
     "test": "node tools/test_level_physics.mjs && node tools/smoke_all.mjs && node tools/flow_check.mjs && node tools/test_lobby.mjs && node tools/test_mobile_viewport.mjs",
     "check:prod": "node tools/prod_check.mjs"
   },
