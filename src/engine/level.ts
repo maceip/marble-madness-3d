@@ -11,6 +11,8 @@ export interface HmComponent {
   a: number; b: number; c: number; area: number; bbox: number[]; wallH?: number; pieces?: HmPiece[]; name?: string;
   /** path kind: centreline vertices in map pixels with their heights, in travel order */
   path?: { x: number; y: number; z: number }[];
+  /** path kind: an open ramp (no trough rim): the edges get no half-pipe lip */
+  open?: boolean;
 }
 
 /** height of the nearest point of a polyline (map pixels) to (x, y): what a bent chute is at that pixel */
@@ -28,8 +30,9 @@ function pathZ(path: { x: number; y: number; z: number }[], x: number, y: number
 
 /** tallest cliff face the terrain blocks; anything higher above the marble is an overpass it rolls under */
 const TERRAIN_BLOCK_MAX = 120;
-/** a floor this far above a lower layer is a bridge the marble rolls under; less is a cliff face (terraces are 30 apart) */
-const OVERPASS_CLEARANCE = 40;
+/** a floor this far above a lower layer is a bridge the marble rolls under; less is a cliff face (terraces are 30 apart;
+ *  stage 3's raised cross overhangs the ramp tops by 32) */
+const OVERPASS_CLEARANCE = 32;
 /** longest hidden-floor gap (in 1/4-tile cells) that is bridged behind an occluder */
 const OCCLUSION_FILL_MAX = 64;   // cells (px): a rail post or tent hides up to ~55 px of floor behind it
 const OCCLUSION_FILL_DZ = 12;
@@ -104,7 +107,7 @@ export class HeightMap {
     const put = (s: number, x: number, z: number, path = 0) => {
       if (s < 0 || s >= gH) return;
       const i = s * W + x;
-      if (path) isPath[i] = 1;
+      if (path) isPath[i] = path;
       const a = z1[i];
       if (Number.isNaN(a)) { z1[i] = z; return; }
       if (Math.abs(a - z) < 2) { if (z > a) z1[i] = z; return; }
@@ -121,7 +124,7 @@ export class HeightMap {
         const id = labels[y * W + x];
         if (Number.isNaN(z)) { prevS = NaN; prevId = -1; continue; }
         const s = y + z;
-        const path = byId[id]?.kind === 'path' ? 1 : 0;
+        const path = byId[id]?.kind === 'path' ? (byId[id].open ? 2 : 1) : 0;   // 2 = open ramp: no lip
         if (!Number.isNaN(prevS) && id === prevId) {
           const a = Math.round(prevS), b = Math.round(s);
           if (b > a + 1) { for (let k = a + 1; k < b; k++) put(k, x, prevZ + (z - prevZ) * (k - prevS) / (s - prevS), path); }
@@ -227,6 +230,7 @@ export class HeightMap {
         const above = floorZ(x, y0 - 1), below = floorZ(x, y1);
         const run = y1 - y0;
         if (Number.isNaN(below)) continue;                   // face into void / image edge: nothing stands there
+        if (run <= 2) continue;                              // 1-2 px sliver: a painted outline / edge highlight, not a rail
         if (!Number.isNaN(above) && run < 4 && Math.abs(above - below) <= OBSTACLE_DZ) continue;   // tile seam between two floors, not a rail
         if (Number.isNaN(above) || Math.abs(above - below) <= OBSTACLE_DZ) {
           // obstacle standing on the floor in front of it (rail, post, block): base line at the run's bottom. Its
@@ -252,7 +256,7 @@ export class HeightMap {
     for (let s = 0; s < gH; s++) {
       for (let x = 0; x < W; x++) {
         const i = s * W + x;
-        if (!isPath[i] || Number.isNaN(z1[i])) continue;
+        if (isPath[i] !== 1 || Number.isNaN(z1[i])) continue;   // only troughs (1) get a lip; open ramps (2) do not
         if (pathEnds.some((e) => Math.abs(e.s - s) <= PATH_END_OPEN && Math.abs(e.x - x) <= PATH_END_OPEN)) continue;
         const z = z1[i];
         // the lip lives on the cells OUTSIDE the trough (two deep, so the marble's probes cannot straddle it),
@@ -543,7 +547,7 @@ export interface StageDef {
 }
 
 export type PixelRef =
-  | { kind: 'start' | 'start2'; x: number; y: number }
+  | { kind: 'start' | 'start2'; x: number; y: number; slide?: number }
   | { kind: 'checkpoint'; x: number; y: number; cp?: { r: number; value: number; id: string } }
   | { kind: 'zone'; zone: ZoneKind; x: number; y: number; r: number; value?: number; id?: string }
   | { kind: 'pipe'; x: number; y: number; r: number; exit: { x: number; y: number; vu: number; vv: number }; duration: number; bonus?: number }
@@ -842,8 +846,8 @@ export class LevelBuilder {
 
   private ref(r: PixelRef): void { (this.def.pixelRefs ??= []).push(r); }
   /** start on the floor drawn at map pixel (x,y) (resolved when the heightfield attaches) */
-  startPx(x: number, y: number): void { this.ref({ kind: 'start', x, y }); }
-  start2Px(x: number, y: number): void { this.ref({ kind: 'start2', x, y }); }
+  startPx(x: number, y: number, slide?: number): void { this.ref({ kind: 'start', x, y, slide }); }
+  start2Px(x: number, y: number, slide?: number): void { this.ref({ kind: 'start2', x, y, slide }); }
   /** respawn point on the floor drawn at (x,y); with `zone` also a progress checkpoint zone of radius r tiles */
   checkpointPx(x: number, y: number, cp?: { r: number; value: number; id: string }): void { this.ref({ kind: 'checkpoint', x, y, cp }); }
   /** square zone of half-size r tiles centred on the floor drawn at (x,y), limited to that floor's height band */
@@ -874,11 +878,12 @@ export class LevelBuilder {
   hazard(h: HazardSpawn): void { this.def.hazards.push(h); }
 
   build(): StageDef {
-    // invisible boundary walls just outside the map's left/right edges
+    // invisible boundary walls at the map's left/right edges: the marble's centre stays a radius inside the art,
+    // so a walkway painted right up to the edge (stage 3's left wing) still has floor pixels under the marble
     const dMax = this.def.width / HALF_W;
     const sMax = (this.def.height + 400) / HALF_H;
-    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: -6, u1: sMax, v1: -0.4, z0: -3000, gu: 0, gv: 0, kind: 'wall', sd: true, name: 'edgeL', wallH: 6000 });
-    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: dMax + 0.4, u1: sMax, v1: dMax + 6, z0: -3000, gu: 0, gv: 0, kind: 'wall', sd: true, name: 'edgeR', wallH: 6000 });
+    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: -6, u1: sMax, v1: 0, z0: -3000, gu: 0, gv: 0, kind: 'wall', sd: true, name: 'edgeL', wallH: 6000 });
+    this.def.surfaces.push({ id: this.nextId++, u0: -100, v0: dMax, u1: sMax, v1: dMax + 6, z0: -3000, gu: 0, gv: 0, kind: 'wall', sd: true, name: 'edgeR', wallH: 6000 });
     this.def.manualSurfaces = [...this.def.surfaces];
     computeFloorMin(this.def);
     return this.def;
@@ -928,7 +933,7 @@ function resolvePixelRefs(def: StageDef, hm: HeightMap): void {
   for (const r of def.pixelRefs) {
     if (r.kind === 'start' || r.kind === 'start2') {
       const p = pick(r.x, r.y, r.kind);
-      if (p) def[r.kind] = { u: p.u, v: p.v, z: p.z };
+      if (p) def[r.kind] = { u: p.u, v: p.v, z: p.z, slide: r.slide };
     } else if (r.kind === 'checkpoint') {
       const p = pick(r.x, r.y, 'checkpoint');
       if (!p) continue;

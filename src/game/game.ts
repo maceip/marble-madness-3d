@@ -668,7 +668,7 @@ export class Game {
           if (!this.goalReached) { this.goalReached = true; this.reachGoal(); }
           break;
         case 'timezone': inTimezone = true; break;
-        case 'kill': m.die('void'); break;
+        case 'kill': { const ev: MarbleEvent[] = []; m.die('void', ev); for (const e of ev) this.onMarbleEvent(e); break; }   // counted like any other death
       }
     }
     if (inTimezone && m.grounded) {
