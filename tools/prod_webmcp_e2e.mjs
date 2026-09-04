@@ -64,10 +64,19 @@ async function captureAnimatedCard(page, file) {
     await document.fonts.ready;
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   });
-  const headingPng = await chromePage.locator('.card h1').screenshot({ type: 'png' });
+  const richestScreenshot = async (locator) => {
+    let richest = Buffer.alloc(0);
+    for (let i = 0; i < 4; i++) {
+      await chromePage.waitForTimeout(50);
+      const shot = await locator.screenshot({ type: 'png' });
+      if (shot.length > richest.length) richest = shot;
+    }
+    return richest;
+  };
+  const headingPng = await richestScreenshot(chromePage.locator('.card h1'));
   const captionLocator = chromePage.locator('.card .caption');
-  const captionPng = await captionLocator.count() ? await captionLocator.screenshot({ type: 'png' }) : null;
-  const urlPng = await chromePage.locator('.card .url').screenshot({ type: 'png' });
+  const captionPng = await captionLocator.count() ? await richestScreenshot(captionLocator) : null;
+  const urlPng = await richestScreenshot(chromePage.locator('.card .url'));
   await chromePage.close();
   // Chromium can omit sibling text layers when it captures a page containing
   // an actively composited GIF. Assemble one deterministic canvas from
@@ -108,6 +117,23 @@ async function captureAnimatedCard(page, file) {
     await drawImage('image');
     await drawImage('caption');
     await drawImage('url');
+    const ink = (rect, predicate) => {
+      if (!rect) return 0;
+      const pixels = context.getImageData(
+        Math.floor(rect.x), Math.floor(rect.y),
+        Math.max(1, Math.floor(rect.width)), Math.max(1, Math.floor(rect.height)),
+      ).data;
+      let count = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (predicate(pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3])) count++;
+      }
+      return count;
+    };
+    const headingInk = ink(geometry.heading, (r, g, b, a) => a > 0 && r > 180 && g > 150 && b < 120);
+    const urlInk = ink(geometry.url, (r, g, b, a) => a > 0 && g > 150 && b > 150);
+    if (headingInk < 100 || urlInk < 100) {
+      throw new Error(`incomplete share capture: heading=${headingInk} url=${urlInk}`);
+    }
     document.body.replaceChildren(canvas);
     document.body.style.cssText = 'margin:0;background:#000';
   }, { geometry, parts });
