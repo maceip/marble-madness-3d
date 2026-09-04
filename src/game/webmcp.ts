@@ -117,9 +117,31 @@ export class WebMCP {
       },
       {
         name: 'wait_for_race_event',
-        description: 'Block until the next race event (race_start, death, checkpoint, goal, race_end) or the timeout, then return that event plus the full game state. Use this instead of polling get_game_state in a loop.',
+        description: 'Block until the next race event (race_start, death, checkpoint, goal, race_end, share_candidate) or the timeout, then return that event plus the full game state. A share_candidate asks you to inspect a recorded 2P race and decide whether/where to clip it. Use this instead of polling get_game_state in a loop.',
         inputSchema: { type: 'object', properties: { timeout_ms: { type: 'number', minimum: 20, maximum: 5000, default: 2000 } } },
         execute: (a) => this.waitForEvent(Number(a.timeout_ms ?? 2000)),
+      },
+      {
+        name: 'get_share_candidate',
+        description: 'Inspect the current 2P race recording candidate. When ready, open previewUrl and decide whether it contains a magic moment and the exact clip window.',
+        inputSchema: { type: 'object', properties: {} },
+        execute: () => this.game.magicRecorder.review(),
+      },
+      {
+        name: 'share',
+        description: 'Review a completed 2P race recording. Decline it, or render a 0.5-8 second GIF whose first frame says Marble Madness: Humans vs Agents and whose share card links to the app. This prepares a card/link; it never posts to an external account without the user.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            worthSharing: { type: 'boolean', description: 'True only if the preview has a knockout, griefing, comic failure, comeback, or close finish worth clipping.' },
+            start: { type: 'number', minimum: 0, description: 'Clip start in seconds from the preview.' },
+            end: { type: 'number', minimum: 0.5, description: 'Clip end, no more than 8 seconds after start.' },
+            where: { type: 'string', maxLength: 40, description: 'Intended destination, e.g. copy link, X, Bluesky, Discord.' },
+            caption: { type: 'string', maxLength: 240, description: 'Optional caption displayed on the share card.' },
+          },
+          required: ['worthSharing'],
+        },
+        execute: (a) => this.game.magicRecorder.share(a),
       },
       {
         name: 'submit_leaderboard_score',

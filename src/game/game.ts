@@ -20,6 +20,7 @@ import { WebMCP } from './webmcp';
 import { ChromeLocalAgent } from './chrome_agent';
 import { TWO_PLAYER_TELEPORT_PENALTY, TWO_PLAYER_TRAIL_MARGIN, ARCADE_TIME_ADD, WON_RACE_BONUS } from '../engine/constants';
 import { AITrackerOverlay, TrackerRenderState } from '../render/ai_tracker';
+import { MagicMomentRecorder } from './magic_recorder';
 
 export type Mode = '1p' | 'ai' | 'multi';
 export type Screen = 'boot' | 'title' | 'menu' | 'name' | 'control' | 'connect' | 'intro' | 'race' | 'timebonus' | 'gameover' | 'congrats' | 'rematch';
@@ -99,6 +100,7 @@ export class Game {
   net = new Net();
   webmcp!: WebMCP;
   chromeAgent!: ChromeLocalAgent;
+  magicRecorder: MagicMomentRecorder;
   onAgentDetected?: () => void;
   /** remote marbles keyed by network id */
   remote = new Map<string, Marble>();
@@ -139,14 +141,16 @@ export class Game {
       if (this.mode !== 'ai' || !this.raceId || event.raceId !== this.raceId) return;
       if (!(this.screen === 'intro' || this.screen === 'race' || this.screen === 'timebonus')) return;
       this.sound.stopBgm(); this.sound.stopRoll();
+      void this.magicRecorder.finish(`opponent_${event.result}`);
       const won = event.result === 'timeup';
       this.webmcp.emit('race_end', { result: event.result, opponent: true, won, score: event.score, deaths: event.deaths });
       if (this.isAgentPage) this.go('connect');
       else { this.wonLast = won; this.go('rematch'); }
     };
-    this.net.onBump = (iu, iv) => { this.marble.impU += iu; this.marble.impV += iv; this.sound.sfx('bounce', 0.6); };
+    this.net.onBump = (iu, iv) => { this.marble.impU += iu; this.marble.impV += iv; this.sound.sfx('bounce', 0.6); this.magicRecorder.noteOpponentBump(); };
     this.net.onLeaderboard = (top) => { if (top.length) this.rollers = top.slice(0, 10).map((e, i) => ({ name: e.name, score: e.score, intelligence: (e as any).intelligence || 'Natural', rank: (e as any).rank ?? (i + 1) })); };
     this.sound.onInit = (s) => { this.input.trackball.audio = s.trackballAudio; };
+    this.magicRecorder = new MagicMomentRecorder(this, this.r.off);
     this.webmcp = new WebMCP(this);
     this.chromeAgent = new ChromeLocalAgent(this);
   }
@@ -318,7 +322,10 @@ export class Game {
     this.score = 0; this.displayScore = 0; this.deaths = 0; this.carried = 0; this.scoreSubmitted = false;
     this.raceEndSent = false;
     this.aiDestroyed = 0; this.aiDizzied = 0; this.bumpClock = 0; this.bumpedIds.clear(); this.remotePhase.clear();
-    void this.loadStage(stageIdx).then(() => this.go('intro'));
+    void this.loadStage(stageIdx).then(() => {
+      this.go('intro');
+      if (this.mode === 'ai' && this.isAgentPage && this.raceId) this.magicRecorder.start(this.raceId);
+    });
   }
 
   private litGoalBlue: HTMLImageElement | null = null;
@@ -628,6 +635,7 @@ export class Game {
       case 'die':
         mmTrace('die', { kind: e.kind, u: +this.marble.u.toFixed(1), v: +this.marble.v.toFixed(1), z: +this.marble.z.toFixed(0), stage: this.stageIdx + 1 });
         this.deaths++;
+        this.magicRecorder.noteLocalDeath();
         this.webmcp.emit('death', { kind: e.kind, deaths: this.deaths });
         if (e.kind === 'shatter' || e.kind === 'void' || e.kind === 'zap') this.sound.sfx('shatter');
         else if (e.kind === 'squeeze') this.sound.sfx('muncher');
@@ -792,6 +800,7 @@ export class Game {
   private announceRaceEnd(result: 'finish' | 'timeup'): void {
     if (this.mode !== 'ai' || !this.raceId || this.raceEndSent) return;
     this.raceEndSent = true;
+    void this.magicRecorder.finish(result);
     this.net.sendRaceEnd({ raceId: this.raceId, result, stage: this.stageIdx + 1, score: this.score, deaths: this.deaths });
   }
 

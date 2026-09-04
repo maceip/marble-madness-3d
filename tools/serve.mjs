@@ -20,10 +20,11 @@
 //   c->s  { type:'start', stage }                  s->c { type:'start', stage, by }   (2P race start sync)
 //   s->c  { type:'joined'|'left', id, role, name }
 import http from 'node:http';
-import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { spawn } from 'node:child_process';
 import { WebSocketServer } from 'ws';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -56,6 +57,7 @@ const GITHUB_CALLBACK = process.env.GITHUB_CALLBACK || 'https://marbles.secure.b
 const APP_SCHEME = process.env.APP_SCHEME || 'marbles';
 /** telemetry: JSONL file of installs / crashes / events; installs are only counted with a valid app proof */
 const TELEMETRY_FILE = process.env.TELEMETRY_FILE || path.join(root, 'data', 'telemetry.jsonl');
+const SHARE_DIR = process.env.SHARE_DIR || path.join(path.dirname(LEADERBOARD_FILE), 'shares');
 /** sha256 (hex, no colons) of the APK signing certificate(s); Play's app-signing cert for store builds */
 const APK_CERT_SHA256 = (process.env.APK_CERT_SHA256 || '').toLowerCase().split(',').map((x) => x.replace(/:/g, '').trim()).filter(Boolean);
 const installNonces = new Map();          // nonce -> expiry (single use, 60 s)
@@ -80,6 +82,19 @@ function readBody(req, limit) {
     let body = '';
     req.on('data', (c) => { body += c; if (body.length > limit) { req.destroy(); reject(new Error('too large')); } });
     req.on('end', () => resolve(body)); req.on('error', reject);
+  });
+}
+function readBinary(req, limit) {
+  return new Promise((resolve, reject) => {
+    const chunks = []; let size = 0; let failed = false;
+    req.on('data', (chunk) => {
+      if (failed) return;
+      size += chunk.length;
+      if (size > limit) { failed = true; reject(new Error('too large')); return; }
+      chunks.push(chunk);
+    });
+    req.on('end', () => { if (!failed) resolve(Buffer.concat(chunks)); });
+    req.on('error', reject);
   });
 }
 
@@ -109,7 +124,7 @@ function authExit(res, { app = '', handle = '', provider = '', error = '', clear
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.mjs': 'application/javascript', '.map': 'application/json',
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.mp4': 'video/mp4',
-  '.css': 'text/css', '.ico': 'image/x-icon', '.svg': 'image/svg+xml', '.bin': 'application/octet-stream', '.txt': 'text/plain',
+  '.css': 'text/css', '.ico': 'image/x-icon', '.svg': 'image/svg+xml', '.gif': 'image/gif', '.webm': 'video/webm', '.bin': 'application/octet-stream', '.txt': 'text/plain',
 };
 
 /* ------------------------------------------------------------------------ */
@@ -230,10 +245,159 @@ function serveIndex(req, res, lobbyFromPath) {
   res.end(html);
 }
 
+function sharePath(id, name) { return path.join(SHARE_DIR, id, name); }
+function shareMeta(id) {
+  try { return JSON.parse(readFileSync(sharePath(id, 'meta.json'), 'utf8')); } catch { return null; }
+}
+function safeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function runFfmpeg(args, timeoutMs = 45_000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.env.FFMPEG || 'ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    let err = '';
+    child.stderr.on('data', (chunk) => { if (err.length < 24_000) err += chunk; });
+    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('ffmpeg timeout')); }, timeoutMs);
+    child.on('error', (error) => { clearTimeout(timer); reject(error); });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve(); else reject(new Error(`ffmpeg exited ${code}: ${err.slice(-2000)}`));
+    });
+  });
+}
+
+async function renderShareGif(id, start, end) {
+  const input = sharePath(id, 'source.webm');
+  const output = sharePath(id, 'moment.gif');
+  const title = sharePath(id, 'title.ppm');
+  writeShareTitle(title);
+  const graph = `[0:v]fps=12[title];[1:v]fps=12,scale=480:400:force_original_aspect_ratio=decrease,pad=480:400:(ow-iw)/2:(oh-ih)/2:black[clip];[title][clip]concat=n=2:v=1:a=0,split[s0][s1];[s0]palettegen=max_colors=96:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3[out]`;
+  await runFfmpeg([
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-loop', '1', '-framerate', '12', '-t', '0.9', '-i', title,
+    '-ss', start.toFixed(3), '-t', (end - start).toFixed(3), '-i', input,
+    '-filter_complex', graph, '-map', '[out]', '-loop', '0', output,
+  ]);
+  return output;
+}
+
+const SHARE_FONT = {
+  A:'01110/10001/10001/11111/10001/10001/10001', B:'11110/10001/10001/11110/10001/10001/11110',
+  C:'01111/10000/10000/10000/10000/10000/01111', D:'11110/10001/10001/10001/10001/10001/11110',
+  E:'11111/10000/10000/11110/10000/10000/11111', G:'01111/10000/10000/10111/10001/10001/01110',
+  H:'10001/10001/10001/11111/10001/10001/10001', I:'11111/00100/00100/00100/00100/00100/11111',
+  L:'10000/10000/10000/10000/10000/10000/11111', M:'10001/11011/10101/10101/10001/10001/10001',
+  N:'10001/11001/11001/10101/10011/10011/10001', R:'11110/10001/10001/11110/10100/10010/10001',
+  S:'01111/10000/10000/01110/00001/00001/11110', T:'11111/00100/00100/00100/00100/00100/00100',
+  U:'10001/10001/10001/10001/10001/10001/01110', V:'10001/10001/10001/10001/10001/01010/00100',
+  '.':'00000/00000/00000/00000/00000/00110/00110', ' ':'00000/00000/00000/00000/00000/00000/00000',
+};
+function writeShareTitle(file) {
+  const width = 480, height = 400, pixels = Buffer.alloc(width * height * 3);
+  const rect = (x, y, w, h, color) => {
+    for (let yy = Math.max(0, y); yy < Math.min(height, y + h); yy++) for (let xx = Math.max(0, x); xx < Math.min(width, x + w); xx++) {
+      const i = (yy * width + xx) * 3; pixels[i] = color[0]; pixels[i + 1] = color[1]; pixels[i + 2] = color[2];
+    }
+  };
+  rect(24, 74, 432, 160, [4, 8, 20]);
+  rect(24, 74, 432, 5, [85, 221, 255]); rect(24, 229, 432, 5, [30, 70, 170]);
+  const text = (value, y, scale, color) => {
+    const advance = 6 * scale; const x0 = Math.round((width - (value.length * advance - scale)) / 2);
+    for (let n = 0; n < value.length; n++) {
+      const rows = (SHARE_FONT[value[n].toUpperCase()] || SHARE_FONT[' ']).split('/');
+      rows.forEach((row, ry) => [...row].forEach((bit, rx) => { if (bit === '1') rect(x0 + n * advance + rx * scale, y + ry * scale, scale, scale, color); }));
+    }
+  };
+  text('MARBLE MADNESS', 104, 5, [85, 221, 255]);
+  text('HUMANS VS AGENTS', 164, 4, [255, 217, 35]);
+  text('MARBLES.SECURE.BUILD', 330, 3, [255, 255, 255]);
+  writeFileSync(file, Buffer.concat([Buffer.from(`P6\n${width} ${height}\n255\n`), pixels]), { mode: 0o640 });
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const p = url.pathname;
   try {
+    if (p === '/api/shares/candidate' && req.method === 'POST') {
+      const cookies = parseCookies(req);
+      if (!cookies.mm_lobby || !/^[0-9a-f-]{36}$/i.test(cookies.mm_lobby)) return sendJson(res, 403, { error: 'active lobby required' });
+      const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
+      if (!telemetryAllowed('share:' + ip, 8)) return sendJson(res, 429, { error: 'slow down' });
+      let bytes;
+      try { bytes = await readBinary(req, 16 * 1024 * 1024); } catch { return sendJson(res, 413, { error: 'recording too large' }); }
+      if (bytes.length < 64 || !/^video\/webm(?:;|$)/i.test(String(req.headers['content-type'] || ''))) return sendJson(res, 400, { error: 'video/webm required' });
+      const raceId = String(url.searchParams.get('race') || '').slice(0, 64);
+      const duration = Math.max(0, Math.min(900, Number(url.searchParams.get('duration')) || 0));
+      if (!raceId) return sendJson(res, 400, { error: 'race id required' });
+      const id = crypto.randomBytes(16).toString('hex');
+      mkdirSync(sharePath(id, ''), { recursive: true });
+      writeFileSync(sharePath(id, 'source.webm'), bytes, { mode: 0o640 });
+      const meta = {
+        id, raceId, lobby: cookies.mm_lobby.toLowerCase(), duration,
+        reason: String(url.searchParams.get('reason') || '2P race complete').slice(0, 180),
+        createdAt: new Date().toISOString(), rendered: false,
+      };
+      writeFileSync(sharePath(id, 'meta.json'), JSON.stringify(meta, null, 2), { mode: 0o640 });
+      const origin = PUBLIC_ORIGIN || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
+      return sendJson(res, 201, {
+        ok: true, id, duration, reason: meta.reason,
+        previewUrl: `${origin}/media/shares/${id}/source.webm`,
+        cardUrl: `${origin}/share/${id}`,
+      });
+    }
+    const shareApi = p.match(/^\/api\/shares\/([0-9a-f]{32})(?:\/render)?$/);
+    if (shareApi) {
+      const id = shareApi[1]; const meta = shareMeta(id);
+      if (!meta) return sendJson(res, 404, { error: 'unknown share' });
+      const cookies = parseCookies(req);
+      if (cookies.mm_lobby?.toLowerCase() !== meta.lobby) return sendJson(res, 403, { error: 'lobby mismatch' });
+      if (p.endsWith('/render') && req.method === 'POST') {
+        let input;
+        try { input = JSON.parse((await readBody(req, 4096)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json' }); }
+        if (input.worthSharing !== true) {
+          meta.reviewed = true; meta.worthSharing = false; meta.reviewedAt = new Date().toISOString();
+          writeFileSync(sharePath(id, 'meta.json'), JSON.stringify(meta, null, 2), { mode: 0o640 });
+          return sendJson(res, 200, { ok: true, shared: false, note: 'candidate kept private' });
+        }
+        const start = Math.max(0, Math.min(meta.duration || 0, Number(input.start) || 0));
+        const end = Math.max(start + 0.5, Math.min(meta.duration || start + 8, Number(input.end) || start + 6, start + 8));
+        if (end <= start || end - start > 8.01) return sendJson(res, 400, { error: 'clip must be 0.5 to 8 seconds' });
+        try { await renderShareGif(id, start, end); }
+        catch (error) { console.error('[share render]', error); return sendJson(res, 500, { error: 'GIF render failed' }); }
+        Object.assign(meta, {
+          reviewed: true, worthSharing: true, rendered: true, start, end,
+          where: String(input.where || 'copy link').slice(0, 40),
+          caption: String(input.caption || '').slice(0, 240), renderedAt: new Date().toISOString(),
+        });
+        writeFileSync(sharePath(id, 'meta.json'), JSON.stringify(meta, null, 2), { mode: 0o640 });
+        const origin = PUBLIC_ORIGIN || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
+        return sendJson(res, 200, {
+          ok: true, shared: true, where: meta.where,
+          gifUrl: `${origin}/media/shares/${id}/moment.gif`, cardUrl: `${origin}/share/${id}`,
+          note: 'Share card is ready. Open the card URL to review it before posting externally.',
+        });
+      }
+      if (req.method === 'GET') return sendJson(res, 200, meta);
+      return sendJson(res, 405, { error: 'method not allowed' });
+    }
+    const shareMedia = p.match(/^\/media\/shares\/([0-9a-f]{32})\/(source\.webm|moment\.gif)$/);
+    if (shareMedia) {
+      const f = sharePath(shareMedia[1], shareMedia[2]);
+      if (!existsSync(f)) { res.writeHead(404); res.end('not found'); return; }
+      return serveFile(req, res, f);
+    }
+    const shareCard = p.match(/^\/share\/([0-9a-f]{32})\/?$/);
+    if (shareCard) {
+      const id = shareCard[1]; const meta = shareMeta(id);
+      if (!meta) { res.writeHead(404); res.end('not found'); return; }
+      const media = meta.rendered
+        ? `<img src="/media/shares/${id}/moment.gif" alt="Marble Madness Humans vs Agents magic moment">`
+        : `<video src="/media/shares/${id}/source.webm" autoplay muted loop controls playsinline></video>`;
+      const caption = meta.caption ? `<p class="caption">${safeHtml(meta.caption)}</p>` : '';
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Robots-Tag': 'noindex' });
+      res.end(`<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>Marble Madness: Humans vs Agents</title><style>html,body{margin:0;min-height:100%;background:#000;color:#fff;font-family:monospace}body{display:grid;place-items:center}.card{width:min(92vw,540px);text-align:center;border:3px solid #55ddff;background:#050814;padding:18px;box-shadow:8px 8px 0 #162866}h1{color:#ffd923;font-size:clamp(18px,5vw,28px);margin:0 0 14px;text-transform:uppercase}img,video{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain;background:#000;image-rendering:pixelated}.caption{color:#cfd2ff}.url{display:block;margin-top:14px;color:#55ddff;font-weight:bold;font-size:clamp(14px,4vw,20px);text-decoration:none}</style></head><body><main class="card"><h1>Humans vs Agents</h1>${media}${caption}<a class="url" href="https://marbles.secure.build/">marbles.secure.build</a></main></body></html>`);
+      return;
+    }
     if (p === '/' || p === '/index.html') return serveIndex(req, res, null);
     const m = p.match(UUID_RE);
     if (m) return serveIndex(req, res, m[1].toLowerCase());
