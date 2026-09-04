@@ -341,7 +341,7 @@ let lastPos = null;
 
 console.log(`Navigating through ${wps.length} waypoints using mmDebug...`);
 
-for (let tick = 0; tick < 600 && !reachedGoal; tick++) {
+for (let tick = 0; tick < 900 && !reachedGoal; tick++) {
   const m = await page.evaluate(() => {
     const d = window.mmDebug ? window.mmDebug.marble() : null;
     return d;

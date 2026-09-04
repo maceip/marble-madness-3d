@@ -31,7 +31,9 @@ L.checkpointPx(118, 600, { r: 8, value: 3, id: 'cp3' });            // 3: green 
 L.checkpointPx(120, 800, { r: 8, value: 4, id: 'cp4' });            // 4: main low ribbon
 
 // --- goal -------------------------------------------------------------------------------------------
-L.zonePx('goal', 48, 956, 5, undefined, 'goal');
+// the goal is the painted GOAL pad (z40) at the bottom of the low path, not the bridge that leads onto it
+L.zonePx('bonus', 88, 972, 4, 4000, 'goalflags');
+L.zonePx('goal', 88, 972, 3.5, undefined, 'goal');
 
 // --- hazards: vacuums on the upper zigzag, riser pads on the discs, catapult, hammers, steelie ------
 for (const [x, y, f] of [[135, 330, 1], [210, 420, -1], [95, 505, 1]] as const) {
