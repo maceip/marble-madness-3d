@@ -32,13 +32,9 @@ async function captureAnimatedCard(page, file) {
       const element = root.querySelector(selector);
       if (!(element instanceof HTMLElement)) return null;
       const rect = element.getBoundingClientRect();
-      const computed = getComputedStyle(element);
       return {
         x: rect.x - cardRect.x, y: rect.y - cardRect.y,
         width: rect.width, height: rect.height,
-        text: element.textContent || '', font: computed.font,
-        color: computed.color, letterSpacing: computed.letterSpacing,
-        textTransform: computed.textTransform,
       };
     };
     const style = getComputedStyle(root);
@@ -56,11 +52,28 @@ async function captureAnimatedCard(page, file) {
     const sample = await image.screenshot({ type: 'png' });
     if (sample.length > frame.length) frame = sample;
   }
+  // Capture the text chrome in a second production page with the GIF request
+  // blocked. This avoids Chromium's animated-image compositor bug while still
+  // preserving the exact live CSS font rendering.
+  const chromePage = await page.context().newPage();
+  await chromePage.route('**/moment.gif', (route) => route.abort());
+  await chromePage.goto(page.url(), { waitUntil: 'domcontentloaded' });
+  await chromePage.evaluate(() => document.fonts.ready);
+  const headingPng = await chromePage.locator('.card h1').screenshot({ type: 'png' });
+  const captionLocator = chromePage.locator('.card .caption');
+  const captionPng = await captionLocator.count() ? await captionLocator.screenshot({ type: 'png' }) : null;
+  const urlPng = await chromePage.locator('.card .url').screenshot({ type: 'png' });
+  await chromePage.close();
   // Chromium can omit sibling text layers when it captures a page containing
   // an actively composited GIF. Assemble one deterministic canvas from
   // screenshots of the live production elements, preserving their measured
   // positions rather than recreating the typography or gameplay.
-  const parts = { image: frame.toString('base64') };
+  const parts = {
+    heading: headingPng.toString('base64'),
+    image: frame.toString('base64'),
+    caption: captionPng?.toString('base64') || '',
+    url: urlPng.toString('base64'),
+  };
   await page.evaluate(async ({ geometry, parts }) => {
     const canvas = document.createElement('canvas');
     canvas.id = 'captured-share-card';
@@ -86,21 +99,10 @@ async function captureAnimatedCard(page, file) {
       await element.decode();
       context.drawImage(element, rect.x, rect.y, rect.width, rect.height);
     };
-    const drawText = (key) => {
-      const rect = geometry[key];
-      if (!rect?.text) return;
-      const text = rect.textTransform === 'uppercase' ? rect.text.toUpperCase() : rect.text;
-      context.font = rect.font;
-      context.fillStyle = rect.color;
-      context.textAlign = 'center';
-      context.textBaseline = 'middle';
-      if ('letterSpacing' in context) context.letterSpacing = rect.letterSpacing === 'normal' ? '0px' : rect.letterSpacing;
-      context.fillText(text, rect.x + rect.width / 2, rect.y + rect.height / 2);
-    };
-    drawText('heading');
+    await drawImage('heading');
     await drawImage('image');
-    drawText('caption');
-    drawText('url');
+    await drawImage('caption');
+    await drawImage('url');
     document.body.replaceChildren(canvas);
     document.body.style.cssText = 'margin:0;background:#000';
   }, { geometry, parts });
