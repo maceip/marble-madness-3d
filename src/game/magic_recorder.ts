@@ -172,7 +172,10 @@ export class MagicMomentRecorder {
     const requested = id ? this.readyCandidates.get(id)?.candidate : undefined;
     if (id && !requested) return { status: 'error', error: 'unknown or expired share candidate' };
     const latest = [...this.readyCandidates.values()].sort((a, b) => b.sequence - a.sequence)[0]?.candidate;
-    const selected = requested || (this.candidate.status === 'ready' ? this.candidate : latest) || this.candidate;
+    // Without an ID, always describe the current race lifecycle. Returning an
+    // older ready item while a new race is processing makes agents review the
+    // wrong race; overlapping candidates are selected explicitly by event ID.
+    const selected = requested || (this.candidate.status === 'idle' ? (latest || this.candidate) : this.candidate);
     return {
       ...selected,
       instruction: selected.status === 'ready'
