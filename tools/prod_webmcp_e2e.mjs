@@ -58,7 +58,12 @@ async function captureAnimatedCard(page, file) {
   const chromePage = await page.context().newPage();
   await chromePage.route('**/moment.gif', (route) => route.abort());
   await chromePage.goto(page.url(), { waitUntil: 'domcontentloaded' });
-  await chromePage.evaluate(() => document.fonts.ready);
+  await chromePage.evaluate(async () => {
+    const card = document.querySelector('.card');
+    if (card instanceof HTMLElement) card.style.transform = 'none';
+    await document.fonts.ready;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
   const headingPng = await chromePage.locator('.card h1').screenshot({ type: 'png' });
   const captionLocator = chromePage.locator('.card .caption');
   const captionPng = await captionLocator.count() ? await captionLocator.screenshot({ type: 'png' }) : null;
