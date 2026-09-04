@@ -199,6 +199,8 @@ await agent.waitForFunction(() => ['ready', 'error'].includes(game.magicRecorder
 const aiKnockoffCandidate = await agent.evaluate(() => window.webmcp.callTool('get_share_candidate'));
 const aiKnockoffMark = aiKnockoffCandidate.moments?.find((moment) => moment.type === 'ai_knocked_human');
 check('AI-on-human knockoff survives into completed-race review', aiKnockoffCandidate.status === 'ready' && Number.isFinite(aiKnockoffMark?.at) && /AI knocked the human off/i.test(aiKnockoffCandidate.reason || ''), JSON.stringify(aiKnockoffCandidate));
+const attributedCollision = aiKnockoffCandidate.moments?.find((moment) => moment.type === 'hard_collision');
+check('hard collision records which side carried the impact', /^(ai|human|mutual) impact \d/i.test(attributedCollision?.detail || ''), JSON.stringify(attributedCollision));
 if (aiKnockoffCandidate.status === 'ready' && Number.isFinite(aiKnockoffMark?.at)) {
   const start = Math.max(0, aiKnockoffMark.at - 0.5);
   const end = Math.min(aiKnockoffCandidate.duration, start + 3);

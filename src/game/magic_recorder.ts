@@ -8,6 +8,8 @@ export interface MagicMomentMark {
   detail?: string;
 }
 
+type CollisionAggressor = 'ai' | 'human' | 'mutual';
+
 export interface MagicCandidate {
   status: MagicRecorderStatus;
   id?: string;
@@ -35,6 +37,7 @@ export class MagicMomentRecorder {
   private lastOpponentBumpAt = -Infinity;
   private lastCollisionMarkAt = -Infinity;
   private opponentKnockoffs = 0;
+  private hardCollisions: Record<CollisionAggressor, number> = { ai: 0, human: 0, mutual: 0 };
   private moments: MagicMomentMark[] = [];
   candidate: MagicCandidate = { status: 'idle' };
 
@@ -56,6 +59,7 @@ export class MagicMomentRecorder {
     this.lastOpponentBumpAt = -Infinity;
     this.lastCollisionMarkAt = -Infinity;
     this.opponentKnockoffs = 0;
+    this.hardCollisions = { ai: 0, human: 0, mutual: 0 };
     this.moments = [];
     const mimeTypes = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
     const mimeType = mimeTypes.find((type) => MediaRecorder.isTypeSupported(type)) || '';
@@ -87,11 +91,12 @@ export class MagicMomentRecorder {
 
   noteRemoteKnockoff(): void { this.mark('ai_knocked_human'); }
 
-  noteHardCollision(impulse: number): void {
+  noteHardCollision(impulse: number, aggressor: CollisionAggressor = 'mutual'): void {
     const now = performance.now();
     if (now - this.lastCollisionMarkAt < 400) return;
     this.lastCollisionMarkAt = now;
-    this.mark('hard_collision', `impact ${impulse.toFixed(1)}`);
+    this.hardCollisions[aggressor]++;
+    this.mark('hard_collision', `${aggressor} impact ${impulse.toFixed(1)}`);
   }
 
   private mark(type: MagicMomentMark['type'], detail?: string): void {
@@ -102,9 +107,17 @@ export class MagicMomentRecorder {
 
   private reason(): string {
     const remoteDeaths = Math.max(0, ...[...this.game.remoteInfo.values()].map((p) => Number(p.deaths) || 0));
+    if (this.game.aiDestroyed > 0 && this.opponentKnockoffs > 0) {
+      return `Rivals traded knockoffs: AI ${this.game.aiDestroyed}, human ${this.opponentKnockoffs}`;
+    }
     if (this.game.aiDestroyed > 0) return `AI knocked the human off ${this.game.aiDestroyed} time${this.game.aiDestroyed === 1 ? '' : 's'}`;
     if (this.opponentKnockoffs > 0) return `Human knocked the AI off ${this.opponentKnockoffs} time${this.opponentKnockoffs === 1 ? '' : 's'}`;
-    if (this.game.aiDizzied >= 3) return `Marble-on-marble griefing: ${this.game.aiDizzied} hard collisions`;
+    const hardTotal = this.hardCollisions.ai + this.hardCollisions.human + this.hardCollisions.mutual;
+    if (hardTotal >= 3) {
+      if (this.hardCollisions.ai > this.hardCollisions.human + this.hardCollisions.mutual) return `AI pressured the human: ${hardTotal} hard collisions`;
+      if (this.hardCollisions.human > this.hardCollisions.ai + this.hardCollisions.mutual) return `Human pressured the AI: ${hardTotal} hard collisions`;
+      return `Marble-on-marble griefing: ${hardTotal} hard collisions`;
+    }
     if (this.game.deaths + remoteDeaths >= 4) return `Both racers struggled: ${this.game.deaths + remoteDeaths} combined falls`;
     return `Complete Humans vs Agents race; review for a close call, comeback, or funny failure`;
   }

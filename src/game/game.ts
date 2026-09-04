@@ -74,7 +74,7 @@ export class Game {
   fade = 0;
   goalReached = false;
   finalTally = { total: 0, drained: 0 };
-  /** 2P: times the local marble destroyed / dizzied an AI marble this run */
+  /** 2P: times the local marble knocked out / hard-collided with its opponent this run */
   aiDestroyed = 0;
   aiDizzied = 0;
   private bumpClock = 0;
@@ -540,7 +540,10 @@ export class Game {
           const impulse = Math.hypot(m.vu - before.vu, m.vv - before.vv);
           if (impulse > 2.2) {
             this.aiDizzied++;
-            this.magicRecorder.noteHardCollision(impulse);
+            const localSpeed = Math.hypot(before.vu, before.vv);
+            const remoteSpeed = Math.hypot(rm.vu, rm.vv);
+            const aggressor = localSpeed > remoteSpeed + 1.5 ? 'ai' : remoteSpeed > localSpeed + 1.5 ? 'human' : 'mutual';
+            this.magicRecorder.noteHardCollision(impulse, aggressor);
           }
           this.bumpedIds.add(id);
           this.bumpClock = 1.6;
