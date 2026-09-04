@@ -8,6 +8,8 @@ import { FRAMES, ASSET_ROOT } from '../engine/assets';
  * canvas in CSS px; `s` is the integer screen px per art cell (birds, bubble and text share it).
  */
 interface Bird { x: number; y: number; vx: number; vy: number; phase: number; wob: number }
+/** the flap frames are drawn climbing at ~33 deg (bird_l beak top-left, bird_r beak top-right): fly them along that line */
+const CLIMB = 33 * Math.PI / 180;
 interface Spark { x: number; y: number; vx: number; vy: number; age: number; life: number }
 
 const SLICE = { top: 3, right: 5, bottom: 4, left: 5 };   // bubble_body.png 15x8
@@ -51,15 +53,19 @@ export class AuthCelebration {
 
   stop(): void { this.active = false; this.birds = []; this.sparks = []; }
 
-  /** a flock of 5 enters from one side at mid-height and crosses in ~1.1 s, loosely stacked like the stage fly-bys */
+  /** a flock of 5 climbs diagonally through the middle of the screen (bottom-left -> top-right, or mirrored) along the
+   *  sprites' own 33 deg line, loosely staggered like the stage fly-bys; the on-screen leg takes ~1.1 s */
   private flock(fromLeft: boolean): void {
-    const s = this.s, n = 5, midY = this.h * 0.42;
+    const s = this.s, n = 5;
+    const dx = Math.cos(CLIMB) * (fromLeft ? 1 : -1), dy = -Math.sin(CLIMB);
+    const cx = this.w / 2, cy = this.h * 0.45;                       // the line passes just below the bubble's centre
+    const visible = Math.min(this.w / Math.cos(CLIMB), this.h / Math.sin(CLIMB));   // on-screen leg through the centre
+    const speed = visible / 1.1;
     for (let i = 0; i < n; i++) {
-      const lead = i * 23 * s * 0.5;
-      const x = fromLeft ? -30 * s - lead : this.w + 30 * s + lead;
-      const y = midY + (i - (n - 1) / 2) * 11 * s + (Math.random() - 0.5) * 6 * s;
-      const vx = (fromLeft ? 1 : -1) * (this.w + 80 * s) / 1.1;
-      this.birds.push({ x, y, vx, vy: (Math.random() - 0.5) * 12 * s, phase: Math.random() * 10, wob: 2 + Math.random() * 3 });
+      const along = -(visible / 2 + 24 * s + i * 14 * s);            // start off-screen, trailing birds further back
+      const across = (i - (n - 1) / 2) * 9 * s * (i % 2 ? 1 : -1) + (Math.random() - 0.5) * 5 * s;   // loose V across the line
+      this.birds.push({ x: cx + dx * along - dy * across, y: cy + dy * along + dx * across, vx: dx * speed, vy: dy * speed,
+        phase: Math.random() * 10, wob: 2 + Math.random() * 3 });
     }
   }
 
@@ -70,15 +76,17 @@ export class AuthCelebration {
     if (!this.wave2 && this.t > 0.75) { this.wave2 = true; this.flock(false); this.onFlock?.(); }
     const s = this.s;
     for (const b of this.birds) {
-      b.x += b.vx * dt; b.y += b.vy * dt + Math.sin((this.t + b.phase) * b.wob * 2) * 0.6 * s * dt * 10;
-      // sparkle trail: roughly one every 55 ms per bird, drifting behind and sinking
+      const sp = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / sp, uy = b.vy / sp;
+      const bob = Math.sin((this.t + b.phase) * b.wob * 2) * 6 * s * dt;   // flap bob across the flight line
+      b.x += b.vx * dt - uy * bob; b.y += b.vy * dt + ux * bob;
+      // sparkle trail: roughly one every 55 ms per bird, shed behind the tail and sinking
       if (Math.random() < dt / 0.055) {
-        const back = b.vx > 0 ? -1 : 1;
-        this.sparks.push({ x: b.x + back * 9 * s + (Math.random() - 0.5) * 6 * s, y: b.y + (Math.random() - 0.5) * 10 * s,
-          vx: back * 12 * s, vy: 18 * s, age: 0, life: 0.32 + Math.random() * 0.2 });
+        this.sparks.push({ x: b.x - ux * 9 * s + (Math.random() - 0.5) * 6 * s, y: b.y - uy * 9 * s + (Math.random() - 0.5) * 6 * s,
+          vx: -ux * 12 * s, vy: 18 * s, age: 0, life: 0.32 + Math.random() * 0.2 });
       }
     }
-    this.birds = this.birds.filter((b) => b.x > -60 * s && b.x < this.w + 60 * s);
+    // cull once a bird has left by the far side or out the top (never on entry: trailing birds start well off-screen)
+    this.birds = this.birds.filter((b) => b.y > -40 * s && (b.vx > 0 ? b.x < this.w + 40 * s : b.x > -40 * s));
     for (const p of this.sparks) { p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; }
     this.sparks = this.sparks.filter((p) => p.age < p.life);
     if (this.t >= this.duration && !this.birds.length && !this.sparks.length) this.stop();
