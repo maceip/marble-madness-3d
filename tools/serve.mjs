@@ -319,10 +319,14 @@ async function renderShareGif(id, start, end) {
   const output = sharePath(id, 'moment.gif');
   const title = sharePath(id, 'title.ppm');
   writeShareTitle(title);
-  const graph = `[0:v]fps=12[title];[1:v]fps=12,scale=480:400:force_original_aspect_ratio=decrease,pad=480:400:(ow-iw)/2:(oh-ih)/2:black[clip];[title][clip]concat=n=2:v=1:a=0,split[s0][s1];[s0]palettegen=max_colors=96:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3[out]`;
+  // Ten frames per second still reads as fluid for the deliberately chunky
+  // arcade art while avoiding a large amount of redundant GIF data. A
+  // 64-colour adaptive palette preserves the source game's constrained colour
+  // language and was materially smaller than the previous 96-colour encode.
+  const graph = `[0:v]fps=10[title];[1:v]fps=10,scale=480:400:force_original_aspect_ratio=decrease,pad=480:400:(ow-iw)/2:(oh-ih)/2:black[clip];[title][clip]concat=n=2:v=1:a=0,split[s0][s1];[s0]palettegen=max_colors=64:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3[out]`;
   await runFfmpeg([
     '-hide_banner', '-loglevel', 'error', '-y',
-    '-loop', '1', '-framerate', '12', '-t', '0.9', '-i', title,
+    '-loop', '1', '-framerate', '10', '-t', '0.9', '-i', title,
     '-ss', start.toFixed(3), '-t', (end - start).toFixed(3), '-i', input,
     '-filter_complex', graph, '-map', '[out]', '-loop', '0', output,
   ]);
