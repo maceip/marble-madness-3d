@@ -1,52 +1,49 @@
 import { LevelBuilder } from '../engine/level';
 
-/** AERIAL RACE (arcade map stage4.png, 288x1024). First pass. */
+/**
+ * AERIAL RACE (arcade map stage4.png, 288x1024).
+ *
+ * Collision is the art-derived heightfield built by tools/author_stage.py from
+ * tools/stage_specs/stage4.json. Heights (top to bottom, from the painted faces / older comps):
+ *   towers 285 -> crossing slides -> land_L / land_R 215 -> pink / yellow 168
+ *   -> green zigzag 108 -> mid floors 100 -> low path 70 -> goal pad 40
+ * Everything here is anchored to a MAP PIXEL and resolved onto the floor drawn there.
+ */
 const L = new LevelBuilder({
   id: 4, name: 'AERIAL RACE', music: 'aerial', image: 'stages/stage4.png',
   width: 288, height: 1024, timeAdd: 30, carryTime: true,
 });
 
-// --- the two towers and the crossing starting ramps (arcade: 2player_longplay.mov t=90-99) --------------------
-// The ramps are a scripted roll: no control, the marble cannot fall off, and it lands on the exact centre of the
-// gray platform below with the dizzy spin — control begins there (user's screenshot of the arcade landing).
-// P1 (blue) starts on the RIGHT tower and lands on the LEFT platform (z 215); P2 (red) starts on the LEFT tower
-// and lands on the RIGHT platform (z 145). The tower tops are flat rects so the marbles sit there during the intro.
-const TOWER_Z = 285;
-{
-  const tl = L.uv(35, 55, TOWER_Z); L.rect(tl.u - 3, tl.v - 3, tl.u + 3, tl.v + 3, TOWER_Z, 0, 0, 'towerL');
-  const tr = L.uv(250, 55, TOWER_Z); L.rect(tr.u - 3, tr.v - 3, tr.u + 3, tr.v + 3, TOWER_Z, 0, 0, 'towerR');
-}
-// map-pixel waypoints [x, y, z] along the drawn ramps; the last point is the platform centre
+// --- the two towers and the crossing starting ramps (arcade: 2player_longplay.mov t=90-99)
+// Scripted roll: no control, cannot fall off; lands with the dizzy spin. P1 (blue) starts on the
+// RIGHT tower and lands on the LEFT platform (z 215); P2 starts on the LEFT tower and lands on the right.
+const TOWER_Z = 285, LAND_L_Z = 215;
 const rampFromLeft = L.slide([[35, 55, TOWER_Z], [52, 60, TOWER_Z], [80, 90, 262], [115, 122, 232], [145, 148, 208], [178, 168, 185], [200, 190, 160], [215, 215, 147]]);
-const rampFromRight = L.slide([[250, 55, TOWER_Z], [234, 60, TOWER_Z], [205, 90, 275], [175, 120, 262], [145, 148, 250], [105, 172, 238], [80, 195, 225], [60, 220, 217]]);
+const rampFromRight = L.slide([[250, 55, TOWER_Z], [234, 60, TOWER_Z], [205, 90, 275], [175, 120, 262], [145, 148, 250], [105, 172, 238], [80, 195, 225], [60, 220, LAND_L_Z]]);
+L.startPx(250, 55, rampFromRight);
+L.start2Px(35, 55, rampFromLeft);
+L.checkpointPx(250, 55);
 
-// pink floor (z 180) -> long slide down to the green path (100); same on the yellow side
-L.strip(86, 238, 180, 124, 300, 100, 3, 'slidePink');
-L.strip(198, 254, 180, 186, 300, 100, 3, 'slideYellow');
-// green path (100) down to the lower floors: left (70) and right (60)
-L.strip(122, 640, 100, 96, 700, 70, 3, 'downLeft');
-L.strip(176, 560, 100, 214, 660, 60, 3, 'downRight');
+// --- checkpoints ------------------------------------------------------------------------------------
+L.checkpointPx(56, 223, { r: 8, value: 1, id: 'cp1' });            // 1: left landing pad
+L.checkpointPx(50, 466, { r: 8, value: 2, id: 'cp2' });             // 2: left pink / drop_land
+L.checkpointPx(118, 600, { r: 8, value: 3, id: 'cp3' });            // 3: green zigzag
+L.checkpointPx(120, 800, { r: 8, value: 4, id: 'cp4' });            // 4: main low ribbon
 
-const start = L.uv(250, 55, TOWER_Z);
-L.start(start.u, start.v, TOWER_Z, rampFromRight); L.checkpoint(start.u, start.v);
-const start2 = L.uv(35, 55, TOWER_Z); L.start2(start2.u, start2.v, TOWER_Z, rampFromLeft);
-const c1 = L.uv(100, 300, 100); L.checkpoint(c1.u, c1.v); L.zone('checkpoint', c1.u - 6, c1.v - 6, c1.u + 6, c1.v + 6, 1, 'cp1', 90, 110);
-const c2 = L.uv(160, 540, 100); L.checkpoint(c2.u, c2.v); L.zone('checkpoint', c2.u - 6, c2.v - 6, c2.u + 6, c2.v + 6, 2, 'cp2', 90, 110);
-const c3 = L.uv(150, 700, 70); L.checkpoint(c3.u, c3.v); L.zone('checkpoint', c3.u - 6, c3.v - 6, c3.u + 6, c3.v + 6, 3, 'cp3', 55, 85);
-const c4 = L.uv(180, 890, 40); L.checkpoint(c4.u, c4.v); L.zone('checkpoint', c4.u - 6, c4.v - 6, c4.u + 6, c4.v + 6, 4, 'cp4', 25, 55);
-const signC = L.uv(88, 972, 40); L.rect(signC.u - 3.5, signC.v - 3.5, signC.u + 3.5, signC.v + 3.5, 40, 0, 0, 'goalSign');
-L.zone('bonus', signC.u - 4, signC.v - 4, signC.u + 4, signC.v + 4, 4000, 'goalflags', 25, 55);
-L.zone('goal', signC.u - 3.5, signC.v - 3.5, signC.u + 3.5, signC.v + 3.5, undefined, 'goal', 25, 55);
+// --- goal -------------------------------------------------------------------------------------------
+L.zonePx('goal', 48, 956, 5, undefined, 'goal');
 
-// hazards (from the review clips): vacuum boxes on the upper zigzag path, riser pads on the disc
-// fields (pistons pop in a wave; one rising under you catapults you along the launch direction),
-// rotating hammers by the goal run, a steelie on the lower floor
-for (const [x, y, f] of [[135, 330, 1], [210, 420, -1], [95, 505, 1]] as const) { const p = L.uv(x, y, 100); L.hazard({ kind: 'vacuum', u: p.u, v: p.v, z: p.z, range: 3.2, facing: f }); }
-for (const [x, y, du, dv] of [[27, 515, 3, -1], [91, 567, 3, -1], [165, 553, 3, 1]] as const) {
-  const p = L.uv(x, y, 100); L.hazard({ kind: 'risers', u: p.u, v: p.v, z: p.z, size: [3, 3], period: 3.2, phase: Math.random() * 3, launch: { du, dv } });
+// --- hazards: vacuums on the upper zigzag, riser pads on the discs, catapult, hammers, steelie ------
+for (const [x, y, f] of [[135, 330, 1], [210, 420, -1], [95, 505, 1]] as const) {
+  L.hazardPx(x, y, { kind: 'vacuum', range: 3.2, facing: f });
 }
-{ const p = L.uv(130, 632, 100); L.hazard({ kind: 'catapult', u: p.u, v: p.v, z: p.z, launch: { du: 14, dv: 6 } }); }
-for (const [x, y, f] of [[150, 930, 1], [205, 905, -1]] as const) { const p = L.uv(x, y, -80); L.hazard({ kind: 'hammer', u: p.u, v: p.v, z: p.z, period: 2.4, phase: Math.random() * 2, facing: f }); }
-{ const p = L.uv(200, 700, 8); L.hazard({ kind: 'steelie', u: p.u, v: p.v, z: p.z }); }
+for (const [x, y, du, dv] of [[27, 515, 3, -1], [91, 567, 3, -1], [165, 553, 3, 1]] as const) {
+  L.hazardPx(x, y, { kind: 'risers', size: [3, 3], period: 3.2, phase: Math.random() * 3, launch: { du, dv } });
+}
+L.hazardPx(130, 632, { kind: 'catapult', launch: { du: 14, dv: 6 } });
+for (const [x, y, f] of [[150, 930, 1], [205, 905, -1]] as const) {
+  L.hazardPx(x, y, { kind: 'hammer', period: 2.4, phase: Math.random() * 2, facing: f });
+}
+L.hazardPx(200, 700, { kind: 'steelie' });
 
 export const stage4 = L.build();
