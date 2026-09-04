@@ -1,7 +1,10 @@
 // Two-browser, real WebSocket + MediaRecorder + ffmpeg share-card flow.
 import { chromium } from 'playwright-core';
 
-const BASE = (process.env.BASE || 'http://127.0.0.1:3000').replace(/\/$/, '');
+const BASE = (process.env.BASE || 'https://marbles.secure.build').replace(/\/$/, '');
+if (BASE !== 'https://marbles.secure.build') {
+  throw new Error('This acceptance test only runs against https://marbles.secure.build');
+}
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const human = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
 const agentContext = await browser.newContext({ viewport: { width: 1100, height: 760 } });
