@@ -42,6 +42,13 @@ for (const [x, y, f] of [[135, 330, 1], [210, 420, -1], [95, 505, 1]] as const) 
 for (const [x, y, du, dv] of [[27, 515, 3, -1], [91, 567, 3, -1], [165, 553, 3, 1]] as const) {
   L.hazardPx(x, y, { kind: 'risers', size: [3, 3], period: 3.2, phase: Math.random() * 3, launch: { du, dv } });
 }
+// Riser discs (z108) sit in the same world column as the land (z215) and pink (z168) floors above them; the
+// two-layer heightfield drops the lowest, so the marble fell through the drawn discs. Hardcoded floors instead
+// (one of the handful of hand-authored components: pipes, overpasses, catapult, risers).
+for (const [x, y, r, name] of [[162, 555, 2.6, 'discH'], [213, 555, 2.2, 'discI'], [186, 564, 1.6, 'discJ']] as const) {
+  const c = L.uv(x, y, 108);
+  L.rect(c.u - r, c.v - r, c.u + r, c.v + r, 108, 0, 0, name);
+}
 L.hazardPx(130, 632, { kind: 'catapult', launch: { du: 14, dv: 6 } });
 for (const [x, y, f] of [[150, 930, 1], [205, 905, -1]] as const) {
   L.hazardPx(x, y, { kind: 'hammer', period: 2.4, phase: Math.random() * 2, facing: f });
