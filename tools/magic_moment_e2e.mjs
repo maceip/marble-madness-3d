@@ -77,11 +77,23 @@ if (candidate.status === 'ready') {
       const card = document.querySelector('.card')?.getBoundingClientRect();
       const media = document.querySelector('img')?.getBoundingClientRect();
       const url = document.querySelector('.url')?.getBoundingClientRect();
-      return { card: card?.toJSON(), media: media?.toJSON(), url: url?.toJSON(), width: innerWidth };
+      return { card: card?.toJSON(), media: media?.toJSON(), url: url?.toJSON(), width: innerWidth, height: innerHeight };
     });
-    check('rendered GIF is centered and app URL is below it', !!layout.card && !!layout.media && !!layout.url && Math.abs(layout.card.x + layout.card.width / 2 - layout.width / 2) < 2 && layout.url.top > layout.media.bottom, JSON.stringify(layout));
+    check('rendered GIF card is centered and app URL is below it', !!layout.card && !!layout.media && !!layout.url && Math.abs(layout.card.x + layout.card.width / 2 - layout.width / 2) < 2 && Math.abs(layout.card.y + layout.card.height / 2 - layout.height / 2) < 2 && layout.url.top > layout.media.bottom, JSON.stringify(layout));
     await cardPage.screenshot({ path: BASE.startsWith('https://') ? 'artifacts/prod-magic-moment-card.png' : 'artifacts/magic-moment-card.png' });
     await cardPage.close();
+    const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const mobileCard = await mobileContext.newPage();
+    await mobileCard.goto(rendered.cardUrl);
+    const mobileLayout = await mobileCard.evaluate(() => {
+      const card = document.querySelector('.card')?.getBoundingClientRect();
+      const media = document.querySelector('img')?.getBoundingClientRect();
+      const url = document.querySelector('.url')?.getBoundingClientRect();
+      return { card: card?.toJSON(), media: media?.toJSON(), url: url?.toJSON(), width: innerWidth, height: innerHeight, scrollWidth: document.documentElement.scrollWidth };
+    });
+    check('shared GIF card centers and fits a narrow phone without clipping', !!mobileLayout.card && !!mobileLayout.media && !!mobileLayout.url && mobileLayout.card.left >= 0 && mobileLayout.card.right <= mobileLayout.width && mobileLayout.scrollWidth === mobileLayout.width && Math.abs(mobileLayout.card.y + mobileLayout.card.height / 2 - mobileLayout.height / 2) < 2 && mobileLayout.url.top > mobileLayout.media.bottom, JSON.stringify(mobileLayout));
+    await mobileCard.screenshot({ path: BASE.startsWith('https://') ? 'artifacts/prod-magic-moment-card-mobile.png' : 'artifacts/magic-moment-card-mobile.png' });
+    await mobileContext.close();
   }
 }
 
