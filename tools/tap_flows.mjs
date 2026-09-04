@@ -9,6 +9,7 @@ const ALL_SIZES = [
   { id: 'phone-md', w: 412, h: 915, m: true },
   { id: 'phone-land', w: 844, h: 390, m: true },
   { id: 'fold-open', w: 790, h: 844, m: true },
+  { id: 'fold-land', w: 883, h: 736, m: true },
   { id: 'desktop', w: 1366, h: 768, m: false },
 ];
 const requested = new Set((process.env.SIZES || '').split(',').map((x) => x.trim()).filter(Boolean));
