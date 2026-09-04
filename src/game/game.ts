@@ -19,7 +19,7 @@ import { Net, RemotePlayer } from './net';
 import { WebMCP } from './webmcp';
 import { ChromeLocalAgent } from './chrome_agent';
 import { TWO_PLAYER_TELEPORT_PENALTY, TWO_PLAYER_TRAIL_MARGIN, ARCADE_TIME_ADD, WON_RACE_BONUS } from '../engine/constants';
-import { AITrackerOverlay } from '../render/ai_tracker';
+import { AITrackerOverlay, TrackerRenderState } from '../render/ai_tracker';
 
 export type Mode = '1p' | 'ai' | 'multi';
 export type Screen = 'boot' | 'title' | 'menu' | 'name' | 'control' | 'connect' | 'intro' | 'race' | 'timebonus' | 'gameover' | 'congrats' | 'rematch';
@@ -104,6 +104,8 @@ export class Game {
   remote = new Map<string, Marble>();
   remoteInfo = new Map<string, RemotePlayer>();
   aiTrackers = new Map<string, AITrackerOverlay>();
+  /** Last rendered positions for production visual-contract checks. */
+  aiTrackerDebug = new Map<string, TrackerRenderState>();
   teleportCooldown = 0;
   /** 2P (arcade rules, 2player_longplay.mov): race outcome bookkeeping */
   finished = false;
@@ -509,7 +511,9 @@ export class Game {
       rm.rollDist += Math.hypot(p.vu, p.vv) * dt;
       this.remoteInfo.set(p.id, p);
     }
-    for (const id of [...this.remote.keys()]) if (!seen.has(id)) { this.remote.delete(id); this.remoteInfo.delete(id); this.aiTrackers.delete(id); }
+    for (const id of [...this.remote.keys()]) if (!seen.has(id)) {
+      this.remote.delete(id); this.remoteInfo.delete(id); this.aiTrackers.delete(id); this.aiTrackerDebug.delete(id);
+    }
     this.others = [...this.remote.values()];
     // marble-marble bumps
     this.bumpClock = Math.max(0, this.bumpClock - dt);
@@ -834,8 +838,8 @@ export class Game {
     switch (this.screen) {
       case 'intro': case 'race': case 'timebonus':
         this.renderRace();
-        r.present();
         this.renderAITracker();
+        r.present();
         break;
       case 'title': case 'menu': case 'name': case 'connect':
       case 'control': case 'gameover': case 'congrats': case 'rematch':
@@ -980,28 +984,25 @@ export class Game {
 
       // Project 3D isometric position to 2D screen coordinates
       const p = r.project(o.u, o.v, o.z);
-      const screenX = (p.x / r.viewW) * r.canvas.width;
-      const screenY = (p.y / r.viewH) * r.canvas.height;
-      const vx = (o.vu - o.vv) * 8 * (r.canvas.width / r.viewW);
-      const vy = ((o.vu + o.vv) * 4 - o.vz) * (r.canvas.height / r.viewH);
+      const vx = (o.vu - o.vv) * 8;
+      const vy = (o.vu + o.vv) * 4 - o.vz;
 
-      tracker.render(
-        r.screenCtx,
+      const state = tracker.render(
+        r.ctx,
+        r.font,
         {
           id,
-          name: info?.name || 'AGENT',
-          role: 'ai',
-          screenX,
-          screenY,
-          worldZ: o.z,
+          screenX: p.x,
+          screenY: p.y,
           vx,
           vy,
           visible: o.phase === 'alive',
         },
-        r.canvas.width,
-        r.canvas.height,
+        r.viewW,
+        r.viewH,
         this.raceTime,
       );
+      this.aiTrackerDebug.set(id, state);
     }
   }
 
