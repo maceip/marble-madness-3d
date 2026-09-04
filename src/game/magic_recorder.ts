@@ -28,7 +28,10 @@ export class MagicMomentRecorder {
   private chunks: Blob[] = [];
   private startedAt = 0;
   private raceId = '';
-  private finishing: Promise<MagicCandidate> | null = null;
+  private sequence = 0;
+  private activeSequence = 0;
+  private candidateSequence = 0;
+  private readyCandidates = new Map<string, { sequence: number; candidate: MagicCandidate }>();
   private lastOpponentBumpAt = -Infinity;
   private lastCollisionMarkAt = -Infinity;
   private opponentKnockoffs = 0;
@@ -44,7 +47,9 @@ export class MagicMomentRecorder {
       this.candidate = { status: 'unsupported', raceId, error: 'canvas recording is unavailable in this browser' };
       return this.candidate;
     }
-    if (this.recorder?.state === 'recording') this.recorder.stop();
+    if (this.recorder) void this.finish('superseded');
+    const sequence = ++this.sequence;
+    this.activeSequence = sequence;
     this.raceId = raceId;
     this.chunks = [];
     this.startedAt = performance.now();
@@ -56,9 +61,11 @@ export class MagicMomentRecorder {
     const mimeType = mimeTypes.find((type) => MediaRecorder.isTypeSupported(type)) || '';
     try {
       this.stream = this.canvas.captureStream(15);
+      const chunks = this.chunks;
       this.recorder = new MediaRecorder(this.stream, { ...(mimeType ? { mimeType } : {}), videoBitsPerSecond: 240_000 });
-      this.recorder.ondataavailable = (event) => { if (event.data.size) this.chunks.push(event.data); };
+      this.recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
       this.recorder.start(1000);
+      this.candidateSequence = sequence;
       this.candidate = { status: 'recording', raceId };
     } catch (error) {
       this.closeStream();
@@ -103,59 +110,81 @@ export class MagicMomentRecorder {
   }
 
   async finish(endReason = 'race_end'): Promise<MagicCandidate> {
-    if (this.finishing) return this.finishing;
     if (!this.recorder || this.recorder.state === 'inactive') return this.candidate;
     const recorder = this.recorder;
+    const stream = this.stream;
+    const chunks = this.chunks;
     const raceId = this.raceId;
+    const sequence = this.activeSequence;
     const duration = Math.max(0, (performance.now() - this.startedAt) / 1000);
-    this.candidate = { status: 'processing', raceId, duration, moments: [...this.moments] };
-    this.finishing = new Promise<MagicCandidate>((resolve) => {
+    const reason = `${this.reason()} (${endReason})`;
+    const moments = [...this.moments];
+    // Detach the completed session synchronously. A rapid rematch can now start
+    // a fresh recorder without the old stop/upload callback touching its state.
+    this.recorder = null;
+    this.stream = null;
+    this.chunks = [];
+    this.startedAt = 0;
+    this.raceId = '';
+    this.activeSequence = 0;
+    this.candidateSequence = Math.max(this.candidateSequence, sequence);
+    this.candidate = { status: 'processing', raceId, duration, moments };
+    return new Promise<MagicCandidate>((resolve) => {
       recorder.addEventListener('stop', async () => {
+        let completed: MagicCandidate;
         try {
-          const blob = new Blob(this.chunks, { type: recorder.mimeType || 'video/webm' });
+          const blob = new Blob(chunks, { type: recorder.mimeType || 'video/webm' });
           if (blob.size < 64) throw new Error('race capture was empty');
-          const reason = `${this.reason()} (${endReason})`;
           const query = new URLSearchParams({ race: raceId, duration: duration.toFixed(3), reason });
           const response = await fetch(`/api/shares/candidate?${query}`, {
             method: 'POST', headers: { 'Content-Type': 'video/webm' }, body: blob,
           });
           const out = await response.json() as Record<string, unknown>;
           if (!response.ok) throw new Error(String(out.error || `upload failed ${response.status}`));
-          this.candidate = {
+          completed = {
             status: 'ready', id: String(out.id), raceId, duration,
             reason, previewUrl: String(out.previewUrl), cardUrl: String(out.cardUrl), expiresAt: String(out.expiresAt || ''),
-            moments: [...this.moments],
+            moments,
           };
+          this.remember(sequence, completed);
+          if (sequence >= this.candidateSequence && !this.recorder) {
+            this.candidateSequence = sequence;
+            this.candidate = completed;
+          }
           this.game.webmcp.emit('share_candidate', {
-            ...this.candidate,
-            question: 'Is this race worth clipping? Use moments as timestamp hints, open previewUrl before expiresAt, then call share with worthSharing, the best start/end seconds, and where it should go.',
+            ...completed,
+            question: 'Is this race worth clipping? Use moments as timestamp hints, open previewUrl before expiresAt, then call share with candidateId, worthSharing, the best start/end seconds, and where it should go.',
           });
         } catch (error) {
-          this.candidate = { status: 'error', raceId, duration, error: error instanceof Error ? error.message : String(error) };
+          completed = { status: 'error', raceId, duration, error: error instanceof Error ? error.message : String(error) };
+          if (sequence >= this.candidateSequence && !this.recorder) this.candidate = completed;
         } finally {
-          this.closeStream();
-          this.recorder = null;
-          this.chunks = [];
-          this.finishing = null;
-          resolve(this.candidate);
+          for (const track of stream?.getTracks() || []) track.stop();
+          resolve(completed!);
         }
       }, { once: true });
       recorder.stop();
     });
-    return this.finishing;
   }
 
-  review(): MagicCandidate & { instruction?: string } {
+  review(candidateId?: unknown): MagicCandidate & { instruction?: string } {
+    const id = String(candidateId || '').trim();
+    const requested = id ? this.readyCandidates.get(id)?.candidate : undefined;
+    if (id && !requested) return { status: 'error', error: 'unknown or expired share candidate' };
+    const latest = [...this.readyCandidates.values()].sort((a, b) => b.sequence - a.sequence)[0]?.candidate;
+    const selected = requested || (this.candidate.status === 'ready' ? this.candidate : latest) || this.candidate;
     return {
-      ...this.candidate,
-      instruction: this.candidate.status === 'ready'
-        ? 'Use moments as timestamp hints and open previewUrl before expiresAt. If it has a magic moment, call share with worthSharing=true plus a 0.5-8 second clip window and destination. Otherwise decline it.'
+      ...selected,
+      instruction: selected.status === 'ready'
+        ? 'Use moments as timestamp hints and open previewUrl before expiresAt. If it has a magic moment, call share with candidateId, worthSharing=true, a 0.5-8 second clip window, and destination. Otherwise decline it.'
         : undefined,
     };
   }
 
   async share(args: Record<string, unknown>): Promise<unknown> {
-    if (this.candidate.status !== 'ready' || !this.candidate.id) return { ok: false, ...this.review() };
+    const requestedId = String(args.candidateId || '').trim();
+    const selected = requestedId ? this.readyCandidates.get(requestedId)?.candidate : this.review();
+    if (!selected || selected.status !== 'ready' || !selected.id) return { ok: false, ...this.review(requestedId) };
     const worthSharing = args.worthSharing === true;
     const start = Number(args.start);
     const end = Number(args.end);
@@ -164,11 +193,11 @@ export class MagicMomentRecorder {
       return {
         ok: false,
         error: 'A shareable moment requires an exact 0.5-8 second start/end window and destination.',
-        moments: this.candidate.moments || [],
+        moments: selected.moments || [],
         instruction: 'Inspect previewUrl around the timestamp hints, then retry with worthSharing=true, start, end, and where.',
       };
     }
-    const response = await fetch(`/api/shares/${this.candidate.id}/render`, {
+    const response = await fetch(`/api/shares/${selected.id}/render`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         worthSharing,
@@ -182,7 +211,21 @@ export class MagicMomentRecorder {
     try { out = await response.json() as Record<string, unknown>; }
     catch { out = { error: `share service returned ${response.status}` }; }
     if (!response.ok) return { ok: false, ...out };
-    return { ...out, candidate: this.candidate, instruction: worthSharing ? 'Open cardUrl to inspect the centered GIF card. External posting still requires an explicit user action.' : 'Candidate declined and remains private.' };
+    if (!worthSharing) {
+      this.readyCandidates.delete(selected.id);
+      if (this.candidate.id === selected.id) this.candidate = { status: 'idle' };
+    }
+    return { ...out, candidate: selected, instruction: worthSharing ? 'Open cardUrl to inspect the centered GIF card. External posting still requires an explicit user action.' : 'Candidate declined and its full-race recording was deleted.' };
+  }
+
+  private remember(sequence: number, candidate: MagicCandidate): void {
+    if (!candidate.id) return;
+    this.readyCandidates.set(candidate.id, { sequence, candidate });
+    while (this.readyCandidates.size > 4) {
+      const oldest = [...this.readyCandidates.entries()].sort((a, b) => a[1].sequence - b[1].sequence)[0];
+      if (!oldest) break;
+      this.readyCandidates.delete(oldest[0]);
+    }
   }
 
   private closeStream(): void {
