@@ -603,6 +603,9 @@
       .ui-cradle-loader { width: min(58vw, 218px); margin-top: -8px; }
       #ui-agent-teaser { display: none !important; }
     }
+    @media (max-width: 520px) and (orientation: portrait) {
+      #trackball-container { bottom: max(62px, calc(env(safe-area-inset-bottom) + 54px)); }
+    }
     @media (pointer: coarse) { #ui-agent-teaser { display: none !important; } }
     @media (max-height: 520px) and (orientation: landscape) {
       #ui-title, #ui-name, #ui-connect, #ui-congrats, #ui-menu, #ui-rematch {
