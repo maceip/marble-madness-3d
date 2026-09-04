@@ -62,7 +62,7 @@ export class Renderer {
     const vv = window.visualViewport;
     const w = inset ? parent.clientWidth : Math.round(vv?.width ?? window.innerWidth);
     const h = inset ? parent.clientHeight : Math.round(vv?.height ?? window.innerHeight);
-    // The arcade view is always 288x240 and scrolls with the marble (see video_review/*). It is scaled uniformly
+    // The arcade view is always 288x240 and scrolls with the marble (see media/video_review/*). It is scaled uniformly
     // to fit the screen in present(); the rest stays black. Growing the view to the phone's aspect ratio showed
     // whole stages at once and killed the scroll.
     this.viewW = VIEW_W;

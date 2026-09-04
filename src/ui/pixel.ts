@@ -1,6 +1,6 @@
 import type { BitmapFont, FontVariant } from '../engine/font';
 
-/** Paint one bitmap-font string (Font.png / sprites/font.png) onto a crisp canvas. */
+/** Paint one bitmap-font string (media/art/Font.png / sprites/font.png) onto a crisp canvas. */
 export function pxCanvas(font: BitmapFont, text: string, variant: FontVariant = 'white', scale = 2, spacing = 0): HTMLCanvasElement {
   const w = Math.max(1, font.width(text, spacing) * scale);
   const h = font.meta.cell * scale;
@@ -38,7 +38,7 @@ export function pxSpread(el: HTMLElement | null, font: BitmapFont, text: string,
 export function uiScale(): number {
   const w = window.innerWidth, h = window.innerHeight;
   const short = Math.min(w, h);
-  // Font.png is an 8 px arcade font. A 2x default made every phone menu read
+  // media/art/Font.png is an 8 px arcade font. A 2x default made every phone menu read
   // like a desktop layout squeezed into 400 CSS pixels. Keep body/menu copy at
   // the source atlas' native 1x size on phones; individual hero labels opt into
   // 2x where the reference composition calls for it.

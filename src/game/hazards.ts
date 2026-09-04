@@ -271,7 +271,7 @@ export class Hammer extends Hazard {
     }
   }
   sprites(ctx: HazardContext, out: Sprite[]): void {
-    // animated_assets/HammerTrap.gif: 18 frames of one full swing
+    // media/art/animated/HammerTrap.gif: 18 frames of one full swing
     const frames = FRAMES.hammerNes.length ? FRAMES.hammerNes : FRAMES.hammer;
     const img = FRAMES.hammerNes.length ? ctx.assets.sheets.hammerNes : ctx.assets.sheets.hammer;
     const a = ((this.angle() % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
@@ -324,7 +324,7 @@ export class Vacuum extends Hazard {
     this.pull += ((sucking || this.swallow > 0 ? 1 : 0) - this.pull) * Math.min(1, dt * 6);
   }
   sprites(ctx: HazardContext, out: Sprite[]): void {
-    // animated_assets/VacuumTrapL|R.gif: yellow box, 2 frames (idle / inhaling)
+    // media/art/animated/VacuumTrapL|R.gif: yellow box, 2 frames (idle / inhaling)
     const left = this.spawn.facing === -1;
     const frames = left ? FRAMES.vacuumL : FRAMES.vacuumR;
     if (!frames.length) {
@@ -513,7 +513,7 @@ export class Birds extends Hazard {
       const S = b.y / 4, D = b.x / 8;
       const dir = b.vx < 0 ? FRAMES.birdL : FRAMES.birdR;
       if (dir.length) {
-        // animated_assets/BirdL|R.gif: 2 flap frames at 160 ms
+        // media/art/animated/BirdL|R.gif: 2 flap frames at 160 ms
         const f = dir[Math.floor((this.t + b.phase) * 6) % dir.length];
         out.push({ img: b.vx < 0 ? ctx.assets.sheets.birdL : ctx.assets.sheets.birdR, frame: f, u: (S + D) / 2, v: (S - D) / 2, z: 0, depthBias: 500 });
       } else {
@@ -650,7 +650,7 @@ export class Catapult extends Hazard {
 /**
  * Ultimate Race (Stage 6) Shifting Tiles Hazard
  *
- * Recreates the arcade shifting sequence validated from video_review/gameplay.mov and shiftingseq:
+ * Recreates the arcade shifting sequence validated from media/video_review/gameplay.mov and shiftingseq:
  * - 3.8s total cycle period
  * - 2.0s active shifting wave consisting of 5 distinct steps (0.4s interval)
  * - 1.8s static hold interval

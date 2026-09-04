@@ -27,7 +27,7 @@ def main() -> None:
     base, stage = sys.argv[1], int(sys.argv[2])
     # find the exported files (look next to cwd, ~/Downloads, and the repo root)
     def find(name):
-        for d in ('.', os.path.expanduser('~/Downloads'), ROOT):
+        for d in ('.', os.path.expanduser('~/Downloads'), os.path.join(ROOT, 'media', 'labels'), ROOT):
             p = os.path.join(d, name)
             if os.path.exists(p): return p
         raise FileNotFoundError(name)

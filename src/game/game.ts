@@ -386,7 +386,7 @@ export class Game {
         this.marble.place(u, v, t2 ? t2.z : this.marble.z);
       }
     }
-    // animated finish flags either side of the goal (animated_assets/FinishFlag.gif)
+    // animated finish flags either side of the goal (media/art/animated/FinishFlag.gif)
     this.goalFlags = [];
     const goal = s.zones.find((z) => z.kind === 'goal');
     if (goal) {

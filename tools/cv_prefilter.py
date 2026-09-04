@@ -96,6 +96,7 @@ LAYER_COLORS = [
 
 def get_stage_image_path(stage: int) -> str:
     paths = [
+        os.path.join(ROOT, 'media', 'art', f'Stage {stage}.png'),
         os.path.join(ROOT, f'Stage {stage}.png'),
         os.path.join(ROOT, f'stage{stage}.png'),
         os.path.join(ROOT, 'www', 'assets', 'stages', f'stage{stage}.png'),
@@ -271,8 +272,10 @@ def prefilter_stage(stage: int, compile_after: bool = False) -> dict:
 
     # --- 6. Export files ------------------------------------------------------
     base_name = f'stage_{stage}'
-    out_png = os.path.join(ROOT, f'{base_name}.labels8.png')
-    out_json = os.path.join(ROOT, f'{base_name}.labels.json')
+    out_dir = os.path.join(ROOT, 'media', 'labels')
+    os.makedirs(out_dir, exist_ok=True)
+    out_png = os.path.join(out_dir, f'{base_name}.labels8.png')
+    out_json = os.path.join(out_dir, f'{base_name}.labels.json')
 
     lbl_rgb = np.repeat(labels8[..., None], 3, axis=-1)
     Image.fromarray(lbl_rgb, 'RGB').save(out_png)

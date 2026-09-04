@@ -19,13 +19,15 @@ import numpy as np
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'www', 'assets')
 DL = os.path.expanduser('~/Downloads')
+ART = os.path.join(ROOT, 'media', 'art')          # source paintings / sprite sheets
+ANIM = os.path.join(ART, 'animated')              # NES-style animated GIFs
 
 
 def src(*cands: str) -> str:
     for c in cands:
-        p = c if os.path.isabs(c) else os.path.join(ROOT, c)
-        if os.path.exists(p):
-            return p
+        for p in ((c,) if os.path.isabs(c) else (os.path.join(ART, c), os.path.join(ROOT, c))):
+            if os.path.exists(p):
+                return p
     raise FileNotFoundError(cands)
 
 
@@ -133,7 +135,7 @@ def main() -> None:
     for i in range(1, 7):
         shutil.copyfile(src(f'Stage {i}.png'), os.path.join(OUT, 'stages', f'stage{i}.png'))
     for i in (1, 2):
-        p = os.path.join(ROOT, f'bonus_stage{i}.png')
+        p = os.path.join(ART, f'bonus_stage{i}.png')
         if os.path.exists(p):
             shutil.copyfile(p, os.path.join(OUT, 'stages', f'bonus{i}.png'))
 
@@ -160,10 +162,10 @@ def main() -> None:
     ra[bgm, 3] = 0
     Image.fromarray(ra.astype(np.uint8), 'RGBA').save(os.path.join(OUT, 'sprites', 'riser.png'))
 
-    # NES-style animated sprites supplied as GIFs (animated_assets/) -> fixed-cell strips
+    # NES-style animated sprites supplied as GIFs (media/art/animated/) -> fixed-cell strips
     from PIL import ImageSequence
     def gif_strip(name, out, pick=None):
-        path = os.path.join(ROOT, 'animated_assets', name)
+        path = os.path.join(ANIM, name)
         if not os.path.exists(path):
             return
         im = Image.open(path)
@@ -185,7 +187,7 @@ def main() -> None:
     gif_strip('FinishFlag.gif', 'flag_blue.png', pick=lambda i: i % 2 == 0)
     gif_strip('FinishFlag.gif', 'flag_red.png', pick=lambda i: i % 2 == 1)
     for rail in ('RailingL.png', 'RailingR.png'):
-        rp = os.path.join(ROOT, 'animated_assets', rail)
+        rp = os.path.join(ANIM, rail)
         if os.path.exists(rp):
             Image.open(rp).convert('RGBA').save(os.path.join(OUT, 'sprites', rail.lower()))
 

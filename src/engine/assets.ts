@@ -22,7 +22,7 @@ export interface Sheets {
   vacuum: HTMLImageElement;
   riser: HTMLImageElement;
   objects: HTMLImageElement;
-  /** NES-style animated assets (animated_assets/) */
+  /** NES-style animated assets (media/art/animated/) */
   p1roll: HTMLImageElement;
   p2roll: HTMLImageElement;
   hammerNes: HTMLImageElement;

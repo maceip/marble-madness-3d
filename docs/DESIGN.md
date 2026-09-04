@@ -1,9 +1,9 @@
 # Marble Madness Web — Design Spec (derived from `gameplay.mov` + arcade stage art)
 
-Reference videos: `gameplay.mov` (NES, 281 s, 1 player) for the 1-player flow and rules; `video_review/long_play1.mov` (arcade, 1P)
-and `video_review/2player_longplay.mov` (arcade, 2P, 272 s) for stage routes/geometry and every 2-player rule. The arcade clips use exactly
+Reference videos: `gameplay.mov` (NES, 281 s, 1 player) for the 1-player flow and rules; `media/video_review/long_play1.mov` (arcade, 1P)
+and `media/video_review/2player_longplay.mov` (arcade, 2P, 272 s) for stage routes/geometry and every 2-player rule. The arcade clips use exactly
 the six stage paintings we ship, so they are also the geometry truth.
-Visual truth: `Stage 1.png` … `Stage 6.png` (arcade maps, 16×8 px isometric diamonds).
+Visual truth: `media/art/Stage 1.png` … `Stage 6.png` (arcade maps, 16×8 px isometric diamonds).
 Behavioural truth: the video. Where the user's brief overrides the video, the override is noted.
 
 ## Screen flow
@@ -40,8 +40,8 @@ Silly race: every slime on the plaza is a present — touching one gives +3 SEC 
 - Time bonus: seconds × 100. Final: 20,000 finish + sec × 1000 − deaths × 1000.
 
 ## Marble
-Sprite sheet `marble_effects.png` (40 px cell grid):
-- roll: `animated_assets/Player1Rolling.gif` / `Player2Rolling.gif` (16 frames, blue / red) indexed by distance rolled; the sheet's row 0 is the fallback
+Sprite sheet `media/art/marble_effects.png` (40 px cell grid):
+- roll: `media/art/animated/Player1Rolling.gif` / `Player2Rolling.gif` (16 frames, blue / red) indexed by distance rolled; the sheet's row 0 is the fallback
 - squeeze/suck: rows 0–5 cols 7–8 (vacuum / muncher death)
 - dissolve: row 6 cols 0–3 (acid death from slime, followed by blue droplets)
 - dizzy: row 7 cols 0–5 (wisps)
@@ -51,20 +51,20 @@ Physics: world (u,v) tile units, height z px. Projection `sx = 8(u−v)`, `sy = 
 Falls > 40 px → crack + broom; falls 12–40 px → dizzy 1.2 s; step tolerance 3 px; walls bounce (restitution 0.35).
 
 ## Hazards
-Behaviour confirmed from the review clips in `video_review/` where noted.
+Behaviour confirmed from the review clips in `media/video_review/` where noted.
 | Hazard | Sheet | Stages | Behaviour |
 |---|---|---|---|
 | Steelie (black marble) | objects.png #62 | 2, 4, 6 | AI chases player, elastic bump, can fall off |
 | Worm / Muncher | worm.png | 2, 3 | slinkies end-over-end freely; touching mouth eats marble (squeeze anim, death); bumping its body at speed knocks it back |
 | Slime (acid puddle) | slime.png | 3, 6 | stays in one spot wandering a few tiles; contact **dissolves** the marble into drops (slime_review.mov) |
-| Hammer | animated_assets/HammerTrap.gif (18 frames) | 4 (goal run) | mallet swings round its pivot like a clock hand; head sweep flattens the marble (intermedidate_hammers.mov) |
-| Vacuum | animated_assets/VacuumTrapL/R.gif (2 frames, facing) | 4 (upper zigzag) | yellow box on the floor; marbles within ~3 tiles are pulled in and swallowed (vaccum_review.mov) |
+| Hammer | media/art/animated/HammerTrap.gif (18 frames) | 4 (goal run) | mallet swings round its pivot like a clock hand; head sweep flattens the marble (intermedidate_hammers.mov) |
+| Vacuum | media/art/animated/VacuumTrapL/R.gif (2 frames, facing) | 4 (upper zigzag) | yellow box on the floor; marbles within ~3 tiles are pulled in and swallowed (vaccum_review.mov) |
 | Risers / catapult | riser.png (MS pistons, gray like the arcade) | 4 (disc pads) | pistons pop up in a travelling wave; up pistons block, one rising under the marble launches it along the pad (aerial_race_catapault_and_risers.mov) |
 | Wave plate | drawn | 3 (green plate) | a hump travels along the plate every ~2.6 s and carries the marble forward (intermediate_level_waves.mov) |
-| Bird | animated_assets/BirdL/R.gif (flap) + bird.png (zap sparkle) | 5, 6 | fast fly-bys in flocks; zap (sparkle) → shatter; **brief: respawn at level start** (`BIRD_ZAP_RESETS_TO_START`) |
+| Bird | media/art/animated/BirdL/R.gif (flap) + bird.png (zap sparkle) | 5, 6 | fast fly-bys in flocks; zap (sparkle) → shatter; **brief: respawn at level start** (`BIRD_ZAP_RESETS_TO_START`) |
 | Wand | drawn star | 3, 5 (random) | freezes marble ~1.5 s then +10 s |
 | Time slime | slime.png (`gift: true`) | 5 plaza | Silly race: slimes hand out +3 SEC instead of dissolving (2player_longplay.mov: timers rise on the plaza) |
-| Finish flags | animated_assets/FinishFlag.gif | all goals | blue flag left, red flag right of the goal zone |
+| Finish flags | media/art/animated/FinishFlag.gif | all goals | blue flag left, red flag right of the goal zone |
 
 Deaths respawn at nearest checkpoint behind the death point after the death animation. Every death counts −1000 at the end.
 
