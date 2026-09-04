@@ -165,12 +165,12 @@ const WAYPOINTS = {
     { name: 'wing_corner', sx: 42, sy: 252, r: 5, speed: 30, brake: 1.5 },
     // 16 px drop off the wing's corner tip onto the steep left ramp (224 -> 176) which runs screen down-right (+u)
     { name: 'ramp_top', sx: 55, sy: 273, r: 6, speed: 30 },      // under the raised cross's corner (cut out of the collision)
-    { name: 'ramp_mid', sx: 70, sy: 300, r: 8, speed: 40 },
-    { name: 'ramp_mid2', sx: 78, sy: 314, r: 8, speed: 35, brake: 3 },
-    { name: 'ramp_foot', sx: 84, sy: 328, r: 8, speed: 30, brake: 1.5 },   // the pad ends 2.5 tiles on in +u: arrive slow
+    { name: 'ramp_mid', sx: 70, sy: 300, r: 8, speed: 35, brake: 3.5 },   // steep: start shedding speed early
+    { name: 'ramp_mid2', sx: 78, sy: 314, r: 8, speed: 30, brake: 2.5 },
+    { name: 'ramp_foot', sx: 84, sy: 328, r: 10, speed: 30, brake: 0.8 },   // the pad ends 2.5 tiles on in +u: arrive slow
     // middle "maze": floating pads with real gaps. Left L-pad, its arm down-right (+u), the turn, then down-left (+v)
     // the ramp lands on the upper-right bump of one long strip that runs +u (screen down-right); centre up on it
-    { name: 'm0', sx: 76, sy: 346, r: 8, speed: 30, brake: 2 },
+    { name: 'm0', sx: 70, sy: 344, r: 8, speed: 30, brake: 1.5 },
     { name: 'm1', sx: 64, sy: 356, r: 8, speed: 30, brake: 2 },
     { name: 'm2', sx: 62, sy: 364, r: 8, speed: 30, brake: 2 },
     { name: 'm3', sx: 78, sy: 371, r: 8, speed: 35, brake: 3 },
@@ -206,19 +206,23 @@ const WAYPOINTS = {
     { name: 'plate_end', sx: 200, sy: 882, r: 8, speed: 30, brake: 2 },
     // roll off the plate's lower-left edge: 13 px drop onto the bright wavy ribbon that starts under the plate
     { name: 'pad_B', sx: 196, sy: 902, r: 8, speed: 30, brake: 2 },
-    { name: 'w1', sx: 183, sy: 916, r: 8, speed: 35 },
-    { name: 'w2', sx: 168, sy: 922, r: 8, speed: 35 },
-    { name: 'w3', sx: 156, sy: 936, r: 8, speed: 35 },
-    { name: 'w4', sx: 144, sy: 950, r: 8, speed: 35 },
-    { name: 'w5', sx: 140, sy: 958, r: 6, speed: 30, brake: 2 },
-    { name: 'cross', sx: 140, sy: 964, r: 6, speed: 30, brake: 2 },
-    { name: 'g1', sx: 147, sy: 970, r: 6, speed: 30 },
-    { name: 'g2', sx: 152, sy: 980, r: 6, speed: 30 },
-    { name: 'g3', sx: 164, sy: 986, r: 6, speed: 30 },
-    { name: 'g4', sx: 176, sy: 994, r: 6, speed: 30 },
-    { name: 'g_end', sx: 184, sy: 1000, r: 6, speed: 35 },
-    { name: 'goal_pad', sx: 205, sy: 1018, r: 10, speed: 35 },
-    { name: 'goal', sx: 232, sy: 1036, r: 10, speed: 30 },
+    { name: 'w1', sx: 185, sy: 912, r: 8, speed: 30, brake: 2.5 },
+    { name: 'w2', sx: 175, sy: 921, r: 8, speed: 30, brake: 2.5 },
+    { name: 'w3', sx: 163, sy: 930, r: 8, speed: 30, brake: 2.5 },
+    { name: 'w4', sx: 155, sy: 939, r: 6, speed: 30, brake: 2 },
+    { name: 'w5', sx: 147, sy: 948, r: 6, speed: 30, brake: 2 },     // the ribbon bends to straight down here
+    { name: 'w6', sx: 141, sy: 957, r: 6, speed: 30, brake: 2 },
+    { name: 'cross', sx: 141, sy: 964, r: 6, speed: 30, brake: 2 },  // onto the dark ribbon (wave_G) heading down-right
+    { name: 'g1', sx: 148, sy: 968, r: 6, speed: 30, brake: 2 },
+    { name: 'g2', sx: 153, sy: 974, r: 6, speed: 30, brake: 2.5 },
+    { name: 'g3', sx: 160, sy: 982, r: 6, speed: 30, brake: 2.5 },
+    { name: 'g4', sx: 170, sy: 990, r: 6, speed: 30, brake: 2.5 },
+    { name: 'g5', sx: 180, sy: 998, r: 6, speed: 30, brake: 2.5 },
+    { name: 'g_end', sx: 184, sy: 1002, r: 6, speed: 30, brake: 2 },
+    // 10 px drop off the ribbon's end onto the goal pad
+    { name: 'goal_pad', sx: 198, sy: 1012, r: 8, speed: 30, brake: 2 },
+    { name: 'goal_pad2', sx: 208, sy: 1022, r: 8, speed: 30, brake: 2 },
+    { name: 'goal', sx: 222, sy: 1034, r: 10, speed: 30 },
   ],
   4: [
     { name: 'tower_slide', sx: 250, sy: 55 },
@@ -254,11 +258,14 @@ const WAYPOINTS = {
 };
 
 const wps = WAYPOINTS[stage] || WAYPOINTS[1];
+// stages 1-2 were tuned with screen-space steering; later stages use world-space steering (SCREEN_STEER=1 forces legacy)
+if (stage <= 2 && !process.env.WORLD_STEER) process.env.SCREEN_STEER = '1';
 // Waypoints are MAP PIXELS. Resolve each one onto the floor drawn there so steering happens in world space:
 // a pixel 20 px "down" on the screen can be a floor 16 units lower straight ahead, not a floor diagonally ahead.
 {
   const picks = await page.evaluate((pts) => pts.map(([x, y]) => (window.mmDebug.pick ? window.mmDebug.pick(x, y)[0] : null) || null), wps.map((w) => [w.sx, w.sy]));
   picks.forEach((pk, i) => {
+    if (pk && process.env.SCREEN_STEER) { wps[i].floor = pk.name; wps[i].z = pk.z; return; }   // SCREEN_STEER=1: legacy screen-space steering
     if (pk) { wps[i].u = pk.u; wps[i].v = pk.v; wps[i].z = pk.z; wps[i].floor = pk.name; }
     else console.log(`⚠ waypoint #${i} (${wps[i].name}) at (${wps[i].sx}, ${wps[i].sy}) is not over any floor`);
   });
