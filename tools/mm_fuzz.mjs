@@ -78,7 +78,7 @@ async function randomFloorPixel() {
 }
 
 const HEADINGS = [0, 45, 90, 135, 180, 225, 270, 315];
-const summary = { episodes: 0, deaths: 0, stalls: 0, blocks: 0, sinks: 0, seconds: 0 };
+const summary = { episodes: 0, deaths: 0, stalls: 0, blocks: 0, sinks: 0, seconds: 0, redrops: 0 };
 
 for (let ep = 0; ep < EPISODES; ep++) {
   await keepClock();
@@ -90,10 +90,17 @@ for (let ep = 0; ep < EPISODES; ep++) {
 
   const start = await randomFloorPixel();
   if (!start) { emit({ ev: 'abort', why: 'no floor pixel found' }); break; }
+  // a scripted slide / pipe (stage intros, chutes) keeps re-placing the marble: wait until it has let go
+  for (let i = 0; i < 100; i++) { const m = await marble(); if (!m.slide && !m.inPipe) break; await page.waitForTimeout(100); }
   await ev(([x, y]) => window.mmDebug.teleport(x, y), [start.x, start.y]);
   await page.waitForTimeout(250);                       // let the marble settle onto the floor
   await ev(() => window.mmDebug.trace());               // drain
-  const settled = await marble();
+  let settled = await marble();
+  if (settled.slide || settled.inPipe || Math.hypot(settled.sx - start.x, settled.sy - start.y) > 24) {
+    // landed in a slide/pipe zone or got carried away: this drop is not a fair test, pick another spot
+    for (let i = 0; i < 100; i++) { const m = await marble(); if (!m.slide && !m.inPipe) break; await page.waitForTimeout(100); }
+    if (++summary.redrops < EPISODES * 3) { ep--; continue; }
+  }
   // a floor we picked but cannot stand on: the drawn floor and the heightfield disagree
   if (!settled.grounded || Math.abs(settled.z - start.z) > 12) {
     emit({ ev: 'sink', sx: start.x, sy: start.y, z: start.z, floor: start.name, got: { z: settled.z, grounded: settled.grounded, sup: settled.sup }, why: 'teleported onto a drawn floor but did not land on it' });
