@@ -1,0 +1,28 @@
+{
+ "image": "mascot.png",
+ "frameWidth": 351,
+ "frameHeight": 338,
+ "frames": 12,
+ "fps": 12,
+ "loop": true,
+ "ballCentre": [
+  170,
+  142
+ ],
+ "ballRadius": 112.0,
+ "order": [
+  "f1",
+  "f2",
+  "f3",
+  "f4",
+  "f5",
+  "x5-10",
+  "f10",
+  "f8",
+  "f9",
+  "f6",
+  "f7",
+  "x7-1"
+ ],
+ "source": "media/art/mascot_sheet.png (2x5 sheet); frames aligned on the marble centre, ball radius normalised, row 2 reordered 10-8-9-6-7, one 50% dissolve frame at each pose flip"
+}

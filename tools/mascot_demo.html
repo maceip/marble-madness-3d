@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Marble mascot + speech bubble demo</title>
+<meta name="viewport" content="width=device-width">
+<style>
+  html, body { margin: 0; background: #050814; color: #cfd2ff; font-family: monospace; }
+  main { display: grid; gap: 18px; padding: 24px; max-width: 960px; margin: 0 auto; }
+  .stage { position: relative; height: 520px; border: 3px solid #55ddff; background: #000 radial-gradient(#101a44, #000 70%); overflow: hidden; }
+
+  /* --- mascot: 12-frame strip, CSS steps() ----------------------------------------------------------------- */
+  .mascot {
+    --frames: 12; --fw: 351px; --fh: 338px; --period: 1s; --scale: 0.8;
+    position: absolute; left: 50%; bottom: 8px; width: var(--fw); height: var(--fh);
+    background: url(../www/assets/sprites/mascot.png) 0 0 / auto 100% no-repeat;
+    transform-origin: 50% 100%;
+    transform: translateX(-50%) scale(var(--scale));
+    animation: mascot-spin var(--period) steps(var(--frames)) infinite;
+    transition: transform .35s cubic-bezier(.2, 1.4, .4, 1), opacity .25s;
+    image-rendering: pixelated;
+  }
+  .mascot.hidden { transform: translateX(-50%) scale(0); opacity: 0; pointer-events: none; }
+  .mascot.flip   { transform: translateX(-50%) scale(var(--scale)) scaleX(-1); }
+  .mascot.paused { animation-play-state: paused; }
+  @keyframes mascot-spin { to { background-position-x: calc(var(--fw) * -1 * var(--frames)); } }
+
+  /* --- speech bubble: 9-slice body (bubble_body.png 15x8, slices 3 5 4 5) + tail sprite ------------------- */
+  .bubble {
+    --px: 4px;                                   /* screen pixels per art cell: keep it an integer */
+    position: absolute;
+    box-sizing: border-box;
+    max-width: 60%;
+    padding: calc(1 * var(--px)) calc(2 * var(--px)) calc(2 * var(--px));
+    border-style: solid;
+    border-width: calc(3 * var(--px)) calc(5 * var(--px)) calc(4 * var(--px)) calc(5 * var(--px));
+    border-image: url(../www/assets/ui/bubble_body.png) 3 5 4 5 fill / calc(3 * var(--px)) calc(5 * var(--px)) calc(4 * var(--px)) calc(5 * var(--px)) stretch;
+    image-rendering: pixelated;
+    color: #000; font: bold calc(5 * var(--px)) / 1.15 monospace; letter-spacing: .02em;
+    transform-origin: 85% 100%;
+    transition: transform .3s cubic-bezier(.2, 1.4, .4, 1), opacity .2s;
+  }
+  .bubble::after {                               /* tail: 10x8 cells, overlaps the body's bottom outline + bevel rows */
+    content: ''; position: absolute;
+    right: calc(6 * var(--px)); bottom: calc(-6 * var(--px));
+    width: calc(10 * var(--px)); height: calc(8 * var(--px));
+    background: url(../www/assets/ui/bubble_tail.png) 0 0 / 100% 100% no-repeat;
+    image-rendering: pixelated;
+  }
+  .bubble.hidden { transform: scale(0); opacity: 0; }
+  /* place it above the mascot's head, tail pointing at the ball */
+  .speech { left: 50%; bottom: 300px; transform: translateX(-72%); }
+  .speech.hidden { transform: translateX(-72%) scale(0); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button, input[type=text] { font: inherit; background: #162866; color: #ffd923; border: 2px solid #55ddff; padding: 8px 14px; }
+  button { cursor: pointer; } button:hover { background: #1f3a8a; }
+  label { display: flex; gap: 8px; align-items: center; }
+  code { color: #ffd923; }
+  .note { color: #8fa0ff; font-size: 13px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<main>
+  <h2 style="color:#ffd923;margin:0">Marble mascot + speech bubble</h2>
+  <div class="stage">
+    <div class="bubble speech hidden" id="bubble">Hey! Wanna race?</div>
+    <div class="mascot hidden" id="mascot"></div>
+  </div>
+  <div class="controls">
+    <button id="appear">Appear</button>
+    <button id="hide">Hide</button>
+    <button id="say">Say</button>
+    <input id="text" type="text" value="Hey! Wanna race?" size="28">
+    <button id="pause">Pause / resume</button>
+    <button id="flip">Mirror</button>
+    <label>speed <input id="speed" type="range" min="0.4" max="3" step="0.1" value="1"> <span id="speedv">1.0 s / orbit</span></label>
+    <label>size <input id="size" type="range" min="0.25" max="1.2" step="0.05" value="0.8"> <span id="sizev">0.80x</span></label>
+    <label>bubble px <input id="bpx" type="range" min="2" max="8" step="1" value="4"> <span id="bpxv">4</span></label>
+  </div>
+  <p class="note">
+    Mascot strip: <code>www/assets/sprites/mascot.png</code> (12 × 351×338, ball centre 170,142; <code>mascot_half.png</code> = 50%),
+    frames 6 and 12 are 50% dissolves bridging the two ribbon poses (skip for a hard cut); metadata <code>mascot.json</code>.<br>
+    Bubble: <code>www/assets/ui/bubble_body.png</code> (15×8 nine-slice, <code>border-image-slice: 3 5 4 5 fill</code>) +
+    <code>bubble_tail.png</code> (10×8, anchored 6 cells from the right, hanging 6 cells below); design rules in <code>tools/bubble_gen.py</code>.<br>
+    App control: toggle <code>.hidden</code> on either element to pop in/out; <code>--period</code> / <code>--scale</code> on the mascot,
+    <code>--px</code> on the bubble (integer screen px per cell), text is just the bubble's content.
+  </p>
+</main>
+<script>
+  const el = document.getElementById('mascot'), bub = document.getElementById('bubble');
+  const mascot = {
+    show() { el.classList.remove('hidden'); },
+    hide() { el.classList.add('hidden'); bub.classList.add('hidden'); },
+    toggle() { el.classList.toggle('paused'); },
+    flip() { el.classList.toggle('flip'); },
+    setPeriod(s) { el.style.setProperty('--period', s + 's'); },
+    setScale(k) { el.style.setProperty('--scale', k); },
+    say(text) { if (text == null) { bub.classList.add('hidden'); return; } bub.textContent = text; bub.classList.remove('hidden'); },
+  };
+  window.mascot = mascot;
+  document.getElementById('appear').onclick = () => mascot.show();
+  document.getElementById('hide').onclick = () => mascot.hide();
+  document.getElementById('say').onclick = () => mascot.say(bub.classList.contains('hidden') ? document.getElementById('text').value : null);
+  document.getElementById('text').oninput = (e) => { if (!bub.classList.contains('hidden')) mascot.say(e.target.value); };
+  document.getElementById('pause').onclick = () => mascot.toggle();
+  document.getElementById('flip').onclick = () => mascot.flip();
+  const speed = document.getElementById('speed'), size = document.getElementById('size'), bpx = document.getElementById('bpx');
+  speed.oninput = () => { mascot.setPeriod(speed.value); document.getElementById('speedv').textContent = (+speed.value).toFixed(1) + ' s / orbit'; };
+  size.oninput = () => { mascot.setScale(size.value); document.getElementById('sizev').textContent = (+size.value).toFixed(2) + 'x'; };
+  bpx.oninput = () => { bub.style.setProperty('--px', bpx.value + 'px'); document.getElementById('bpxv').textContent = bpx.value; };
+  size.oninput();
+  setTimeout(() => mascot.show(), 400);
+  setTimeout(() => mascot.say(document.getElementById('text').value), 1100);
+</script>
+</body>
+</html>

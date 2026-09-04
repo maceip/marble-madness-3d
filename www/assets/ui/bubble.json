@@ -1,0 +1,37 @@
+{
+ "body": {
+  "image": "bubble_body.png",
+  "size": [
+   15,
+   8
+  ],
+  "slice": {
+   "top": 3,
+   "right": 5,
+   "bottom": 4,
+   "left": 5
+  },
+  "padding_cells": {
+   "top": 1,
+   "right": 2,
+   "bottom": 2,
+   "left": 2
+  }
+ },
+ "tail": {
+  "image": "bubble_tail.png",
+  "size": [
+   10,
+   8
+  ],
+  "anchor": "bottom-right",
+  "right_cells": 7,
+  "overlap_rows": 2
+ },
+ "palette": {
+  "outline": "#000000",
+  "fill": "#ffffff",
+  "bevel": "#00c8ff"
+ },
+ "note": "1 cell = 1 px; render with image-rendering: pixelated at an integer scale (the concept art used ~4-6 screen px per cell)"
+}
