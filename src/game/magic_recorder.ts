@@ -168,8 +168,13 @@ export class MagicMomentRecorder {
           });
           const out = await response.json() as Record<string, unknown>;
           if (!response.ok) throw new Error(String(out.error || `upload failed ${response.status}`));
+          // The server persists duration at millisecond precision. Keep the
+          // candidate on that exact value so a clip ending at `duration` can
+          // never exceed the authoritative bound by a fractional millisecond.
+          const persistedDuration = Number(out.duration);
           completed = {
-            status: 'ready', id: String(out.id), raceId, duration,
+            status: 'ready', id: String(out.id), raceId,
+            duration: Number.isFinite(persistedDuration) ? persistedDuration : duration,
             reason, previewUrl: String(out.previewUrl), cardUrl: String(out.cardUrl), expiresAt: String(out.expiresAt || ''),
             moments,
           };
@@ -221,10 +226,13 @@ export class MagicMomentRecorder {
     const start = Number(args.start);
     const end = Number(args.end);
     const where = String(args.where || '').trim();
-    if (worthSharing && (!Number.isFinite(start) || !Number.isFinite(end) || end - start < 0.5 || end - start > 8 || !where)) {
+    const duration = Number(selected.duration);
+    if (worthSharing && (!Number.isFinite(start) || !Number.isFinite(end)
+      || start < 0 || !Number.isFinite(duration) || end > duration
+      || end - start < 0.5 || end - start > 8 || !where)) {
       return {
         ok: false,
-        error: 'A shareable moment requires an exact 0.5-8 second start/end window and destination.',
+        error: 'A shareable moment requires an exact in-range 0.5-8 second start/end window and destination.',
         moments: selected.moments || [],
         instruction: 'Inspect previewUrl around the timestamp hints, then retry with worthSharing=true, start, end, and where.',
       };

@@ -60,6 +60,10 @@ if (candidate.status === 'ready') {
   const end = Math.min(Number(candidate.duration) || 2, 3);
   const incomplete = await agent.evaluate(() => window.webmcp.callTool('share', { worthSharing: true }));
   check('agent must choose an exact clip window and destination', incomplete.ok === false && /start\/end window and destination/i.test(incomplete.error || ''), JSON.stringify(incomplete));
+  const clientRejected = await agent.evaluate((duration) => window.webmcp.callTool('share', {
+    worthSharing: true, start: -0.1, end: Number(duration) + 0.1, where: 'test card',
+  }), candidate.duration);
+  check('client rejects a clip outside the persisted recording bounds', clientRejected.ok === false && /in-range/i.test(clientRejected.error || ''), JSON.stringify(clientRejected));
   const rejected = await agent.request.post(`${BASE}/api/shares/${candidate.id}/render`, {
     data: { worthSharing: true, start: -2, end: Number(candidate.duration) + 2, where: '' },
   });
