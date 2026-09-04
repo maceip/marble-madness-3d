@@ -19,6 +19,7 @@
     "test:ai-tracker:prod": "BASE=https://marbles.secure.build OUT=artifacts/prod-ai-tracker-mobile.png node tools/ai_tracker_visual.mjs",
     "test:magic-moment:prod": "BASE=https://marbles.secure.build node tools/magic_moment_e2e.mjs",
     "test:fold:prod": "BASE=https://marbles.secure.build node tools/test_fold.mjs",
+    "test:fold-taps:prod": "SIZES=fold-open BASE=https://marbles.secure.build node tools/tap_flows.mjs",
     "test": "node tools/test_level_physics.mjs && node tools/smoke_all.mjs && node tools/flow_check.mjs && node tools/test_lobby.mjs && node tools/test_mobile_viewport.mjs",
     "check:prod": "node tools/prod_check.mjs"
   },

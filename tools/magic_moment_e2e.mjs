@@ -4,7 +4,8 @@ import { chromium } from 'playwright-core';
 const BASE = (process.env.BASE || 'http://127.0.0.1:3000').replace(/\/$/, '');
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const human = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
-const agent = await (await browser.newContext({ viewport: { width: 1100, height: 760 } })).newPage();
+const agentContext = await browser.newContext({ viewport: { width: 1100, height: 760 } });
+const agent = await agentContext.newPage();
 const errors = [];
 for (const [who, page] of [['human', human], ['agent', agent]]) {
   page.on('pageerror', (error) => errors.push(`${who}: ${error.message}`));
@@ -52,10 +53,23 @@ if (candidate.status === 'ready') {
     const gifBytes = await gif.body();
     check('rendered media is a real animated GIF', gif.ok() && gifBytes.subarray(0, 6).toString() === 'GIF89a', `${gif.status()} ${gifBytes.length} bytes`);
   }
+  const removedSource = await agent.request.get(candidate.previewUrl);
+  check('full-race source is deleted after clipping', removedSource.status() === 404, String(removedSource.status()));
   if (rendered.cardUrl) {
     const card = await agent.request.get(rendered.cardUrl);
     const html = await card.text();
     check('share card centers the GIF and links the production app', card.ok() && html.includes('<img ') && html.includes('marbles.secure.build'), `${card.status()}`);
+    const cardPage = await agentContext.newPage();
+    await cardPage.goto(rendered.cardUrl);
+    const layout = await cardPage.evaluate(() => {
+      const card = document.querySelector('.card')?.getBoundingClientRect();
+      const media = document.querySelector('img')?.getBoundingClientRect();
+      const url = document.querySelector('.url')?.getBoundingClientRect();
+      return { card: card?.toJSON(), media: media?.toJSON(), url: url?.toJSON(), width: innerWidth };
+    });
+    check('rendered GIF is centered and app URL is below it', !!layout.card && !!layout.media && !!layout.url && Math.abs(layout.card.x + layout.card.width / 2 - layout.width / 2) < 2 && layout.url.top > layout.media.bottom, JSON.stringify(layout));
+    await cardPage.screenshot({ path: BASE.startsWith('https://') ? 'artifacts/prod-magic-moment-card.png' : 'artifacts/magic-moment-card.png' });
+    await cardPage.close();
   }
 }
 

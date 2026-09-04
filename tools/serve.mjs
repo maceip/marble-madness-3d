@@ -20,7 +20,7 @@
 //   c->s  { type:'start', stage }                  s->c { type:'start', stage, by }   (2P race start sync)
 //   s->c  { type:'joined'|'left', id, role, name }
 import http from 'node:http';
-import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -356,8 +356,9 @@ const server = http.createServer(async (req, res) => {
         try { input = JSON.parse((await readBody(req, 4096)) || '{}'); } catch { return sendJson(res, 400, { error: 'bad json' }); }
         if (input.worthSharing !== true) {
           meta.reviewed = true; meta.worthSharing = false; meta.reviewedAt = new Date().toISOString();
+          try { unlinkSync(sharePath(id, 'source.webm')); } catch { /* already gone */ }
           writeFileSync(sharePath(id, 'meta.json'), JSON.stringify(meta, null, 2), { mode: 0o640 });
-          return sendJson(res, 200, { ok: true, shared: false, note: 'candidate kept private' });
+          return sendJson(res, 200, { ok: true, shared: false, note: 'candidate declined; full-race recording deleted' });
         }
         const start = Math.max(0, Math.min(meta.duration || 0, Number(input.start) || 0));
         const end = Math.max(start + 0.5, Math.min(meta.duration || start + 8, Number(input.end) || start + 6, start + 8));
@@ -369,6 +370,8 @@ const server = http.createServer(async (req, res) => {
           where: String(input.where || 'copy link').slice(0, 40),
           caption: String(input.caption || '').slice(0, 240), renderedAt: new Date().toISOString(),
         });
+        try { unlinkSync(sharePath(id, 'source.webm')); } catch { /* already gone */ }
+        try { unlinkSync(sharePath(id, 'title.ppm')); } catch { /* already gone */ }
         writeFileSync(sharePath(id, 'meta.json'), JSON.stringify(meta, null, 2), { mode: 0o640 });
         const origin = PUBLIC_ORIGIN || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
         return sendJson(res, 200, {
@@ -382,6 +385,10 @@ const server = http.createServer(async (req, res) => {
     }
     const shareMedia = p.match(/^\/media\/shares\/([0-9a-f]{32})\/(source\.webm|moment\.gif)$/);
     if (shareMedia) {
+      if (shareMedia[2] === 'source.webm') {
+        const meta = shareMeta(shareMedia[1]); const cookies = parseCookies(req);
+        if (!meta || cookies.mm_lobby?.toLowerCase() !== meta.lobby) return sendJson(res, 403, { error: 'lobby mismatch' });
+      }
       const f = sharePath(shareMedia[1], shareMedia[2]);
       if (!existsSync(f)) { res.writeHead(404); res.end('not found'); return; }
       return serveFile(req, res, f);
@@ -395,7 +402,9 @@ const server = http.createServer(async (req, res) => {
         : `<video src="/media/shares/${id}/source.webm" autoplay muted loop controls playsinline></video>`;
       const caption = meta.caption ? `<p class="caption">${safeHtml(meta.caption)}</p>` : '';
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Robots-Tag': 'noindex' });
-      res.end(`<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>Marble Madness: Humans vs Agents</title><style>html,body{margin:0;min-height:100%;background:#000;color:#fff;font-family:monospace}body{display:grid;place-items:center}.card{width:min(92vw,540px);text-align:center;border:3px solid #55ddff;background:#050814;padding:18px;box-shadow:8px 8px 0 #162866}h1{color:#ffd923;font-size:clamp(18px,5vw,28px);margin:0 0 14px;text-transform:uppercase}img,video{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain;background:#000;image-rendering:pixelated}.caption{color:#cfd2ff}.url{display:block;margin-top:14px;color:#55ddff;font-weight:bold;font-size:clamp(14px,4vw,20px);text-decoration:none}</style></head><body><main class="card"><h1>Humans vs Agents</h1>${media}${caption}<a class="url" href="https://marbles.secure.build/">marbles.secure.build</a></main></body></html>`);
+      const origin = PUBLIC_ORIGIN || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
+      const image = meta.rendered ? `<meta property="og:image" content="${safeHtml(`${origin}/media/shares/${id}/moment.gif`)}"><meta name="twitter:card" content="summary_large_image">` : '';
+      res.end(`<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>Marble Madness: Humans vs Agents</title><meta property="og:title" content="Marble Madness: Humans vs Agents"><meta property="og:description" content="A human and an AI settle it with trackballs.">${image}<style>html,body{margin:0;min-height:100%;background:#000;color:#fff;font-family:monospace}body{display:grid;place-items:center}.card{width:min(92vw,540px);text-align:center;border:3px solid #55ddff;background:#050814;padding:18px;box-shadow:8px 8px 0 #162866}h1{color:#ffd923;font-size:clamp(18px,5vw,28px);margin:0 0 14px;text-transform:uppercase}img,video{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain;background:#000;image-rendering:pixelated}.caption{color:#cfd2ff}.url{display:block;margin-top:14px;color:#55ddff;font-weight:bold;font-size:clamp(14px,4vw,20px);text-decoration:none}</style></head><body><main class="card"><h1>Humans vs Agents</h1>${media}${caption}<a class="url" href="https://marbles.secure.build/">marbles.secure.build</a></main></body></html>`);
       return;
     }
     if (p === '/' || p === '/index.html') return serveIndex(req, res, null);
