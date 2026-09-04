@@ -345,3 +345,12 @@ console.log(`Waypoints hit: ${wpIdx} / ${wps.length - 1}`);
 console.log(`Physics events: ${Object.entries(counts).map(([k, v]) => `${k}=${v}`).join(' ') || 'none (bundle without mmDebug.trace?)'}`);
 console.log(`Trace: ${traceFile}`);
 if (errors.length) console.log('Page errors:', errors);
+
+// A recording is evidence, not success by itself. Make this harness fail loudly when the driven
+// production run does not finish or when the browser reports a runtime error.
+const requiredEvents = stage <= 2 ? ['block', 'airborne', 'land'] : ['airborne'];
+const missingEvents = requiredEvents.filter((event) => !counts[event]);
+if (missingEvents.length) console.log(`Missing required physics evidence: ${missingEvents.join(', ')}`);
+const passed = reachedGoal && !errors.length && !missingEvents.length && wpIdx === wps.length - 1;
+console.log(passed ? `STAGE ${stage} RECORDED PLAYTEST: PASS` : `STAGE ${stage} RECORDED PLAYTEST: FAIL`);
+process.exit(passed ? 0 : 1);
