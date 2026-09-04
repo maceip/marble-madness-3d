@@ -18,24 +18,53 @@ for (const [who, page] of [['human', human], ['agent', agent]]) {
 let failed = 0;
 const check = (name, pass, detail = '') => { console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? `  ${detail}` : ''}`); if (!pass) failed++; };
 async function captureAnimatedCard(page, file) {
-  await page.waitForTimeout(1400); // title lead-in is 0.9 s; capture the gameplay segment
-  // Chromium can omit non-animated sibling layers from a screenshot while an
-  // animated GIF is compositing. Snapshot the visible GIF frame, freeze that
-  // exact frame in the loaded production card, then capture all card chrome.
+  // Sample a complete short GIF cycle and retain the most information-rich
+  // frame. Gameplay PNGs are substantially larger than the sparse title card,
+  // so this works for both long clips and sub-second knockoff clips without
+  // relying on nondeterministic GIF load timing.
   const image = page.locator('.card img');
-  const frame = await image.screenshot({ type: 'png' });
-  await image.evaluate((element, src) => { element.src = src; }, `data:image/png;base64,${frame.toString('base64')}`);
-  await page.evaluate(async () => {
-    const card = document.querySelector('.card');
-    if (card instanceof HTMLElement) {
-      card.style.transform = 'translateZ(0) scale(0.9999)';
-      card.style.filter = 'brightness(1)';
-      void card.offsetHeight;
-      card.style.transform = 'translateZ(0) scale(1)';
-    }
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  });
-  await page.screenshot({ path: file });
+  const heading = page.locator('.card h1');
+  const caption = page.locator('.card .caption');
+  const url = page.locator('.card .url');
+  const headingPng = await heading.screenshot({ type: 'png' });
+  const captionPng = await caption.count() ? await caption.screenshot({ type: 'png' }) : null;
+  const urlPng = await url.screenshot({ type: 'png' });
+  let frame = Buffer.alloc(0);
+  for (let i = 0; i < 18; i++) {
+    await page.waitForTimeout(100);
+    const sample = await image.screenshot({ type: 'png' });
+    if (sample.length > frame.length) frame = sample;
+  }
+  // Chromium can omit non-animated sibling layers from a full-page screenshot
+  // while an animated GIF is compositing. Freeze the selected frame, then
+  // capture the self-contained card element with all branded chrome and URL.
+  await image.evaluate(async (element, src) => {
+    element.src = src;
+    await element.decode();
+  }, `data:image/png;base64,${frame.toString('base64')}`);
+  // Browser screenshots occasionally drop separately painted text layers next
+  // to an animated image. Rasterize the production-rendered heading/caption/
+  // URL into ordinary image elements so the saved card is deterministic.
+  await heading.evaluate((element, src) => {
+    const raster = document.createElement('img');
+    raster.src = src;
+    raster.style.cssText = 'display:block;width:100%;height:32px;object-fit:contain;margin:0 0 14px;background:#050814';
+    element.replaceWith(raster);
+  }, `data:image/png;base64,${headingPng.toString('base64')}`);
+  if (captionPng) await caption.evaluate((element, src) => {
+    const raster = document.createElement('img');
+    raster.src = src;
+    raster.style.cssText = 'display:block;width:100%;height:15px;object-fit:contain;margin:13px 0 0;background:#050814';
+    element.replaceWith(raster);
+  }, `data:image/png;base64,${captionPng.toString('base64')}`);
+  await url.evaluate((element, src) => {
+    const raster = document.createElement('img');
+    raster.src = src;
+    raster.style.cssText = 'display:block;width:100%;height:23px;object-fit:contain;margin-top:14px;background:#050814';
+    element.replaceWith(raster);
+  }, `data:image/png;base64,${urlPng.toString('base64')}`);
+  await page.waitForTimeout(100);
+  await page.locator('.card').screenshot({ path: file });
 }
 
 await human.goto(BASE + '/');
