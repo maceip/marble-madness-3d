@@ -79,6 +79,7 @@ check('both share a non-empty race id', !!ids[0] && ids[0] === ids[1], ids.join(
 
 const death = await agent.evaluate(async () => {
   const waiting = window.webmcp.callTool('wait_for_race_event', { timeout_ms: 5000 });
+  game.net.onBump?.(6, -3, 'human');
   const events = []; game.marble.die('void', events);
   for (const event of events) game['onMarbleEvent'](event);
   return waiting;
@@ -91,6 +92,28 @@ check('ordinary death automatically respawns', await agent.waitForFunction(() =>
 await agent.evaluate(() => { game.timeLeft = 0.01; });
 check('agent loss returns agent to lobby', await agent.waitForFunction(() => game.screen === 'connect', null, { timeout: 5000 }).then(() => true).catch(() => false));
 check('agent loss opens human rematch', await human.waitForFunction(() => game.screen === 'rematch' && game.wonLast, null, { timeout: 5000 }).then(() => true).catch(() => false));
+await agent.waitForFunction(() => ['ready', 'error'].includes(game.magicRecorder.review().status), null, { timeout: 12000 });
+const knockoffCandidate = await agent.evaluate(() => window.webmcp.callTool('get_share_candidate'));
+const knockoffMark = knockoffCandidate.moments?.find((moment) => moment.type === 'human_knocked_ai');
+check('received human bump plus AI death becomes a timestamped knockoff', knockoffCandidate.status === 'ready' && Number.isFinite(knockoffMark?.at), JSON.stringify(knockoffCandidate));
+if (knockoffCandidate.status === 'ready' && Number.isFinite(knockoffMark?.at)) {
+  const start = Math.max(0, knockoffMark.at - 0.5);
+  const end = Math.min(knockoffCandidate.duration, start + 3);
+  const shared = await agent.evaluate(({ start, end }) => window.webmcp.callTool('share', {
+    worthSharing: true, start, end, where: 'share card', caption: 'Human sends CODEX over the edge.',
+  }), { start, end });
+  check('timestamped human-vs-AI knockoff renders a share card', shared.ok === true && shared.gifUrl && shared.cardUrl, JSON.stringify(shared));
+  if (shared.cardUrl) {
+    console.log(`SHARE CARD  ${shared.cardUrl}`);
+    const sharePage = await agentContext.newPage();
+    sharePage.on('pageerror', (e) => errors.push(`share: ${e.message}`));
+    sharePage.on('console', (m) => { if (m.type() === 'error') errors.push(`share: ${m.text()}`); });
+    await sharePage.goto(shared.cardUrl);
+    await sharePage.waitForTimeout(1400);
+    await sharePage.screenshot({ path: 'artifacts/prod-human-knocks-ai-card.png' });
+    await sharePage.close();
+  }
+}
 
 // Neither waiting screen may be dropped by the server's 20-second idle reap.
 await human.waitForTimeout(22000);
