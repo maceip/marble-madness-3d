@@ -59,7 +59,8 @@ const copied = await page.evaluate(() => navigator.clipboard.readText());
 check('clipboard copy is a direct built-in-browser instruction', /^Open this URL in your built-in browser: https?:\/\//.test(copied) && /site tools to race me as Player 2 and stay for rematches/.test(copied));
 await page.evaluate(() => { window.game.screens.idle = 31; });
 await page.waitForSelector('#ui-agent-teaser:not([hidden])');
-check('Slippy portal teaser appears after 30 seconds', await page.locator('#ui-agent-teaser').isVisible() && await page.locator('#ui-slippy').isVisible());
+check('mascot teaser appears after 30 seconds', await page.locator('#ui-agent-teaser').isVisible() && await page.locator('#ui-mascot').isVisible());
+await page.waitForSelector('#ui-no-codex:not(.hidden)');   // the speech bubble pops 0.6 s after the mascot
 await page.locator('#ui-no-codex').click();
 await page.waitForSelector('#ui-agent-picker:not([hidden])');
 check('agent chooser exposes all requested runtimes', await page.locator('#ui-agent-option-chrome').isVisible() && await page.locator('#ui-agent-option-llama').isVisible() && await page.locator('#ui-agent-option-mtplx').isVisible());

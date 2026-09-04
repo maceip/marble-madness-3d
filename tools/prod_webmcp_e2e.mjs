@@ -167,23 +167,14 @@ const expectedPrompt = `Open this URL in your built-in browser: ${BASE.replace(/
 check('copy-to-Codex prompt is the exact direct instruction', copied === expectedPrompt, `${copied.split('\n').length} lines`);
 const mobileLayout = await human.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth, box: document.querySelector('.ui-connect-box')?.getBoundingClientRect().toJSON() }));
 check('mobile connect screen is contained', mobileLayout.scrollWidth <= mobileLayout.innerWidth && mobileLayout.box?.left >= 0 && mobileLayout.box?.right <= mobileLayout.innerWidth + 1, JSON.stringify(mobileLayout));
-const cradle = await human.evaluate(() => {
-  const loader = document.querySelector('.ui-cradle-loader');
-  const image = document.querySelector('.ui-cradle-loader img');
-  const left = document.querySelector('.ui-cradle-left');
-  const right = document.querySelector('.ui-cradle-right');
-  const animations = [left, right].map((part) => part?.getAnimations()[0]);
-  for (const animation of animations) if (animation) animation.currentTime = 0;
-  const releasedRight = [getComputedStyle(left).opacity, getComputedStyle(right).opacity, getComputedStyle(right).transform];
-  for (const animation of animations) if (animation) animation.currentTime = 880;
-  const releasedLeft = [getComputedStyle(left).opacity, getComputedStyle(right).opacity, getComputedStyle(left).transform];
-  return {
-    rect: loader?.getBoundingClientRect().toJSON(),
-    loaded: image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
-    releasedRight, releasedLeft,
-  };
+const loader = await human.evaluate(() => {
+  const row = document.querySelector('.ui-marble-row');
+  const marble = document.getElementById('ui-connect-marble');
+  const wait = document.getElementById('ui-connect-wait');
+  const lit = marble?.getContext('2d')?.getImageData(0, 0, marble.width, marble.height).data.some((v, i) => i % 4 === 3 && v > 0);
+  return { rect: row?.getBoundingClientRect().toJSON(), lit, wait: wait?.getAttribute('aria-label') || wait?.childElementCount };
 });
-check('Newton cradle transfers motion between independently swinging outer marbles', cradle.loaded && cradle.rect?.left >= 0 && cradle.rect?.right <= 376 && cradle.releasedRight[0] === '0' && cradle.releasedRight[1] === '1' && cradle.releasedLeft[0] === '1' && cradle.releasedLeft[1] === '0' && cradle.releasedRight[2] !== cradle.releasedLeft[2], JSON.stringify(cradle));
+check('connect loader is the rolling marble between dots, on screen', !!loader.lit && loader.rect?.left >= 0 && loader.rect?.right <= 376, JSON.stringify(loader));
 await human.screenshot({ path: 'artifacts/prod-webmcp-connect-375x667.png' });
 await agent.goto(`${BASE}/${lobby}`);
 await agent.waitForFunction(() => window.webmcp?.callTool);

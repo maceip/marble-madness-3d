@@ -43,7 +43,7 @@ for (const size of SIZES) {
       const g = window.game;
       const cw = g.r.canvas.width;
       const t = g.screens.debugTargets();
-      const selector = { title: '.ui-lb', menu: '.ui-modes', name: '#ui-keys', connect: '.ui-connect-box', rematch: '#ui-play-again', congrats: '#ui-win-rows' }[screen];
+      const selector = { title: '.ui-lb', menu: '.ui-modes', name: '#ui-keys', connect: '.ui-connect-box', rematch: '.ui-modal', congrats: '#ui-win-rows' }[screen];
       const el = selector ? document.querySelector(selector) : null;
       const er = el?.getBoundingClientRect();
       const named = screen === 'control' ? t.optA : er ? { x: er.left + er.width / 2, w: er.width } : t.column || t.start;

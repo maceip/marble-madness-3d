@@ -1,7 +1,20 @@
 import type { BitmapFont, FontVariant } from '../engine/font';
 
-/** Paint one bitmap-font string (media/art/Font.png / sprites/font.png) onto a crisp canvas. */
-export function pxCanvas(font: BitmapFont, text: string, variant: FontVariant = 'white', scale = 2, spacing = 0): HTMLCanvasElement {
+/** Menu palette from the conformance wireframes. The atlas only carries white/cyan/orange/lavender/blue glyphs, so these
+ *  are applied as a tint over the white glyphs (every glyph is a single flat colour, so the recolour is lossless). */
+export const UI = {
+  blue: '#46a0ff',      // headings: HIGH ROLLERS, PLAYER 1, CONNECT YOUR AGENT, WAITING FOR AGENT
+  frame: '#32a0f4',     // panel borders / rules
+  gold: '#ffc008',      // leaderboard header + ranks, RUB, splash PRESS START
+  yellow: '#ffee33',    // menu PRESS START, the typed name, COPY PROMPT, YES
+  cyan: '#00ffff',      // URL, END, the top roller
+  white: '#ffffff',
+} as const;
+export type UiColor = (typeof UI)[keyof typeof UI] | string;
+
+/** Paint one bitmap-font string (media/art/Font.png / sprites/font.png) onto a crisp canvas.
+ *  `tint` recolours the glyphs to any CSS colour (drawn from the white variant). */
+export function pxCanvas(font: BitmapFont, text: string, variant: FontVariant = 'white', scale = 2, spacing = 0, tint?: string): HTMLCanvasElement {
   const w = Math.max(1, font.width(text, spacing) * scale);
   const h = font.meta.cell * scale;
   const c = document.createElement('canvas');
@@ -9,7 +22,13 @@ export function pxCanvas(font: BitmapFont, text: string, variant: FontVariant = 
   c.height = h;
   const ctx = c.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
-  font.draw(ctx, text, 0, 0, variant, scale, spacing);
+  font.draw(ctx, text, 0, 0, tint ? 'white' : variant, scale, spacing);
+  if (tint) {
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = tint;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
+  }
   c.style.width = `${w}px`;
   c.style.height = `${h}px`;
   c.style.imageRendering = 'pixelated';
@@ -17,9 +36,30 @@ export function pxCanvas(font: BitmapFont, text: string, variant: FontVariant = 
   return c;
 }
 
-export function pxFill(el: HTMLElement | null, font: BitmapFont, text: string, variant: FontVariant = 'white', scale = 2, spacing = 0): void {
+export function pxFill(el: HTMLElement | null, font: BitmapFont, text: string, variant: FontVariant = 'white', scale = 2, spacing = 0, tint?: string): void {
   if (!el) return;
-  el.replaceChildren(pxCanvas(font, text, variant, scale, spacing));
+  el.replaceChildren(pxCanvas(font, text, variant, scale, spacing, tint));
+}
+
+/** Tinted convenience wrappers (see UI). */
+export function pxTint(font: BitmapFont, text: string, color: string, scale = 2, spacing = 0): HTMLCanvasElement {
+  return pxCanvas(font, text, 'white', scale, spacing, color);
+}
+export function pxFillTint(el: HTMLElement | null, font: BitmapFont, text: string, color: string, scale = 2, spacing = 0): void {
+  if (!el) return;
+  el.replaceChildren(pxTint(font, text, color, scale, spacing));
+}
+
+/** Words of `text` as separate glyph canvases inside a flex-wrap row, so long headings wrap by word on narrow screens. */
+export function pxWords(el: HTMLElement | null, font: BitmapFont, text: string, color: string, scale = 2): void {
+  if (!el) return;
+  el.replaceChildren();
+  for (const word of text.split(' ')) {
+    const w = document.createElement('span');
+    w.className = 'ui-word';
+    w.appendChild(pxTint(font, word, color, scale));
+    el.appendChild(w);
+  }
 }
 
 /** One glyph per child, flex-spaced across the full width ("W E B M C P …"). */

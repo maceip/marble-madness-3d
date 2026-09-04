@@ -1,6 +1,6 @@
 import type { BitmapFont, FontVariant } from '../engine/font';
 import type { Game } from '../game/game';
-import { pxCanvas, pxFill } from './pixel';
+import { pxCanvas, pxFill, pxFillTint, UI } from './pixel';
 
 type TrafficPhase = 'call' | 'result' | 'error' | 'event' | 'resource';
 interface TrafficDetail { phase: TrafficPhase; name: string; payload?: unknown }
@@ -62,9 +62,12 @@ export function agentConsole(game: Game, font: BitmapFont): { active: boolean; t
 
   document.body.classList.add('agent-console-active');
   host.hidden = false;
-  pxFill(document.getElementById('agent-console-title'), font, 'MARBLE MADNESS // AGENT MCP', 'cyan', 2);
+  // conformance wireframe (agent_webpage.png): title rule, MCP TERMINAL panel, OPTICAL TRACKBALL under it
+  const wide = window.innerWidth >= 900;
+  pxFillTint(document.getElementById('agent-console-title'), font, 'MARBLE MADNESS // AGENT MODE', UI.blue, wide ? 3 : 2);
   pxFill(document.getElementById('agent-console-link'), font, 'MODEL CONTEXT ONLINE', 'orange', 2);
-  pxFill(document.getElementById('agent-ball-caption'), font, 'OPTICAL TRACKBALL', 'white', 2);
+  pxFillTint(document.getElementById('agent-terminal-title'), font, 'MCP TERMINAL', UI.blue, wide ? 2 : 1);
+  pxFillTint(document.getElementById('agent-ball-caption'), font, 'OPTICAL TRACKBALL', UI.blue, wide ? 2 : 1);
   pxFill(document.getElementById('agent-flux-label'), font, 'FLUX LINK', 'orange', 2);
   pxFill(document.getElementById('agent-console-tools'), font, `${game.webmcp.tools.length} TOOLS // ${game.webmcp.resources.length} RESOURCES`, 'lavender', 2);
 

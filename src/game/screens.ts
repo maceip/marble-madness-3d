@@ -71,7 +71,7 @@ export class Screens {
       this.menuDelay = 0.35; // Input debounce so dismissing title doesn't instantly pick 1P
     }
     if (screen === 'name') {
-      this.nameCur = { r: 3, c: 3 }; // Hover on Y as shown in pickname.png
+      this.nameCur = { r: 0, c: 0 }; // the marble cursor starts on A (conformance wireframe / NES entry)
       if (!this.g.playerName) this.g.playerName = '';
     }
     if (screen === 'control') this.cursor = 1;
