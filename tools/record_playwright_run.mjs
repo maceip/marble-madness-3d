@@ -70,6 +70,8 @@ await page.goto(`${BASE}/?stage=${stage}`, { waitUntil: 'load' });
 // Wait for race screen
 await page.waitForFunction(() => window.game && window.game.screen === 'race', null, { timeout: 25000 });
 console.log('Game reached race screen.');
+const controlsReversed = await page.evaluate(() => !!(window.game && window.game.stage && window.game.stage.reverseControls));
+if (controlsReversed) console.log('Stage has reversed controls: trackball spins will be pre-inverted.');
 await page.evaluate(() => window.mmDebug.hazards && window.mmDebug.hazards(false));
 await page.waitForTimeout(1000);
 
@@ -303,16 +305,27 @@ const WAYPOINTS = {
     { name: 'goal', sx: 88, sy: 975, r: 12, speed: 25 },
   ],
   5: [
-    { name: 'bottom_start', sx: 146, sy: 1060 },
-    { name: 'x_ramp_climb', sx: 146, sy: 920 },
-    { name: 'plaza_entry', sx: 120, sy: 845 },
-    { name: 'plaza_mid', sx: 150, sy: 780 },
-    { name: 'green_climb1', sx: 60, sy: 650 },
-    { name: 'green_climb2', sx: 110, sy: 578 },
-    { name: 'orange_climb', sx: 60, sy: 440 },
-    { name: 'red_climb', sx: 270, sy: 280 },
-    { name: 'summit_path', sx: 150, sy: 104 },
-    { name: 'summit_goal', sx: 150, sy: 62 },
+    // bottom floor (z100), left of the recessed pit; climb the white ribbon (ramp B) up-right
+    { name: 'bottom_start', sx: 60, sy: 1060 },
+    { name: 'foot', sx: 76, sy: 1052, r: 8, speed: 30 },
+    { name: 'w5a', sx: 90, sy: 1040, r: 7, speed: 45 },
+    { name: 'w5b', sx: 106, sy: 1022, r: 7, speed: 50 },
+    { name: 'w5c', sx: 120, sy: 1008, r: 7, speed: 50 },
+    { name: 'w5d', sx: 130, sy: 998, r: 7, speed: 50 },
+    { name: 'x2', sx: 142, sy: 990, r: 6, speed: 50 },
+    { name: 'w4a', sx: 154, sy: 982, r: 7, speed: 50 },
+    { name: 'w4b', sx: 170, sy: 964, r: 7, speed: 50 },
+    { name: 'w4c', sx: 180, sy: 954, r: 6, speed: 45, brake: 3 },
+    // right vertex of the rhombus: turn up-left onto the grey ribbon (G1)
+    { name: 'vertex', sx: 186, sy: 950, r: 6, speed: 35, brake: 2.5 },
+    { name: 'g1a', sx: 174, sy: 938, r: 6, speed: 35, brake: 3 },
+    { name: 'g1b', sx: 161, sy: 926, r: 6, speed: 35, brake: 3 },
+    { name: 'g1c', sx: 149, sy: 914, r: 6, speed: 35, brake: 3 },
+    { name: 'g1d', sx: 135, sy: 900, r: 6, speed: 35, brake: 3 },
+    { name: 'g1e', sx: 122, sy: 888, r: 6, speed: 35, brake: 3 },
+    { name: 'plaza_edge', sx: 110, sy: 872, r: 7, speed: 35, brake: 2.5 },
+    { name: 'plaza_in', sx: 118, sy: 856, r: 9, speed: 30, brake: 2 },
+    { name: 'plaza_mid', sx: 150, sy: 830, r: 10, speed: 30, brake: 2 },
   ],
   6: [
     { name: 'start_top', sx: 120, sy: 96 },
@@ -507,6 +520,8 @@ for (let tick = 0; tick < 900 && !reachedGoal; tick++) {
     const vsx = (m.vu - m.vv), vsy = (m.vu + m.vv) / 2, vl = Math.hypot(vsx, vsy) || 1;   // velocity in screen space
     cmd = [-vsx / vl, -vsy / vl, 70];
   }
+  // stages with reversed controls (stage 5 "everything you know is wrong") invert the trackball: pre-invert the spin
+  if (controlsReversed) cmd = [-cmd[0], -cmd[1], cmd[2]];
   await page.evaluate(([nx, ny, speed]) => {
     window.mmDebug.spin(nx, ny, speed);
   }, cmd);
