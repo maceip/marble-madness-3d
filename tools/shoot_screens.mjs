@@ -93,13 +93,29 @@ async function visualCoverage(page, screen, agentConsole = false) {
   return canvasCoverage(page);
 }
 
+async function layoutDefects(page, screen, agentConsole = false) {
+  if (agentConsole || screen !== 'title') return [];
+  return page.evaluate(() => {
+    const settings = document.querySelector('#settings')?.getBoundingClientRect();
+    if (!settings) return [];
+    const overlaps = (a, b) => a && b && a.width > 0 && a.height > 0 && b.width > 0 && b.height > 0 &&
+      a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    const defects = [];
+    for (const [selector, label] of [['#ui-press-start', 'press start'], ['#ui-title .ui-foot img', 'title footer']]) {
+      const box = document.querySelector(selector)?.getBoundingClientRect();
+      if (overlaps(box, settings)) defects.push(`${label} overlaps settings`);
+    }
+    return defects;
+  });
+}
+
 async function shoot(ctxLabel, url, size, screen, opts = {}) {
   const context = await browser.newContext({ viewport: { width: size.w, height: size.h }, isMobile: size.m, hasTouch: size.m, deviceScaleFactor: 1 });
   const page = await context.newPage();
   const errs = [];
   page.on('pageerror', (e) => errs.push('PAGEERROR ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error') errs.push('CONSOLE ' + m.text().slice(0, 160)); });
-  let blank = 1, guardOK = null;
+  let blank = 1, guardOK = null, layout = [];
   try {
     await page.goto(url, { waitUntil: 'load' });
     await ready(page);
@@ -113,13 +129,14 @@ async function shoot(ctxLabel, url, size, screen, opts = {}) {
     await page.waitForTimeout(300);   // one render plus image/font synchronization
     const shot = await page.evaluate(() => window.game.screen);
     blank = 1 - await visualCoverage(page, screen, !!opts.agentGuard);
+    layout = await layoutDefects(page, screen, !!opts.agentGuard);
     const file = `${OUT}/${ctxLabel}__${screen}__${size.id}.png`;
     await page.screenshot({ path: file });
     const landedRight = shot === screen || (opts.agentGuard && shot === 'connect');
-    const ok = errs.length === 0 && blank < 0.997 && landedRight && (guardOK !== false);
+    const ok = errs.length === 0 && layout.length === 0 && blank < 0.997 && landedRight && (guardOK !== false);
     if (!ok) hardFail = true;
-    results.push({ ctx: ctxLabel, size: size.id, screen, ok, errs: errs.slice(0, 4), blank: +blank.toFixed(3), shot, guardOK, file });
-    log(`  ${ok ? '✓' : '✗'} ${ctxLabel} ${size.id} ${screen}  lit=${(100*(1-blank)).toFixed(0)}%${errs.length ? '  ERR:' + errs[0] : ''}${guardOK != null ? '  guard=' + guardOK : ''}`);
+    results.push({ ctx: ctxLabel, size: size.id, screen, ok, errs: errs.slice(0, 4), layout, blank: +blank.toFixed(3), shot, guardOK, file });
+    log(`  ${ok ? '✓' : '✗'} ${ctxLabel} ${size.id} ${screen}  lit=${(100*(1-blank)).toFixed(0)}%${errs.length ? '  ERR:' + errs[0] : ''}${layout.length ? '  LAYOUT:' + layout.join(', ') : ''}${guardOK != null ? '  guard=' + guardOK : ''}`);
   } catch (e) {
     hardFail = true; results.push({ ctx: ctxLabel, size: size.id, screen, ok: false, errs: ['EXC ' + e.message] });
     log(`  ✗ ${ctxLabel} ${size.id} ${screen}  EXC ${e.message.split('\n')[0]}`);
