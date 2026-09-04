@@ -4,6 +4,7 @@ import { chromium } from 'playwright-core';
 
 const BASE = (process.env.BASE || 'http://127.0.0.1:3000').replace(/\/$/, '');
 const OUT = process.env.OUT || 'artifacts/ai-tracker-mobile.png';
+const EDGE_OUT = OUT.replace(/\.png$/i, '-offscreen.png');
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const humanContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 const agentContext = await browser.newContext({ viewport: { width: 1100, height: 760 } });
@@ -43,9 +44,37 @@ await agent.evaluate(() => window.webmcp.callTool('spin_trackball', { dx: 0.8, d
 await human.waitForTimeout(900);
 const moved = await human.evaluate(() => [...game.aiTrackerDebug.values()][0]);
 check('callout follows live network marble movement', Math.hypot(moved.targetX - first.targetX, moved.targetY - first.targetY) > 1, `${JSON.stringify(first)} -> ${JSON.stringify(moved)}`);
-
 await human.screenshot({ path: OUT, fullPage: true });
+
+await agent.evaluate(() => {
+  game.paused = true;
+  const m = game.marble;
+  game.net.sendState(10, {
+    stage: game.stageIdx + 1, u: m.u, v: m.v, z: m.z + 55, vu: -8, vv: 6,
+    phase: 'alive', score: game.score, time: game.timeLeft,
+    progress: (m.u + m.v) * game.stage.progressDir, fin: 0, deaths: game.deaths,
+  });
+});
+await human.waitForFunction((previousY) => [...game.aiTrackerDebug.values()][0]?.targetY < previousY - 35, moved.targetY, { timeout: 4000 });
+const airborne = await human.evaluate(() => [...game.aiTrackerDebug.values()][0]);
+check('callout follows airborne/drop height, not just ground position', airborne.targetY < moved.targetY - 35, `${moved.targetY.toFixed(1)} -> ${airborne.targetY.toFixed(1)}`);
+
+await agent.evaluate(() => {
+  game.net.sendState(10, {
+    stage: game.stageIdx + 1, u: 120, v: -80, z: 0, vu: 20, vv: -20,
+    phase: 'alive', score: game.score, time: game.timeLeft,
+    progress: 40 * game.stage.progressDir, fin: 0, deaths: game.deaths,
+  });
+});
+await human.waitForFunction(() => {
+  const state = [...game.aiTrackerDebug.values()][0];
+  return state?.offscreen === true && state.targetX > game.r.viewW;
+}, null, { timeout: 4000 });
+const edge = await human.evaluate(() => [...game.aiTrackerDebug.values()][0]);
+check('offscreen AI gets a clamped edge pointer', edge.offscreen && edge.tagX >= 31 && edge.tagX <= 257 && edge.tagY >= 41 && edge.tagY <= 224, JSON.stringify(edge));
+
+await human.screenshot({ path: EDGE_OUT, fullPage: true });
 check('no browser errors', errors.length === 0, errors.slice(0, 4).join(' | '));
 await browser.close();
-console.log(failures ? `AI TRACKER: FAIL (${failures})` : `AI TRACKER: PASS (${OUT})`);
+console.log(failures ? `AI TRACKER: FAIL (${failures})` : `AI TRACKER: PASS (${OUT}; ${EDGE_OUT})`);
 process.exit(failures ? 1 : 0);

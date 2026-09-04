@@ -169,7 +169,9 @@
       #agent-console { display: none !important; }
     }
     #ui-fx {
-      position: fixed; inset: 0; z-index: 40; pointer-events: none;
+      /* Celebration marbles remain visible around the tally, but never paint over
+         the score text or controls. #ui-root owns the readable foreground. */
+      position: fixed; inset: 0; z-index: 29; pointer-events: none;
       width: 100vw; height: 100dvh;
     }
     #ui-fx[hidden] { display: none !important; }
@@ -532,7 +534,14 @@
     }
 
     #ui-congrats { justify-content: center; gap: 8px; }
-    #ui-win-rows { width: min(94vw, 720px); display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+    #ui-congrats > div {
+      position: relative; z-index: 1; padding: 2px 8px; box-sizing: border-box;
+      background: rgba(0, 0, 0, .88); box-shadow: 0 0 0 3px rgba(0, 0, 0, .88);
+    }
+    #ui-win-rows {
+      width: min(94vw, 720px); display: flex; flex-direction: column; gap: 10px; margin: 16px 0;
+      padding: 10px 12px !important; border: 2px solid rgba(78, 196, 255, .55);
+    }
     .ui-win-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; width: 100%; }
     #ui-win-final { margin-top: 12px; }
 
@@ -544,6 +553,29 @@
     }
     #ui-play-again { background: #b7b95c; }
     #ui-exit-lb { background: #26304f; }
+
+    /* Unfolded phone/tablet folds are a distinct posture: use the inner display
+       edge-to-edge instead of inheriting the narrow desktop column caps. */
+    @media (min-width: 680px) and (max-width: 1100px) and (min-aspect-ratio: 18/25) and (max-aspect-ratio: 7/5) {
+      .ui-lb, .ui-modes, .ui-oauth-row, #ui-keys, #ui-name-val,
+      #ui-name-start, .ui-connect-box, #ui-win-rows, .ui-big {
+        width: calc(100vw - 32px);
+        max-width: none;
+      }
+      .ui-logo, .ui-logo-menu { max-width: calc(100vw - 32px); }
+    }
+    @media (min-width: 680px) and (max-width: 1100px) and (min-aspect-ratio: 18/25) and (max-aspect-ratio: 7/5) and (max-height: 800px),
+           (min-width: 1101px) and (max-height: 800px) {
+      #ui-title { padding-top: 6px; padding-bottom: 52px; overflow: hidden; }
+      #ui-presents { margin-bottom: 2px; }
+      #ui-title .ui-logo { width: min(55vw, 480px); max-height: 34vh; object-fit: contain; margin: 0 0 4px; }
+      #ui-title .ui-lb { padding: 4px 7px 3px; }
+      #ui-title .ui-lb-head { padding: 3px 7px; }
+      #ui-title .ui-lb-row { min-height: 22px; padding: 2px 7px; }
+      #ui-title #ui-press-start { padding: 6px 14px; margin-top: 3px; }
+      #ui-title .ui-foot { min-height: 30px; padding-top: 0; }
+      #ui-title .ui-foot img { height: 28px; }
+    }
 
     @media (max-width: 520px) {
       .ui-logo { width: min(94vw, 520px); }

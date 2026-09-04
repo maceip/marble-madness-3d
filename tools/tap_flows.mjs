@@ -4,13 +4,15 @@
 // Fails hard on any console/page error, wrong screen, or wrong state.  BASE=http://127.0.0.1:3200 node tools/tap_flows.mjs
 import { chromium } from 'playwright-core';
 const BASE = process.env.BASE || 'http://127.0.0.1:3200';
-const SIZES = [
+const ALL_SIZES = [
   { id: 'phone-sm', w: 375, h: 667, m: true },
   { id: 'phone-md', w: 412, h: 915, m: true },
   { id: 'phone-land', w: 844, h: 390, m: true },
   { id: 'fold-open', w: 790, h: 844, m: true },
   { id: 'desktop', w: 1366, h: 768, m: false },
 ];
+const requested = new Set((process.env.SIZES || '').split(',').map((x) => x.trim()).filter(Boolean));
+const SIZES = requested.size ? ALL_SIZES.filter((size) => requested.has(size.id)) : ALL_SIZES;
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 let fails = 0;
 const log = (s) => console.log(s);
@@ -43,6 +45,9 @@ async function run(size) {
   const errs = [];
   page.on('pageerror', (e) => errs.push('PAGEERROR ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error') errs.push('CONSOLE ' + m.text().slice(0, 140)); });
+  page.on('response', (response) => {
+    if (response.status() >= 400) errs.push(`HTTP ${response.status()} ${new URL(response.url()).pathname}`);
+  });
   const check = (name, ok, detail = '') => { log(`   ${ok ? '✓' : '✗'} ${name}${detail ? '  ' + detail : ''}`); if (!ok) fails++; };
   try {
     await page.goto(BASE + '/', { waitUntil: 'load' });
@@ -82,7 +87,7 @@ async function run(size) {
     await tap(page, (await targets(page)).copy);
     s = await state(page); check('tap COPY LINK -> copy fired', s.copied > 0, `copiedTimer=${s.copied?.toFixed?.(2)}`);
 
-    // --- REMATCH (2P post-race): EXIT -> title(leaderboard); PLAY AGAIN -> new race ---
+    // --- REMATCH (2P post-race): EXIT -> title; without a live agent PLAY AGAIN must reconnect, never fake a solo 2P race ---
     await page.evaluate(() => { window.game.mode = 'ai'; window.game.score = 4200; window.game.go('rematch'); });
     await page.waitForTimeout(150);
     let tg = await targets(page); check('rematch has PLAY AGAIN + EXIT targets', !!tg.playAgain && !!tg.exit);
@@ -91,8 +96,8 @@ async function run(size) {
     await page.evaluate(() => { window.game.mode = 'ai'; window.game.go('rematch'); });
     await page.waitForTimeout(150);
     await tap(page, (await targets(page)).playAgain);
-    await page.waitForFunction(() => ['intro', 'race'].includes(window.game.screen), null, { timeout: 8000 }).catch(() => {});
-    s = await state(page); check('rematch PLAY AGAIN -> new race', s.screen === 'intro' || s.screen === 'race', s.screen);
+    await page.waitForFunction(() => window.game.screen === 'connect', null, { timeout: 3000 }).catch(() => {});
+    s = await state(page); check('rematch PLAY AGAIN without opponent -> connect', s.screen === 'connect', s.screen);
   } catch (e) { check('exception', false, e.message.split('\n')[0]); }
   if (errs.length) { fails += errs.length; log('   ✗ runtime errors: ' + errs.slice(0, 5).join(' | ')); }
   else log('   ✓ no console/page errors');

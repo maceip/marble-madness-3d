@@ -530,6 +530,7 @@ export class Game {
         this.remotePhase.set(id, rm.phase);
         if (prev === 'alive' && (rm.phase === 'dying' || rm.phase === 'dead') && this.bumpedIds.has(id) && this.bumpClock > 0) {
           this.aiDestroyed++;
+          this.magicRecorder.noteRemoteKnockoff();
           this.bumpedIds.delete(id);
         }
         if (rm.phase !== 'alive') continue;
@@ -537,7 +538,10 @@ export class Game {
         if (m.collideBall(rm.u, rm.v, rm.z, rm.vu, rm.vv, 1, 1.1)) {
           this.sound.sfx('bounce', 0.7);
           const impulse = Math.hypot(m.vu - before.vu, m.vv - before.vv);
-          if (impulse > 2.2) this.aiDizzied++;
+          if (impulse > 2.2) {
+            this.aiDizzied++;
+            this.magicRecorder.noteHardCollision(impulse);
+          }
           this.bumpedIds.add(id);
           this.bumpClock = 1.6;
           this.net.sendBump(id, -(m.vu - before.vu) * 0.8, -(m.vv - before.vv) * 0.8);

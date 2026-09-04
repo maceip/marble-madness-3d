@@ -4,7 +4,8 @@ import { chromium } from 'playwright-core';
 const BASE = (process.env.BASE || 'http://127.0.0.1:3000').replace(/\/$/, '');
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const human = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
-const agent = await (await browser.newContext({ viewport: { width: 1100, height: 760 } })).newPage();
+const agentContext = await browser.newContext({ viewport: { width: 1100, height: 760 } });
+const agent = await agentContext.newPage();
 const errors = [];
 for (const [who, page] of [['human', human], ['agent', agent]]) {
   page.on('pageerror', (error) => errors.push(`${who}: ${error.message}`));
@@ -30,12 +31,18 @@ await Promise.all([
   agent.waitForFunction(() => game.screen === 'race', null, { timeout: 25000 }),
 ]);
 check('agent records the actual game canvas', await agent.evaluate(() => game.magicRecorder.review().status === 'recording'));
+await agent.evaluate(() => {
+  game.magicRecorder.noteHardCollision(4.2);
+  game.magicRecorder.noteRemoteKnockoff();
+});
 await agent.evaluate(() => window.webmcp.callTool('spin_trackball', { dx: 0.8, dy: 0.65, speed: 90 }));
 await agent.waitForTimeout(1500);
 await agent.evaluate(() => game.gameOver());
 await agent.waitForFunction(() => game.magicRecorder.review().status === 'ready' || game.magicRecorder.review().status === 'error', null, { timeout: 12000 });
 const candidate = await agent.evaluate(() => window.webmcp.callTool('get_share_candidate'));
 check('race end becomes a reviewable share candidate', candidate.status === 'ready' && candidate.previewUrl && candidate.cardUrl, JSON.stringify(candidate));
+check('candidate carries bounded timestamp hints for clip review', Array.isArray(candidate.moments) && candidate.moments.length === 2 && candidate.moments.every((moment) => Number.isFinite(moment.at) && moment.at >= 0) && candidate.moments.some((moment) => moment.type === 'hard_collision') && candidate.moments.some((moment) => moment.type === 'ai_knocked_human'), JSON.stringify(candidate.moments));
+check('private full-race preview advertises a bounded review window', Number.isFinite(Date.parse(candidate.expiresAt)) && Date.parse(candidate.expiresAt) > Date.now(), String(candidate.expiresAt || 'missing'));
 check('share candidate is pushed through the WebMCP event stream', await agent.evaluate(() => window.__shareEvents.some((entry) => entry.event === 'share_candidate' && entry.data?.previewUrl === game.magicRecorder.review().previewUrl)));
 
 if (candidate.status === 'ready') {
@@ -47,15 +54,32 @@ if (candidate.status === 'ready') {
     worthSharing: true, start: 0, end, where: 'test card', caption: 'A tiny marble, a large disagreement.',
   }), { end });
   check('share renders a GIF and returns a card, without external posting', rendered.ok === true && rendered.gifUrl && rendered.cardUrl && /explicit user action/i.test(rendered.instruction || ''), JSON.stringify(rendered));
+  const retried = await agent.evaluate(({ end }) => window.webmcp.callTool('share', {
+    worthSharing: true, start: 0, end, where: 'retry test', caption: 'This retry must reuse the original card.',
+  }), { end });
+  check('share rendering is idempotent when an agent retries', retried.ok === true && retried.reused === true && retried.gifUrl === rendered.gifUrl && retried.cardUrl === rendered.cardUrl, JSON.stringify(retried));
   if (rendered.gifUrl) {
     const gif = await agent.request.get(rendered.gifUrl);
     const gifBytes = await gif.body();
     check('rendered media is a real animated GIF', gif.ok() && gifBytes.subarray(0, 6).toString() === 'GIF89a', `${gif.status()} ${gifBytes.length} bytes`);
   }
+  const removedSource = await agent.request.get(candidate.previewUrl);
+  check('full-race source is deleted after clipping', removedSource.status() === 404, String(removedSource.status()));
   if (rendered.cardUrl) {
     const card = await agent.request.get(rendered.cardUrl);
     const html = await card.text();
     check('share card centers the GIF and links the production app', card.ok() && html.includes('<img ') && html.includes('marbles.secure.build'), `${card.status()}`);
+    const cardPage = await agentContext.newPage();
+    await cardPage.goto(rendered.cardUrl);
+    const layout = await cardPage.evaluate(() => {
+      const card = document.querySelector('.card')?.getBoundingClientRect();
+      const media = document.querySelector('img')?.getBoundingClientRect();
+      const url = document.querySelector('.url')?.getBoundingClientRect();
+      return { card: card?.toJSON(), media: media?.toJSON(), url: url?.toJSON(), width: innerWidth };
+    });
+    check('rendered GIF is centered and app URL is below it', !!layout.card && !!layout.media && !!layout.url && Math.abs(layout.card.x + layout.card.width / 2 - layout.width / 2) < 2 && layout.url.top > layout.media.bottom, JSON.stringify(layout));
+    await cardPage.screenshot({ path: BASE.startsWith('https://') ? 'artifacts/prod-magic-moment-card.png' : 'artifacts/magic-moment-card.png' });
+    await cardPage.close();
   }
 }
 

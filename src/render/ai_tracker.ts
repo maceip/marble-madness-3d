@@ -54,7 +54,11 @@ export class AITrackerOverlay {
     const targetX = target.screenX;
     const targetY = target.screenY;
     const offscreen = targetX < -4 || targetX > viewW + 4 || targetY < -4 || targetY > viewH + 4;
-    const tagX = Math.max(33, Math.min(viewW - 33, this.x));
+    const label = offscreen ? 'AI >' : 'THIS IS AI';
+    const w = Math.max(offscreen ? 46 : 70, font.width(label) + 10);
+    const halfWidth = w / 2 + 2;
+    const edgeMargin = Math.max(33, halfWidth);
+    const tagX = Math.max(edgeMargin, Math.min(viewW - edgeMargin, this.x));
     const labelBelow = !offscreen && this.y < 64;
     const tagY = offscreen
       ? Math.max(43, Math.min(viewH - 18, this.y))
@@ -91,7 +95,7 @@ export class AITrackerOverlay {
     ctx.strokeStyle = offscreen ? '#ffd634' : '#5af4ff'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(tagX, tagY + 9); ctx.lineTo(targetX, anchorY); ctx.stroke();
 
-    const w = 62, h = 18, x = Math.round(tagX - w / 2), y = Math.round(tagY - h / 2);
+    const h = 18, x = Math.round(tagX - w / 2), y = Math.round(tagY - h / 2);
     const cut = 4;
     const bubble = () => {
       ctx.beginPath();
@@ -105,7 +109,7 @@ export class AITrackerOverlay {
     ctx.fillRect(x + 4, y + 3, w - 8, 2);
     ctx.fillStyle = '#010208';
     ctx.fillRect(x + 4, y + h - 5, w - 8, 2);
-    font.drawCentered(ctx, offscreen ? 'AI >' : 'THIS IS AI', tagX, y + 6, offscreen ? 'orange' : 'cyan');
+    font.drawCentered(ctx, label, tagX, y + 6, offscreen ? 'orange' : 'cyan');
 
     ctx.restore();
     return { targetX, targetY, tagX, tagY, offscreen };
