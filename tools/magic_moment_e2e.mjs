@@ -37,6 +37,7 @@ await agent.evaluate(() => game.gameOver());
 await agent.waitForFunction(() => game.magicRecorder.review().status === 'ready' || game.magicRecorder.review().status === 'error', null, { timeout: 12000 });
 const candidate = await agent.evaluate(() => window.webmcp.callTool('get_share_candidate'));
 check('race end becomes a reviewable share candidate', candidate.status === 'ready' && candidate.previewUrl && candidate.cardUrl, JSON.stringify(candidate));
+check('private full-race preview advertises a bounded review window', Number.isFinite(Date.parse(candidate.expiresAt)) && Date.parse(candidate.expiresAt) > Date.now(), String(candidate.expiresAt || 'missing'));
 check('share candidate is pushed through the WebMCP event stream', await agent.evaluate(() => window.__shareEvents.some((entry) => entry.event === 'share_candidate' && entry.data?.previewUrl === game.magicRecorder.review().previewUrl)));
 
 if (candidate.status === 'ready') {
@@ -48,6 +49,10 @@ if (candidate.status === 'ready') {
     worthSharing: true, start: 0, end, where: 'test card', caption: 'A tiny marble, a large disagreement.',
   }), { end });
   check('share renders a GIF and returns a card, without external posting', rendered.ok === true && rendered.gifUrl && rendered.cardUrl && /explicit user action/i.test(rendered.instruction || ''), JSON.stringify(rendered));
+  const retried = await agent.evaluate(({ end }) => window.webmcp.callTool('share', {
+    worthSharing: true, start: 0, end, where: 'retry test', caption: 'This retry must reuse the original card.',
+  }), { end });
+  check('share rendering is idempotent when an agent retries', retried.ok === true && retried.reused === true && retried.gifUrl === rendered.gifUrl && retried.cardUrl === rendered.cardUrl, JSON.stringify(retried));
   if (rendered.gifUrl) {
     const gif = await agent.request.get(rendered.gifUrl);
     const gifBytes = await gif.body();

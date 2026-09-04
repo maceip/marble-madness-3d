@@ -10,6 +10,7 @@ export interface MagicCandidate {
   reason?: string;
   previewUrl?: string;
   cardUrl?: string;
+  expiresAt?: string;
   error?: string;
 }
 
@@ -91,11 +92,11 @@ export class MagicMomentRecorder {
           if (!response.ok) throw new Error(String(out.error || `upload failed ${response.status}`));
           this.candidate = {
             status: 'ready', id: String(out.id), raceId, duration,
-            reason, previewUrl: String(out.previewUrl), cardUrl: String(out.cardUrl),
+            reason, previewUrl: String(out.previewUrl), cardUrl: String(out.cardUrl), expiresAt: String(out.expiresAt || ''),
           };
           this.game.webmcp.emit('share_candidate', {
             ...this.candidate,
-            question: 'Is this race worth clipping? Open previewUrl, then call share with worthSharing, the best start/end seconds, and where it should go.',
+            question: 'Is this race worth clipping? Open previewUrl before expiresAt, then call share with worthSharing, the best start/end seconds, and where it should go.',
           });
         } catch (error) {
           this.candidate = { status: 'error', raceId, duration, error: error instanceof Error ? error.message : String(error) };
@@ -116,7 +117,7 @@ export class MagicMomentRecorder {
     return {
       ...this.candidate,
       instruction: this.candidate.status === 'ready'
-        ? 'Open previewUrl. If it has a magic moment, call share with worthSharing=true plus a 0.5-8 second clip window and destination. Otherwise decline it.'
+        ? 'Open previewUrl before expiresAt. If it has a magic moment, call share with worthSharing=true plus a 0.5-8 second clip window and destination. Otherwise decline it.'
         : undefined,
     };
   }

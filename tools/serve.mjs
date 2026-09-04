@@ -20,7 +20,7 @@
 //   c->s  { type:'start', stage }                  s->c { type:'start', stage, by }   (2P race start sync)
 //   s->c  { type:'joined'|'left', id, role, name }
 import http from 'node:http';
-import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, unlinkSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, unlinkSync, readdirSync, rmdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -58,6 +58,10 @@ const APP_SCHEME = process.env.APP_SCHEME || 'marbles';
 /** telemetry: JSONL file of installs / crashes / events; installs are only counted with a valid app proof */
 const TELEMETRY_FILE = process.env.TELEMETRY_FILE || path.join(root, 'data', 'telemetry.jsonl');
 const SHARE_DIR = process.env.SHARE_DIR || path.join(path.dirname(LEADERBOARD_FILE), 'shares');
+const SHARE_PENDING_TTL_MS = Math.max(60_000, +(process.env.SHARE_PENDING_TTL_MS || 12 * 60 * 60 * 1000));
+const SHARE_MAX_PENDING = Math.max(1, +(process.env.SHARE_MAX_PENDING || 12));
+const SHARE_MAX_PENDING_BYTES = Math.max(1024 * 1024, +(process.env.SHARE_MAX_PENDING_BYTES || 96 * 1024 * 1024));
+const SHARE_MAX_RENDERED = Math.max(1, +(process.env.SHARE_MAX_RENDERED || 250));
 /** sha256 (hex, no colons) of the APK signing certificate(s); Play's app-signing cert for store builds */
 const APK_CERT_SHA256 = (process.env.APK_CERT_SHA256 || '').toLowerCase().split(',').map((x) => x.replace(/:/g, '').trim()).filter(Boolean);
 const installNonces = new Map();          // nonce -> expiry (single use, 60 s)
@@ -249,6 +253,50 @@ function sharePath(id, name) { return path.join(SHARE_DIR, id, name); }
 function shareMeta(id) {
   try { return JSON.parse(readFileSync(sharePath(id, 'meta.json'), 'utf8')); } catch { return null; }
 }
+function removeShare(id, reason) {
+  if (!/^[0-9a-f]{32}$/.test(id)) return false;
+  for (const name of ['source.webm', 'moment.gif', 'title.ppm', 'meta.json']) {
+    try { unlinkSync(sharePath(id, name)); } catch { /* absent */ }
+  }
+  try { rmdirSync(sharePath(id, '')); }
+  catch { return false; }
+  console.log(`[share prune] ${id} ${reason}`);
+  return true;
+}
+function pruneShares(now = Date.now()) {
+  mkdirSync(SHARE_DIR, { recursive: true });
+  const records = [];
+  for (const entry of readdirSync(SHARE_DIR, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !/^[0-9a-f]{32}$/.test(entry.name)) continue;
+    const meta = shareMeta(entry.name);
+    if (!meta) continue;
+    const created = Date.parse(meta.createdAt || '') || 0;
+    const source = sharePath(entry.name, 'source.webm');
+    const gif = sharePath(entry.name, 'moment.gif');
+    records.push({ id: entry.name, meta, created, sourceBytes: existsSync(source) ? statSync(source).size : 0, hasGif: existsSync(gif) });
+  }
+
+  // Full-race sources are private review scratch space, not an archive. Expire
+  // abandoned or declined reviews and bound both count and total bytes.
+  for (const record of records) {
+    if (!record.meta.rendered && (record.meta.reviewed || !record.sourceBytes || now - record.created > SHARE_PENDING_TTL_MS)) {
+      removeShare(record.id, record.meta.reviewed ? 'review complete' : 'pending review expired');
+      record.removed = true;
+    }
+  }
+  const pending = records.filter((r) => !r.removed && !r.meta.rendered && r.sourceBytes).sort((a, b) => a.created - b.created);
+  let pendingBytes = pending.reduce((sum, r) => sum + r.sourceBytes, 0);
+  while (pending.length > SHARE_MAX_PENDING || pendingBytes > SHARE_MAX_PENDING_BYTES) {
+    const record = pending.shift();
+    if (!record) break;
+    if (removeShare(record.id, 'pending review quota')) pendingBytes -= record.sourceBytes;
+  }
+
+  // Public cards are intentionally durable, but a runaway agent cannot fill
+  // the host forever. Only the oldest cards past the generous cap are removed.
+  const rendered = records.filter((r) => !r.removed && r.meta.rendered && r.hasGif).sort((a, b) => b.created - a.created);
+  for (const record of rendered.slice(SHARE_MAX_RENDERED)) removeShare(record.id, 'rendered card quota');
+}
 function safeHtml(value) {
   return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -280,6 +328,11 @@ async function renderShareGif(id, start, end) {
   ]);
   return output;
 }
+
+pruneShares();
+setInterval(() => {
+  try { pruneShares(); } catch (error) { console.warn('[share prune]', error instanceof Error ? error.message : error); }
+}, 60 * 60 * 1000).unref();
 
 const SHARE_FONT = {
   A:'01110/10001/10001/11111/10001/10001/10001', B:'11110/10001/10001/11110/10001/10001/11110',
@@ -319,6 +372,7 @@ const server = http.createServer(async (req, res) => {
   const p = url.pathname;
   try {
     if (p === '/api/shares/candidate' && req.method === 'POST') {
+      try { pruneShares(); } catch (error) { console.warn('[share prune]', error instanceof Error ? error.message : error); }
       const cookies = parseCookies(req);
       if (!cookies.mm_lobby || !/^[0-9a-f-]{36}$/i.test(cookies.mm_lobby)) return sendJson(res, 403, { error: 'active lobby required' });
       const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
@@ -335,12 +389,17 @@ const server = http.createServer(async (req, res) => {
       const meta = {
         id, raceId, lobby: cookies.mm_lobby.toLowerCase(), duration,
         reason: String(url.searchParams.get('reason') || '2P race complete').slice(0, 180),
-        createdAt: new Date().toISOString(), rendered: false,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + SHARE_PENDING_TTL_MS).toISOString(),
+        rendered: false,
       };
       writeFileSync(sharePath(id, 'meta.json'), JSON.stringify(meta, null, 2), { mode: 0o640 });
+      // Include the newly written candidate in the quota calculation. Pruning
+      // only before upload permits the store to sit one item over its cap.
+      try { pruneShares(); } catch (error) { console.warn('[share prune]', error instanceof Error ? error.message : error); }
       const origin = PUBLIC_ORIGIN || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
       return sendJson(res, 201, {
-        ok: true, id, duration, reason: meta.reason,
+        ok: true, id, duration, reason: meta.reason, expiresAt: meta.expiresAt,
         previewUrl: `${origin}/media/shares/${id}/source.webm`,
         cardUrl: `${origin}/share/${id}`,
       });
@@ -360,6 +419,15 @@ const server = http.createServer(async (req, res) => {
           writeFileSync(sharePath(id, 'meta.json'), JSON.stringify(meta, null, 2), { mode: 0o640 });
           return sendJson(res, 200, { ok: true, shared: false, note: 'candidate declined; full-race recording deleted' });
         }
+        if (meta.rendered && existsSync(sharePath(id, 'moment.gif'))) {
+          const origin = PUBLIC_ORIGIN || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
+          return sendJson(res, 200, {
+            ok: true, shared: true, reused: true, where: meta.where,
+            gifUrl: `${origin}/media/shares/${id}/moment.gif`, cardUrl: `${origin}/share/${id}`,
+            note: 'Share card was already rendered; returning the same durable URLs.',
+          });
+        }
+        if (meta.reviewed && meta.worthSharing === false) return sendJson(res, 409, { error: 'candidate was already declined' });
         const start = Math.max(0, Math.min(meta.duration || 0, Number(input.start) || 0));
         const end = Math.max(start + 0.5, Math.min(meta.duration || start + 8, Number(input.end) || start + 6, start + 8));
         if (end <= start || end - start > 8.01) return sendJson(res, 400, { error: 'clip must be 0.5 to 8 seconds' });
