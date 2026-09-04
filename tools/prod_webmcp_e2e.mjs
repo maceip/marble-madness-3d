@@ -17,6 +17,21 @@ for (const [who, page] of [['human', human], ['agent', agent]]) {
 }
 let failed = 0;
 const check = (name, pass, detail = '') => { console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? `  ${detail}` : ''}`); if (!pass) failed++; };
+async function captureAnimatedCard(page, file) {
+  await page.waitForTimeout(2000); // title lead-in is 0.9 s; capture the gameplay segment
+  // Chromium can omit non-animated sibling layers from a screenshot while an
+  // animated GIF is compositing. Re-promote the whole card and wait two frames.
+  await page.evaluate(async () => {
+    const card = document.querySelector('.card');
+    if (card instanceof HTMLElement) {
+      card.style.transform = 'translateZ(0)';
+      card.style.filter = 'brightness(1)';
+      void card.offsetHeight;
+    }
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+  await page.screenshot({ path: file });
+}
 
 await human.goto(BASE + '/');
 await human.waitForFunction(() => window.game?.screens);
@@ -109,8 +124,7 @@ if (knockoffCandidate.status === 'ready' && Number.isFinite(knockoffMark?.at)) {
     sharePage.on('pageerror', (e) => errors.push(`share: ${e.message}`));
     sharePage.on('console', (m) => { if (m.type() === 'error') errors.push(`share: ${m.text()}`); });
     await sharePage.goto(shared.cardUrl);
-    await sharePage.waitForTimeout(2000);
-    await sharePage.screenshot({ path: 'artifacts/prod-human-knocks-ai-card.png' });
+    await captureAnimatedCard(sharePage, 'artifacts/prod-human-knocks-ai-card.png');
     await sharePage.close();
   }
 }
@@ -176,8 +190,7 @@ if (aiKnockoffCandidate.status === 'ready' && Number.isFinite(aiKnockoffMark?.at
     sharePage.on('pageerror', (e) => errors.push(`share: ${e.message}`));
     sharePage.on('console', (m) => { if (m.type() === 'error') errors.push(`share: ${m.text()}`); });
     await sharePage.goto(shared.cardUrl);
-    await sharePage.waitForTimeout(2000);
-    await sharePage.screenshot({ path: 'artifacts/prod-ai-knocks-human-card.png' });
+    await captureAnimatedCard(sharePage, 'artifacts/prod-ai-knocks-human-card.png');
     await sharePage.close();
   }
 }
