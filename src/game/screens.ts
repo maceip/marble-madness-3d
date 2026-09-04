@@ -222,7 +222,7 @@ Use the page's WebMCP tools to join as Player 2 and race me.`;
         if (this.idle > 4 || any) g.go(g.isAgentPage ? 'connect' : 'title');   // the agent returns to the lobby, never to the menus
         break;
       case 'congrats': {
-        for (const m of this.rain) { m.y += m.vy * dt; if (m.y > VIEW_H + 10) { m.y = -12; m.x = Math.random() * VIEW_W; } }
+        if (g.beatAllStages) for (const m of this.rain) { m.y += m.vy * dt; if (m.y > VIEW_H + 10) { m.y = -12; m.x = Math.random() * VIEW_W; } }
         const tally = g.finalTally;
         if (this.idle > 2.5 && tally.drained < tally.total) {
           const step = Math.min(tally.total - tally.drained, Math.ceil(tally.total * dt / 3 / 100) * 100);

@@ -18,7 +18,7 @@ export class MarbleRain {
     this.w = Math.max(1, w);
     this.h = Math.max(1, h);
     this.balls = [];
-    const n = Math.max(22, Math.round(count * Math.min(this.w, this.h) / 640));
+    const n = count <= 0 ? 0 : Math.max(22, Math.round(count * Math.min(this.w, this.h) / 640));   // 0 = no confetti (stages not all beaten)
     for (let i = 0; i < n; i++) this.balls.push(this.spawn(true));
   }
 
@@ -42,7 +42,7 @@ export class MarbleRain {
 
   update(dt: number, w: number, h: number): void {
     this.resize(w, h);
-    if (!this.balls.length) this.reset(w, h);
+    if (!this.balls.length) return;   // reset(…, 0): no confetti on this tally
     for (const b of this.balls) {
       b.y += b.vy * dt;
       if (b.y - b.r > this.h) {

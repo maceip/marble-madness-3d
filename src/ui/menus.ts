@@ -126,7 +126,8 @@ export class HtmlMenus {
     });
     document.getElementById('ui-exit-lb')?.addEventListener('click', (e) => {
       flashPress(e.currentTarget as HTMLElement);
-      window.setTimeout(() => this.game.go('title'), 110);
+      // "no rematch": tabulate the score (confetti only if every stage was beaten), then the leaderboard
+      window.setTimeout(() => this.game.go('congrats'), 110);
     });
     document.getElementById('ui-congrats')?.addEventListener('click', () => {
       if (this.game.screens.idle > 4) {
@@ -158,7 +159,7 @@ export class HtmlMenus {
       this.lastSig = '';
       this.lastScreen = screen;
       this.lastScale = 0;
-      if (screen === 'congrats') this.rain.reset(window.innerWidth, window.innerHeight);
+      if (screen === 'congrats') this.rain.reset(window.innerWidth, window.innerHeight, this.game.beatAllStages ? 36 : 0);
       if (humanHtml) this.paintStatic(screen);
     }
     if (humanHtml) this.sync(screen);
@@ -501,19 +502,20 @@ export class HtmlMenus {
 
   private syncCongrats(font: BitmapFont, sc: number): void {
     const g = this.game;
-    const sec = Math.floor(g.timeLeft);
+    const sec = g.beatAllStages ? Math.floor(g.timeLeft) : 0;   // a time-up has no seconds-left bonus
     const dest = g.aiDestroyed;
     const dizzy = g.aiDizzied;
     const remain = Math.max(0, g.finalTally.total - g.finalTally.drained);
     const sig = `${g.playerName}|${g.score}|${g.deaths}|${sec}|${dest}|${dizzy}|${remain}|${sc}`;
     if (sig === this.lastSig) return;
     this.lastSig = sig;
-    pxFill(document.getElementById('ui-win-h'), font, 'CONGRATULATIONS', 'blue', sc);
+    const beat = g.beatAllStages;
+    pxFill(document.getElementById('ui-win-h'), font, beat ? 'CONGRATULATIONS' : 'TIME UP', beat ? 'blue' : 'orange', sc);
     pxFill(document.getElementById('ui-win-who'), font, g.playerName || 'LEFT PLAYER', 'white', Math.max(1, sc - 1));
-    pxFill(document.getElementById('ui-win-sub'), font, 'YOU HAVE COMPLETED', 'cyan', Math.max(1, sc - 1));
-    pxFill(document.getElementById('ui-win-sub2'), font, 'THE ULTIMATE RACE', 'cyan', Math.max(1, sc - 1));
+    pxFill(document.getElementById('ui-win-sub'), font, beat ? 'YOU HAVE COMPLETED' : 'YOU RAN OUT OF TIME ON', 'cyan', Math.max(1, sc - 1));
+    pxFill(document.getElementById('ui-win-sub2'), font, beat ? 'THE ULTIMATE RACE' : `RACE ${g.stageIdx + 1}`, 'cyan', Math.max(1, sc - 1));
     const rows: [string, string][] = [
-      ['BONUS FOR FINISHING', fmtScore(20000)],
+      ['BONUS FOR FINISHING', fmtScore(beat ? 20000 : 0)],
       [`${sec} SEC LEFT X 1000`, fmtScore(sec * 1000)],
       [`DIED ${g.deaths} TIMES X -1000`, `-${fmtScore(g.deaths * 1000)}`],
       [`DESTROYED ${dest} AI`, String(dest)],

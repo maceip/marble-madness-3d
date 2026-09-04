@@ -114,6 +114,8 @@ export class Game {
   oppFinished = false;
   wonLast = false;
   wonPool = 0;
+  /** true only when the last stage was finished: gates the marble confetti on the tally screen */
+  beatAllStages = false;
   wonDone = 0;
   waitingT = 0;
   goalFlags: { u: number; v: number; z: number }[] = [];
@@ -771,6 +773,7 @@ export class Game {
     const secLeft = Math.floor(this.timeLeft);
     const total = FINISH_BONUS + secLeft * SEC_LEFT_BONUS - this.deaths * DEATH_PENALTY;
     this.finalTally = { total, drained: 0 };
+    this.beatAllStages = true;
     this.announceRaceEnd('finish');
     this.webmcp.emit('race_end', { result: 'finish', won: this.wonLast, score: this.score, deaths: this.deaths });
     this.sound.playBgm('ending', false);
@@ -782,10 +785,14 @@ export class Game {
   gameOver(): void {
     this.sound.stopBgm(); this.sound.stopRoll();
     if (this.mode === 'ai') this.wonLast = false;
+    // not all stages beaten: the tally still runs (no finish bonus, no confetti) before the leaderboard
+    this.beatAllStages = false;
+    this.finalTally = { total: 0, drained: 0 };
     this.announceRaceEnd('timeup');
     this.webmcp.emit('race_end', { result: 'timeup', won: false, score: this.score, deaths: this.deaths });
     if (this.mode === 'ai' && !this.isAgentPage) { this.go('rematch'); return; }
-    this.go('gameover');
+    if (this.isAgentPage) { this.go('gameover'); return; }
+    this.go('congrats');
   }
 
   /** human presses PLAY AGAIN on the rematch screen: restart the race and tell the agent (still in the lobby) to go */
