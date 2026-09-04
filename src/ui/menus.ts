@@ -48,18 +48,18 @@ export class HtmlMenus {
       if ((e.target as HTMLElement).closest('button')) return;
       goMenu();
     });
-    document.getElementById('ui-menu-press')?.addEventListener('click', (e) => {
-      flashPress(e.currentTarget as HTMLElement);
-      window.setTimeout(() => this.game.screens.chooseMode(this.game.screens.cursor), 90);
-    });
+    // The mode card is the whole control: tapping 1 PLAYER / 2 PLAYERS selects and starts that mode
+    // (there is no separate PRESS START on this screen any more).
     for (const id of ['ui-mode-0', 'ui-mode-1']) {
       document.getElementById(id)?.addEventListener('click', (e) => {
         const i = id.endsWith('0') ? 0 : 1;
         flashPress(e.currentTarget as HTMLElement);
         this.game.screens.cursor = i;
-        this.game.sound.sfx('tick', 0.4);
+        this.game.sound.init();
+        this.game.sound.sfx('item');
         this.lastSig = '';
         this.sync('menu');
+        window.setTimeout(() => { if (this.game.screen === 'menu') this.game.screens.chooseMode(i); }, 120);
       });
     }
 
@@ -186,13 +186,10 @@ export class HtmlMenus {
     const font = this.font();
     const sc = uiScale();
     if (screen === 'title') {
-      pxSpread(document.getElementById('ui-spread'), font, 'WEBMCPHACKATHON', 'white', sc);
+      pxSpread(document.getElementById('ui-spread'), font, 'WEBMCP HACKATHON', 'white', sc);
       pxFill(document.getElementById('ui-presents'), font, 'PRESENTS', 'white', Math.max(1, sc - 1));
       pxFill(document.getElementById('ui-col-player'), font, 'PLAYER', 'orange', sc);
       pxFill(document.getElementById('ui-col-intel'), font, 'INTELLIGENCE', 'orange', sc);
-    }
-    if (screen === 'menu') {
-      pxFill(document.getElementById('ui-menu-agent'), font, 'HUMAN VS AGENT', 'white', sc);
     }
     if (screen === 'name') {
       pxFill(document.getElementById('ui-name-p1'), font, 'PLAYER 1', 'cyan', sc);
@@ -240,7 +237,6 @@ export class HtmlMenus {
       this.lastSig = sig;
       this.paintMode(0, '1 PLAYER', cur === 0, font, sc);
       this.paintMode(1, '2 PLAYERS', cur === 1, font, sc);
-      pxFill(document.getElementById('ui-menu-press'), font, 'PRESS START', blink ? 'orange' : 'white', sc);
     }
     if (screen === 'name') this.syncName(font, sc, blink);
     if (screen === 'connect') this.syncConnect(font, sc);

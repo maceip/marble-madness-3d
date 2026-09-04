@@ -260,10 +260,10 @@
 
     .ui-spread {
       display: flex; justify-content: space-between; align-items: center;
-      width: 100%; flex-shrink: 0; min-height: 18px; margin-bottom: 2px;
+      width: min(92vw, 860px); margin: 0 auto 2px; flex-shrink: 0; min-height: 18px;
     }
     .ui-spread-letter { flex: 1; display: flex; justify-content: center; }
-    .ui-spread-gap { flex: 0.55; }
+    .ui-spread-gap { flex: 1.8; }
     #ui-presents { margin-bottom: 8px; }
     .ui-logo {
       width: min(72vw, 620px); max-width: 100%; height: auto;
@@ -293,14 +293,14 @@
     .ui-lb-head > :first-child { grid-column: 2; justify-self: start; }
     .ui-lb-head > :last-child { grid-column: 3; justify-self: start; padding-left: 12px; }
     .ui-lb-row {
-      min-height: 27px; padding: 4px 7px;
+      height: 30px; min-height: 0; padding: 0 7px; box-sizing: border-box;
       border-bottom: 1px dotted #3a8eb8;
     }
     .ui-lb-row:last-child { border-bottom: 0; }
     .ui-lb-name { padding-right: 10px; border-right: 2px dotted #4ec4ff; min-width: 0; display: flex; align-items: center; align-self: stretch; }
     .ui-lb-name.you canvas { filter: drop-shadow(0 1px 0 #4ec4ff); }
     .ui-lb-intel { padding-left: 12px; }
-    #ui-press-start, #ui-menu-press, #ui-name-start {
+    #ui-press-start, #ui-name-start {
       display: flex; justify-content: center; align-items: center;
       background: none; border: 0; padding: 14px 20px; margin-top: 10px;
     }
@@ -308,20 +308,18 @@
       flex-shrink: 0; display: flex; justify-content: center; align-items: center;
       padding-top: 10px; min-height: 56px; margin-top: auto;
     }
-    .ui-foot img { height: 44px; width: auto; image-rendering: pixelated; display: block; }
+    .ui-foot img { height: 64px; width: auto; max-width: min(92vw, 480px); object-fit: contain; display: block; }
     #ui-menu { justify-content: flex-start; gap: 12px; background: #000; padding-top: max(28px, env(safe-area-inset-top)); }
-    .ui-logo-menu { width: min(82vw, 520px); margin-bottom: clamp(42px, 10vh, 90px); }
-    .ui-modes { display: flex; flex-direction: column; gap: 14px; width: min(76vw, 620px); }
+    .ui-logo-menu { width: min(82vw, 520px); margin-bottom: clamp(72px, 18vh, 170px); }
+    .ui-modes { display: flex; flex-direction: column; gap: 14px; width: auto; margin: 0 auto; }
     .ui-mode {
       display: flex; align-items: center; gap: 16px;
       background: transparent; border: 0; color: inherit;
-      padding: 5px 8px; text-align: left; width: 100%;
+      padding: 5px 8px; text-align: left; width: auto;
     }
     .ui-mode-col { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
     .ui-mark { width: 34px; flex-shrink: 0; display: flex; justify-content: center; }
     .ui-mode-marble { width: 32px; height: 32px; image-rendering: pixelated; }
-    #ui-menu-agent { margin-top: clamp(44px, 9vh, 80px); }
-    #ui-menu-press { margin-top: clamp(38px, 8vh, 72px); }
 
     #ui-name { justify-content: flex-start; gap: 8px; }
     .ui-oauth-row {
@@ -572,18 +570,16 @@
       #ui-title .ui-logo { width: min(55vw, 480px); max-height: 34vh; object-fit: contain; margin: 0 0 4px; }
       #ui-title .ui-lb { padding: 4px 7px 3px; }
       #ui-title .ui-lb-head { padding: 3px 7px; }
-      #ui-title .ui-lb-row { min-height: 22px; padding: 2px 7px; }
+      #ui-title .ui-lb-row { height: 22px; min-height: 0; padding: 0 7px; }
       #ui-title #ui-press-start { padding: 6px 14px; margin-top: 3px; }
       #ui-title .ui-foot { min-height: 30px; padding-top: 0; }
-      #ui-title .ui-foot img { height: 28px; }
+      #ui-title .ui-foot img { height: 40px; }
       #ui-menu { gap: 6px; padding-top: 8px; padding-bottom: 64px; overflow-y: hidden; }
       #ui-menu .ui-logo-menu {
         width: min(55vw, 480px); max-height: 36vh; object-fit: contain;
         margin-bottom: 8px;
       }
       #ui-menu .ui-modes { gap: 4px; }
-      #ui-menu-agent, #ui-menu-press { margin-top: 8px; }
-      #ui-menu-press { padding: 8px 20px; }
     }
 
     @media (max-width: 520px) {
@@ -621,7 +617,6 @@
       .ui-logo { width: min(36vw, 300px); margin: 0 0 4px; }
       #ui-menu .ui-logo-menu { width: min(30vw, 260px); }
       #ui-menu .ui-modes { gap: 2px; }
-      #ui-menu-agent, #ui-menu-press { margin-top: 2px; }
       .ui-lb { width: min(52vw, 480px); padding: 4px 6px; }
       #ui-title { flex-flow: row wrap; justify-content: center; align-content: center; }
       #ui-title .ui-spread, #ui-title #ui-presents, #ui-title #ui-press-start, #ui-title .ui-foot { width: 100%; }
@@ -636,7 +631,7 @@
       #ui-keys { grid-auto-rows: 28px; }
       #ui-name-start { min-height: 32px; margin-top: 2px; }
       .ui-foot { min-height: 28px; }
-      .ui-foot img { height: 24px; }
+      .ui-foot img { height: 36px; }
       #ui-agent-teaser { display: none !important; }
     }
 
@@ -711,7 +706,7 @@
         <div id="ui-lb-rows"></div>
       </div>
       <button type="button" class="ui-tap" id="ui-press-start"></button>
-      <footer class="ui-foot"><img src="/assets/screens/parts/icons_browsers.png" alt=""></footer>
+      <footer class="ui-foot"><img src="/assets/screens/parts/webmcpfooter.png" alt="WebMCP"></footer>
     </section>
     <section id="ui-menu" hidden>
       <img class="ui-logo ui-logo-menu" src="/assets/screens/parts/logo.png" alt="Marble Madness">
@@ -719,8 +714,6 @@
         <button type="button" class="ui-tap ui-mode" id="ui-mode-0"></button>
         <button type="button" class="ui-mode ui-tap" id="ui-mode-1"></button>
       </div>
-      <div id="ui-menu-agent"></div>
-      <button type="button" class="ui-tap" id="ui-menu-press"></button>
     </section>
     <section id="ui-name" hidden>
       <div id="ui-name-p1"></div>
