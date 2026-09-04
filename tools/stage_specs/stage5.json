@@ -353,7 +353,7 @@
     },
     {
       "name": "goal_platform",
-      "z": 420,
+      "z": 396,
       "flat": true,
       "pts": [
         [
@@ -402,7 +402,7 @@
     },
     {
       "name": "goal_entry",
-      "z": 412,
+      "z": 396,
       "flat": true,
       "pts": [
         [
@@ -778,42 +778,6 @@
           50,
           70,
           396
-        ]
-      ]
-    },
-    {
-      "name": "goalside_to_entry",
-      "open": true,
-      "solid": true,
-      "w": 20,
-      "pts": [
-        [
-          58,
-          54,
-          396
-        ],
-        [
-          81,
-          50,
-          412
-        ]
-      ]
-    },
-    {
-      "name": "entry_to_goal",
-      "open": true,
-      "solid": true,
-      "w": 20,
-      "pts": [
-        [
-          90,
-          48,
-          412
-        ],
-        [
-          112,
-          54,
-          420
         ]
       ]
     }
