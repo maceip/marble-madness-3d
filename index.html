@@ -310,7 +310,7 @@
     }
     .ui-foot img { height: 64px; width: auto; max-width: min(92vw, 480px); object-fit: contain; display: block; }
     #ui-menu { justify-content: flex-start; gap: 12px; background: #000; padding-top: max(28px, env(safe-area-inset-top)); }
-    .ui-logo-menu { width: min(82vw, 520px); margin-bottom: clamp(72px, 18vh, 170px); }
+    .ui-logo-menu { width: min(82vw, 620px); margin-bottom: clamp(72px, 18vh, 170px); }
     .ui-modes { display: flex; flex-direction: column; gap: 14px; width: auto; margin: 0 auto; }
     .ui-mode {
       display: flex; align-items: center; gap: 16px;
@@ -321,7 +321,7 @@
     .ui-mark { width: 34px; flex-shrink: 0; display: flex; justify-content: center; }
     .ui-mode-marble { width: 32px; height: 32px; image-rendering: pixelated; }
 
-    #ui-name { justify-content: flex-start; gap: 8px; }
+    #ui-name { justify-content: center; gap: 8px; }
     .ui-oauth-row {
       display: flex; align-items: center; justify-content: center; gap: 24px;
       flex-wrap: wrap; width: min(96vw, 900px); margin: 10px 0 14px;
@@ -359,7 +359,7 @@
     }
     #ui-name-start {
       width: min(68vw, 360px); background: #ffd23f; border: 2px solid #ffe89a;
-      border-radius: 8px; min-height: 44px; margin-top: auto;
+      border-radius: 8px; min-height: 44px; margin-top: 16px;
     }
     #ui-name-start.dim { opacity: 0.45; }
 
@@ -577,8 +577,8 @@
       #ui-title .ui-foot img { height: 40px; }
       #ui-menu { gap: 6px; padding-top: 8px; padding-bottom: 64px; overflow-y: hidden; }
       #ui-menu .ui-logo-menu {
-        width: min(55vw, 480px); max-height: 36vh; object-fit: contain;
-        margin-bottom: 8px;
+        width: min(72vw, 620px); max-height: 44vh; object-fit: contain;
+        margin-bottom: clamp(40px, 10vh, 96px);
       }
       #ui-menu .ui-modes { gap: 4px; }
     }
