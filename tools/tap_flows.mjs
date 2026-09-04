@@ -45,6 +45,9 @@ async function run(size) {
   const errs = [];
   page.on('pageerror', (e) => errs.push('PAGEERROR ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error') errs.push('CONSOLE ' + m.text().slice(0, 140)); });
+  page.on('response', (response) => {
+    if (response.status() >= 400) errs.push(`HTTP ${response.status()} ${new URL(response.url()).pathname}`);
+  });
   const check = (name, ok, detail = '') => { log(`   ${ok ? '✓' : '✗'} ${name}${detail ? '  ' + detail : ''}`); if (!ok) fails++; };
   try {
     await page.goto(BASE + '/', { waitUntil: 'load' });

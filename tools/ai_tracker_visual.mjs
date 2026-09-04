@@ -4,6 +4,7 @@ import { chromium } from 'playwright-core';
 
 const BASE = (process.env.BASE || 'http://127.0.0.1:3000').replace(/\/$/, '');
 const OUT = process.env.OUT || 'artifacts/ai-tracker-mobile.png';
+const EDGE_OUT = OUT.replace(/\.png$/i, '-offscreen.png');
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const humanContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 const agentContext = await browser.newContext({ viewport: { width: 1100, height: 760 } });
@@ -43,6 +44,7 @@ await agent.evaluate(() => window.webmcp.callTool('spin_trackball', { dx: 0.8, d
 await human.waitForTimeout(900);
 const moved = await human.evaluate(() => [...game.aiTrackerDebug.values()][0]);
 check('callout follows live network marble movement', Math.hypot(moved.targetX - first.targetX, moved.targetY - first.targetY) > 1, `${JSON.stringify(first)} -> ${JSON.stringify(moved)}`);
+await human.screenshot({ path: OUT, fullPage: true });
 
 await agent.evaluate(() => {
   game.paused = true;
@@ -71,8 +73,8 @@ await human.waitForFunction(() => {
 const edge = await human.evaluate(() => [...game.aiTrackerDebug.values()][0]);
 check('offscreen AI gets a clamped edge pointer', edge.offscreen && edge.tagX >= 31 && edge.tagX <= 257 && edge.tagY >= 41 && edge.tagY <= 224, JSON.stringify(edge));
 
-await human.screenshot({ path: OUT, fullPage: true });
+await human.screenshot({ path: EDGE_OUT, fullPage: true });
 check('no browser errors', errors.length === 0, errors.slice(0, 4).join(' | '));
 await browser.close();
-console.log(failures ? `AI TRACKER: FAIL (${failures})` : `AI TRACKER: PASS (${OUT})`);
+console.log(failures ? `AI TRACKER: FAIL (${failures})` : `AI TRACKER: PASS (${OUT}; ${EDGE_OUT})`);
 process.exit(failures ? 1 : 0);
