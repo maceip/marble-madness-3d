@@ -31,12 +31,17 @@ await Promise.all([
   agent.waitForFunction(() => game.screen === 'race', null, { timeout: 25000 }),
 ]);
 check('agent records the actual game canvas', await agent.evaluate(() => game.magicRecorder.review().status === 'recording'));
+await agent.evaluate(() => {
+  game.magicRecorder.noteHardCollision(4.2);
+  game.magicRecorder.noteRemoteKnockoff();
+});
 await agent.evaluate(() => window.webmcp.callTool('spin_trackball', { dx: 0.8, dy: 0.65, speed: 90 }));
 await agent.waitForTimeout(1500);
 await agent.evaluate(() => game.gameOver());
 await agent.waitForFunction(() => game.magicRecorder.review().status === 'ready' || game.magicRecorder.review().status === 'error', null, { timeout: 12000 });
 const candidate = await agent.evaluate(() => window.webmcp.callTool('get_share_candidate'));
 check('race end becomes a reviewable share candidate', candidate.status === 'ready' && candidate.previewUrl && candidate.cardUrl, JSON.stringify(candidate));
+check('candidate carries bounded timestamp hints for clip review', Array.isArray(candidate.moments) && candidate.moments.length === 2 && candidate.moments.every((moment) => Number.isFinite(moment.at) && moment.at >= 0) && candidate.moments.some((moment) => moment.type === 'hard_collision') && candidate.moments.some((moment) => moment.type === 'ai_knocked_human'), JSON.stringify(candidate.moments));
 check('private full-race preview advertises a bounded review window', Number.isFinite(Date.parse(candidate.expiresAt)) && Date.parse(candidate.expiresAt) > Date.now(), String(candidate.expiresAt || 'missing'));
 check('share candidate is pushed through the WebMCP event stream', await agent.evaluate(() => window.__shareEvents.some((entry) => entry.event === 'share_candidate' && entry.data?.previewUrl === game.magicRecorder.review().previewUrl)));
 

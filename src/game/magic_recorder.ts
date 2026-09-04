@@ -2,6 +2,12 @@ import type { Game } from './game';
 
 export type MagicRecorderStatus = 'idle' | 'recording' | 'processing' | 'ready' | 'unsupported' | 'error';
 
+export interface MagicMomentMark {
+  at: number;
+  type: 'ai_knocked_human' | 'human_knocked_ai' | 'hard_collision' | 'ai_fall';
+  detail?: string;
+}
+
 export interface MagicCandidate {
   status: MagicRecorderStatus;
   id?: string;
@@ -11,6 +17,7 @@ export interface MagicCandidate {
   previewUrl?: string;
   cardUrl?: string;
   expiresAt?: string;
+  moments?: MagicMomentMark[];
   error?: string;
 }
 
@@ -23,7 +30,9 @@ export class MagicMomentRecorder {
   private raceId = '';
   private finishing: Promise<MagicCandidate> | null = null;
   private lastOpponentBumpAt = -Infinity;
+  private lastCollisionMarkAt = -Infinity;
   private opponentKnockoffs = 0;
+  private moments: MagicMomentMark[] = [];
   candidate: MagicCandidate = { status: 'idle' };
 
   constructor(private game: Game, private canvas: HTMLCanvasElement) {}
@@ -40,7 +49,9 @@ export class MagicMomentRecorder {
     this.chunks = [];
     this.startedAt = performance.now();
     this.lastOpponentBumpAt = -Infinity;
+    this.lastCollisionMarkAt = -Infinity;
     this.opponentKnockoffs = 0;
+    this.moments = [];
     const mimeTypes = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
     const mimeType = mimeTypes.find((type) => MediaRecorder.isTypeSupported(type)) || '';
     try {
@@ -59,7 +70,26 @@ export class MagicMomentRecorder {
   noteOpponentBump(): void { this.lastOpponentBumpAt = performance.now(); }
 
   noteLocalDeath(): void {
-    if (performance.now() - this.lastOpponentBumpAt < 1800) this.opponentKnockoffs++;
+    if (performance.now() - this.lastOpponentBumpAt < 1800) {
+      this.opponentKnockoffs++;
+      this.mark('human_knocked_ai');
+    } else {
+      this.mark('ai_fall');
+    }
+  }
+
+  noteRemoteKnockoff(): void { this.mark('ai_knocked_human'); }
+
+  noteHardCollision(impulse: number): void {
+    const now = performance.now();
+    if (now - this.lastCollisionMarkAt < 400) return;
+    this.lastCollisionMarkAt = now;
+    this.mark('hard_collision', `impact ${impulse.toFixed(1)}`);
+  }
+
+  private mark(type: MagicMomentMark['type'], detail?: string): void {
+    if (!this.startedAt || this.moments.length >= 64) return;
+    this.moments.push({ at: Math.max(0, (performance.now() - this.startedAt) / 1000), type, ...(detail ? { detail } : {}) });
   }
 
   private reason(): string {
@@ -77,7 +107,7 @@ export class MagicMomentRecorder {
     const recorder = this.recorder;
     const raceId = this.raceId;
     const duration = Math.max(0, (performance.now() - this.startedAt) / 1000);
-    this.candidate = { status: 'processing', raceId, duration };
+    this.candidate = { status: 'processing', raceId, duration, moments: [...this.moments] };
     this.finishing = new Promise<MagicCandidate>((resolve) => {
       recorder.addEventListener('stop', async () => {
         try {
@@ -93,10 +123,11 @@ export class MagicMomentRecorder {
           this.candidate = {
             status: 'ready', id: String(out.id), raceId, duration,
             reason, previewUrl: String(out.previewUrl), cardUrl: String(out.cardUrl), expiresAt: String(out.expiresAt || ''),
+            moments: [...this.moments],
           };
           this.game.webmcp.emit('share_candidate', {
             ...this.candidate,
-            question: 'Is this race worth clipping? Open previewUrl before expiresAt, then call share with worthSharing, the best start/end seconds, and where it should go.',
+            question: 'Is this race worth clipping? Use moments as timestamp hints, open previewUrl before expiresAt, then call share with worthSharing, the best start/end seconds, and where it should go.',
           });
         } catch (error) {
           this.candidate = { status: 'error', raceId, duration, error: error instanceof Error ? error.message : String(error) };
@@ -117,7 +148,7 @@ export class MagicMomentRecorder {
     return {
       ...this.candidate,
       instruction: this.candidate.status === 'ready'
-        ? 'Open previewUrl before expiresAt. If it has a magic moment, call share with worthSharing=true plus a 0.5-8 second clip window and destination. Otherwise decline it.'
+        ? 'Use moments as timestamp hints and open previewUrl before expiresAt. If it has a magic moment, call share with worthSharing=true plus a 0.5-8 second clip window and destination. Otherwise decline it.'
         : undefined,
     };
   }
