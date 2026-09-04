@@ -36,9 +36,11 @@ check('real two-player race starts', await Promise.all([
 const dockLayout = await human.evaluate(() => {
   const dock = document.querySelector('#trackball-container')?.getBoundingClientRect();
   const settings = document.querySelector('#settings')?.getBoundingClientRect();
-  return { dock: dock?.toJSON(), settings: settings?.toJSON() };
+  const support = document.querySelector('#support-link')?.getBoundingClientRect();
+  return { dock: dock?.toJSON(), settings: settings?.toJSON(), support: support?.toJSON(), width: innerWidth };
 });
 check('mobile trackball dock clears the settings and privacy strip', !!dockLayout.dock && !!dockLayout.settings && dockLayout.dock.bottom <= dockLayout.settings.top, JSON.stringify(dockLayout));
+check('mobile settings and support link stay inside the viewport', !!dockLayout.settings && !!dockLayout.support && dockLayout.settings.left >= 0 && dockLayout.settings.right <= dockLayout.width && dockLayout.support.right <= dockLayout.width, JSON.stringify(dockLayout));
 
 await human.waitForFunction(() => game.aiTrackerDebug.size === 1, null, { timeout: 6000 });
 const first = await human.evaluate(() => [...game.aiTrackerDebug.values()][0]);

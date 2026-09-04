@@ -48,7 +48,8 @@
       transition: opacity .15s ease;
     }
     #settings:hover { opacity: 1; }
-    #settings input { width: 80px; }
+    #settings input[type="range"] { width: 80px; }
+    #settings input[type="checkbox"] { width: auto; }
 
     /* 3D Bowling Ball Trackball Dock (Bottom Right on Mobile & Desktop) */
     #trackball-container {
@@ -605,6 +606,12 @@
     }
     @media (max-width: 520px) and (orientation: portrait) {
       #trackball-container { bottom: max(62px, calc(env(safe-area-inset-bottom) + 54px)); }
+      #settings {
+        left: max(6px, env(safe-area-inset-left));
+        right: max(6px, env(safe-area-inset-right));
+        gap: 6px; padding: 4px 6px; font-size: 9px;
+      }
+      #settings input[type="range"] { width: 54px; }
     }
     @media (pointer: coarse) { #ui-agent-teaser { display: none !important; } }
     @media (max-height: 520px) and (orientation: landscape) {
