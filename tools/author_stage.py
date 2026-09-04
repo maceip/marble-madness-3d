@@ -68,6 +68,11 @@ def poly_mask(shape, poly) -> np.ndarray:
     return np.asarray(im).astype(bool)
 
 
+def _disc(r: int) -> np.ndarray:
+    yy, xx = np.mgrid[-r:r + 1, -r:r + 1]
+    return (yy * yy + xx * xx) <= r * r
+
+
 def raster_polyline(pts, shape) -> list[tuple[int, int]]:
     im = Image.new('L', (shape[1], shape[0]), 0)
     d = ImageDraw.Draw(im)
@@ -224,6 +229,19 @@ def load_classification(n: int, spec: dict, source: str | None):
         print(f"  floorColor {fc['color']} in {fc['box']}: {int(m.sum())} px floor")
     for poly in spec.get('floor', []):
         kind[poly_mask(kind.shape, poly)] = FLOOR
+    # solid paths: a painted ribbon (wavy chute, checkered strip) is floor across its whole width w, dark squares
+    # and outline included, so the marble is not funnelled onto the bright squares only
+    for p in spec.get('paths', []):
+        if not p.get('solid'):
+            continue
+        r = max(1, int(round(p.get('w', 14) / 2)))
+        m = np.zeros(kind.shape, bool)
+        for y, x in raster_polyline([[float(a), float(b), float(c)] for a, b, c in p['pts']], kind.shape):
+            if 0 <= y < kind.shape[0] and 0 <= x < kind.shape[1]:
+                m[y, x] = True
+        m = _nd.binary_dilation(m, structure=_disc(r))
+        kind[m] = FLOOR
+        print(f"  solid path {p['name']}: {int(m.sum())} px floor within {r} px of the centreline")
     for poly in spec.get('wall', []):
         kind[poly_mask(kind.shape, poly)] = WALL
     for poly in spec.get('void', []):
@@ -260,7 +278,7 @@ def build_elements(spec: dict):
         pts = [[int(a), int(b)] for a, b in s['pts']] if 'pts' in s else [[int(s['x']), int(s['y'])]]
         elements.append({'kind': 'flat', 'name': s['name'], 'pts': pts, 'x': pts[0][0], 'y': pts[0][1], 'z': float(s['z']), 'w': s.get('w'), 'color': s.get('color'), 'tol': s.get('tol', 90)})
     for p in spec.get('paths', []):
-        elements.append({'kind': 'path', 'name': p['name'], 'pts': [[float(a), float(b), float(c)] for a, b, c in p['pts']], 'w': p.get('w', 30)})
+        elements.append({'kind': 'path', 'name': p['name'], 'pts': [[float(a), float(b), float(c)] for a, b, c in p['pts']], 'w': p.get('w', 30), 'open': bool(p.get('open', False))})
     return elements
 
 
@@ -281,7 +299,31 @@ def assign_limited(kind: np.ndarray, elements: list[dict], art=None) -> np.ndarr
     q = deque()
     for i, e in enumerate(elements):
         if e['kind'] == 'path':
-            srcs = raster_polyline(e['pts'], kind.shape)
+            # a centreline read off the art by eye wanders onto the painted tile seams / rails: snap every
+            # rasterised point to the nearest floor pixel within 4 px so a thin ribbon still gets its sources
+            srcs = []
+            for y, x in raster_polyline(e['pts'], kind.shape):
+                if not (0 <= y < H and 0 <= x < W):
+                    continue
+                if kind[y, x] == FLOOR:
+                    srcs.append((y, x))
+                    continue
+                best = None
+                for r in range(1, 5):
+                    for dy in range(-r, r + 1):
+                        for dx in range(-r, r + 1):
+                            if max(abs(dy), abs(dx)) != r:
+                                continue
+                            yy, xx = y + dy, x + dx
+                            if 0 <= yy < H and 0 <= xx < W and kind[yy, xx] == FLOOR:
+                                best = (yy, xx)
+                                break
+                        if best:
+                            break
+                    if best:
+                        break
+                if best:
+                    srcs.append(best)
         else:
             srcs = []
             for sx, sy in e['pts']:
@@ -456,6 +498,8 @@ def main() -> None:
         if e['kind'] == 'path':
             c['path'] = [{'x': p[0], 'y': p[1], 'z': p[2]} for p in e['pts']]
             c['a'] = e['pts'][0][2]
+            if e.get('open'):
+                c['open'] = True   # open ramp: the engine adds no half-pipe lip along its edges
         else:
             c['a'] = e['z']
         out_comps.append(c)

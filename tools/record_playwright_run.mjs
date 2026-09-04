@@ -149,17 +149,76 @@ const WAYPOINTS = {
     { name: 'goal', sx: 184, sy: 1108, r: 10, speed: 30 },
   ],
   3: [
-    { name: 'tower_slide', sx: 45, sy: 52 },
-    { name: 'maze_landing', sx: 94, sy: 150 },
-    { name: 'maze_turn1', sx: 110, sy: 250 },
-    { name: 'maze_turn2', sx: 80, sy: 360 },
-    { name: 'maze_turn3', sx: 110, sy: 480 },
-    { name: 'maze_turn4', sx: 150, sy: 560 },
-    { name: 'funnel_pipe', sx: 162, sy: 645 },
-    { name: 'pipe_exit', sx: 152, sy: 768 },
-    { name: 'wave_plate', sx: 120, sy: 880 },
-    { name: 'wave_run', sx: 160, sy: 980 },
-    { name: 'goal_sign', sx: 232, sy: 1036 },
+    // tower -> scripted arch slide lands on the left WING walkway (z 240)
+    { name: 'tower', sx: 45, sy: 52 },
+    { name: 'wing_land', sx: 66, sy: 128, r: 12 },
+    { name: 'wing1', sx: 52, sy: 131, r: 10, speed: 30, brake: 2 },
+    { name: 'wing2', sx: 38, sy: 142, r: 8, speed: 25, brake: 3 },      // the walkway runs to the map's left edge: crawl round the bend
+    { name: 'wing2b', sx: 18, sy: 150, r: 8, speed: 25, brake: 2 },
+    { name: 'wing3', sx: 11, sy: 160, r: 6, speed: 25, brake: 2 },   // the walkway is only 20 px wide here, hugging the map edge
+    { name: 'wing3b', sx: 12, sy: 172, r: 8, speed: 30, brake: 2.5 },
+    { name: 'wing4', sx: 20, sy: 190, r: 10, speed: 35 },
+    { name: 'wing4b', sx: 16, sy: 208, r: 8, speed: 35 },
+    { name: 'wing5', sx: 12, sy: 224, r: 8, speed: 30 },
+    { name: 'wing5b', sx: 12, sy: 236, r: 8, speed: 30, brake: 2 },
+    { name: 'wing6', sx: 22, sy: 246, r: 6, speed: 30, brake: 2 },
+    { name: 'wing_corner', sx: 42, sy: 252, r: 5, speed: 30, brake: 1.5 },
+    // 16 px drop off the wing's corner tip onto the steep left ramp (224 -> 176) which runs screen down-right (+u)
+    { name: 'ramp_top', sx: 55, sy: 273, r: 6, speed: 30 },      // under the raised cross's corner (cut out of the collision)
+    { name: 'ramp_mid', sx: 70, sy: 300, r: 8, speed: 40 },
+    { name: 'ramp_mid2', sx: 78, sy: 314, r: 8, speed: 35, brake: 3 },
+    { name: 'ramp_foot', sx: 84, sy: 328, r: 8, speed: 30, brake: 1.5 },   // the pad ends 2.5 tiles on in +u: arrive slow
+    // middle "maze": floating pads with real gaps. Left L-pad, its arm down-right (+u), the turn, then down-left (+v)
+    // the ramp lands on the upper-right bump of one long strip that runs +u (screen down-right); centre up on it
+    { name: 'm0', sx: 76, sy: 346, r: 8, speed: 30, brake: 2 },
+    { name: 'm1', sx: 64, sy: 356, r: 8, speed: 30, brake: 2 },
+    { name: 'm2', sx: 62, sy: 364, r: 8, speed: 30, brake: 2 },
+    { name: 'm3', sx: 78, sy: 371, r: 8, speed: 35, brake: 3 },
+    { name: 'm4', sx: 92, sy: 377, r: 10, speed: 35, brake: 3 },
+    { name: 'm5', sx: 110, sy: 386, r: 10, speed: 35, brake: 3 },
+    { name: 'm6', sx: 131, sy: 396, r: 10, speed: 35, brake: 3 },
+    { name: 'm7', sx: 152, sy: 406, r: 10, speed: 35, brake: 2.5 },
+    { name: 'm8', sx: 166, sy: 414, r: 8, speed: 30, brake: 2 },
+    { name: 'm8b', sx: 176, sy: 421, r: 6, speed: 30, brake: 1.5 },
+    // the turn: back down-left (+v) along the lower arm
+    { name: 'm9', sx: 166, sy: 428, r: 8, speed: 30, brake: 2 },
+    { name: 'm10', sx: 150, sy: 436, r: 10, speed: 35, brake: 3 },
+    { name: 'm11', sx: 134, sy: 444, r: 10, speed: 35, brake: 3 },
+    { name: 'm12', sx: 118, sy: 452, r: 10, speed: 35, brake: 3 },
+    { name: 'm13', sx: 102, sy: 460, r: 8, speed: 35, brake: 2.5 },
+    { name: 'm13b', sx: 88, sy: 470, r: 8, speed: 30, brake: 2 },
+    // junction -> the big middle floor (pillars around x 125-155, y 510-550 are left alone) -> funnel
+    { name: 'j1', sx: 100, sy: 492, r: 10 },
+    { name: 'j2', sx: 100, sy: 510, r: 10 },
+    { name: 'j3', sx: 100, sy: 530, r: 10 },
+    { name: 'm15', sx: 108, sy: 550, r: 10 },
+    { name: 'm16', sx: 128, sy: 570, r: 10 },
+    { name: 'm17', sx: 148, sy: 590, r: 10 },
+    { name: 'm18', sx: 160, sy: 612, r: 10 },
+    { name: 'm19', sx: 163, sy: 630, r: 8, speed: 35, brake: 2 },
+    { name: 'funnel', sx: 162, sy: 646, r: 6, speed: 35 },
+    // funnel pipe -> catwalk (129) -> roll off its front edge: 48 px drop onto the plate level (81, dizzy)
+    { name: 'catwalk_land', sx: 150, sy: 775, r: 10, speed: 40 },
+    { name: 'cw1', sx: 167, sy: 789, r: 8, speed: 40 },
+    { name: 'cw2', sx: 187, sy: 800, r: 8, speed: 40 },
+    { name: 'cw_edge', sx: 200, sy: 812, r: 8, speed: 35 },
+    { name: 'plate_land', sx: 190, sy: 870, r: 14, speed: 40 },
+    { name: 'plate_end', sx: 200, sy: 882, r: 8, speed: 30, brake: 2 },
+    // roll off the plate's lower-left edge: 13 px drop onto the bright wavy ribbon that starts under the plate
+    { name: 'pad_B', sx: 196, sy: 902, r: 8, speed: 30, brake: 2 },
+    { name: 'w1', sx: 183, sy: 916, r: 8, speed: 35 },
+    { name: 'w2', sx: 168, sy: 922, r: 8, speed: 35 },
+    { name: 'w3', sx: 156, sy: 936, r: 8, speed: 35 },
+    { name: 'w4', sx: 144, sy: 950, r: 8, speed: 35 },
+    { name: 'w5', sx: 140, sy: 958, r: 6, speed: 30, brake: 2 },
+    { name: 'cross', sx: 140, sy: 964, r: 6, speed: 30, brake: 2 },
+    { name: 'g1', sx: 147, sy: 970, r: 6, speed: 30 },
+    { name: 'g2', sx: 152, sy: 980, r: 6, speed: 30 },
+    { name: 'g3', sx: 164, sy: 986, r: 6, speed: 30 },
+    { name: 'g4', sx: 176, sy: 994, r: 6, speed: 30 },
+    { name: 'g_end', sx: 184, sy: 1000, r: 6, speed: 35 },
+    { name: 'goal_pad', sx: 205, sy: 1018, r: 10, speed: 35 },
+    { name: 'goal', sx: 232, sy: 1036, r: 10, speed: 30 },
   ],
   4: [
     { name: 'tower_slide', sx: 250, sy: 55 },
@@ -195,6 +254,20 @@ const WAYPOINTS = {
 };
 
 const wps = WAYPOINTS[stage] || WAYPOINTS[1];
+// Waypoints are MAP PIXELS. Resolve each one onto the floor drawn there so steering happens in world space:
+// a pixel 20 px "down" on the screen can be a floor 16 units lower straight ahead, not a floor diagonally ahead.
+{
+  const picks = await page.evaluate((pts) => pts.map(([x, y]) => (window.mmDebug.pick ? window.mmDebug.pick(x, y)[0] : null) || null), wps.map((w) => [w.sx, w.sy]));
+  picks.forEach((pk, i) => {
+    if (pk) { wps[i].u = pk.u; wps[i].v = pk.v; wps[i].z = pk.z; wps[i].floor = pk.name; }
+    else console.log(`⚠ waypoint #${i} (${wps[i].name}) at (${wps[i].sx}, ${wps[i].sy}) is not over any floor`);
+  });
+  console.log('waypoints: ' + wps.map((w, i) => `#${i} ${w.name} (${w.sx},${w.sy}) -> ${w.u !== undefined ? `z${w.z} ${w.floor}` : '??'}`).join(' | '));
+}
+/** screen distance from the marble to a waypoint, measured on the waypoint's floor plane */
+const dist2 = (m, w) => w.u !== undefined
+  ? Math.hypot((w.u - m.u) * 8 - (w.v - m.v) * 8, (w.u - m.u) * 4 + (w.v - m.v) * 4)
+  : Math.hypot(w.sx - m.sx, w.sy - m.sy);
 let wpIdx = 1; // start moving to first target
 let reachedGoal = false;
 let lastDeaths = 0;
@@ -231,6 +304,8 @@ for (let tick = 0; tick < 600 && !reachedGoal; tick++) {
   } else stallTicks = 0;
   lastPos = { sx: m.sx, sy: m.sy };
 
+  if (m.screen === 'title' || m.screen === 'gameover' || m.screen === 'menu') { console.log(`race over (screen ${m.screen}) at tick ${tick} without reaching the goal`); break; }
+  if (tick % 20 === 0) await page.evaluate(() => window.mmDebug.clock && window.mmDebug.clock(200));   // collision test, not a time trial
   if (m.screen === 'timebonus' || m.screen === 'congrats' || m.goal) {
     console.log(`🏆 Goal reached at tick ${tick}! (Screen: ${m.screen}, Deaths: ${m.deaths})`);
     reachedGoal = true;
@@ -248,7 +323,7 @@ for (let tick = 0; tick < 600 && !reachedGoal; tick++) {
     lastDeaths = m.deaths;
     let bestIdx = 1, bestDist = Infinity;
     for (let i = 1; i < wps.length; i++) {
-      const d = Math.hypot(wps[i].sx - m.sx, wps[i].sy - m.sy);
+      const d = dist2(m, wps[i]);
       if (d < bestDist && wps[i].sy >= m.sy - 20) {
         bestDist = d;
         bestIdx = i;
@@ -267,16 +342,16 @@ for (let tick = 0; tick < 600 && !reachedGoal; tick++) {
   // waypoint itself is) so a fast section cannot make it turn around and push back up the course
   // teleported (pipe exit, respawn): resync to the closest waypoint ahead when the current one is far away
   {
-    const dCur = Math.hypot(wps[wpIdx].sx - m.sx, wps[wpIdx].sy - m.sy);
+    const dCur = dist2(m, wps[wpIdx]);
     if (dCur > 60) {
       let best = wpIdx, bd = dCur;
-      for (let k = wpIdx + 1; k < wps.length; k++) { const d = Math.hypot(wps[k].sx - m.sx, wps[k].sy - m.sy); if (d < bd) { bd = d; best = k; } }
+      for (let k = wpIdx + 1; k < wps.length; k++) { const d = dist2(m, wps[k]); if (d < bd) { bd = d; best = k; } }
       if (best !== wpIdx && bd < 40) { console.log(`↷ resync: marble at (${m.sx}, ${m.sy}) is ${bd.toFixed(0)} px from #${best} (${wps[best].name}); skipping ${best - wpIdx} waypoint(s)`); wpIdx = best; }
     }
   }
   while (wpIdx < wps.length - 1) {
     const t = wps[wpIdx], n = wps[wpIdx + 1];
-    const dT = Math.hypot(t.sx - m.sx, t.sy - m.sy), dN = Math.hypot(n.sx - m.sx, n.sy - m.sy), seg = Math.hypot(n.sx - t.sx, n.sy - t.sy);
+    const dT = dist2(m, t), dN = dist2(m, n), seg = Math.hypot(n.sx - t.sx, n.sy - t.sy);
     if (dT < (t.r ?? 18) || (dN < seg * 0.5 && dT < seg) || (dN < dT && dN < 30)) {
       console.log(`✓ Reached waypoint #${wpIdx} (${t.name}) at (${m.sx}, ${m.sy}). Next: ${n.name}`);
       wpIdx++;
@@ -285,12 +360,14 @@ for (let tick = 0; tick < 600 && !reachedGoal; tick++) {
 
   // Calculate normalized steering direction
   const currTarget = wps[wpIdx];
-  let tdx = currTarget.sx - m.sx;
-  let tdy = currTarget.sy - m.sy;
-  
-  const tdist = Math.hypot(tdx, tdy) || 1;
-  const nx = tdx / tdist;
-  const ny = tdy / tdist;
+  // direction in world space (u right-down, v left-down), expressed as the screen direction the trackball wants
+  let tdx, tdy;
+  if (currTarget.u !== undefined) { const du = currTarget.u - m.u, dv = currTarget.v - m.v; tdx = du - dv; tdy = (du + dv) / 2; }
+  else { tdx = currTarget.sx - m.sx; tdy = currTarget.sy - m.sy; }
+  const tdist = dist2(m, currTarget) || 1;
+  const tl = Math.hypot(tdx, tdy) || 1;
+  const nx = tdx / tl;
+  const ny = tdy / tl;
   // Trackball model is heavy (impulse + bearing friction), so pulse it every tick. Ease off near a waypoint
   // and when the marble is already fast, so it can take the corners instead of flying off.
   const sp = Math.hypot(m.vu ?? 0, m.vv ?? 0);
@@ -300,6 +377,12 @@ for (let tick = 0; tick < 600 && !reachedGoal; tick++) {
   // Apply trackball spin via mmDebug. Waypoints with `brake` counter-spin while the marble is faster than
   // that many tiles/s (there are no brakes on the cabinet: reverse the ball).
   let cmd = [nx, ny, speed];
+  // carried by a scripted slide / a pipe, or stunned after a landing: a player grabs the ball and waits
+  if (m.slide || m.inPipe || (m.dizzy > 0 && m.grounded && sp < 3)) {
+    await page.evaluate(() => window.mmDebug.grab && window.mmDebug.grab());
+    await page.waitForTimeout(150);
+    continue;
+  }
   if (currTarget.brake && sp > currTarget.brake) {
     const vsx = (m.vu - m.vv), vsy = (m.vu + m.vv) / 2, vl = Math.hypot(vsx, vsy) || 1;   // velocity in screen space
     cmd = [-vsx / vl, -vsy / vl, 70];

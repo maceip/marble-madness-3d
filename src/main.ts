@@ -231,14 +231,20 @@ async function boot(): Promise<void> {
       return (window as any).webmcp.callTool('spin_trackball', { dx, dy, speed: impulse * 80 });
     },
     spin: (dx: number, dy: number, speed = 60) => (window as any).webmcp.callTool('spin_trackball', { dx, dy, speed }),
+    /** grab the ball: kill the trackball's angular momentum (what a player does while the marble is carried by a slide / pipe) */
+    /** set the race clock (seconds left) */
+    clock: (sec: number) => { (game as any).timeLeft = sec; return sec; },
+    grab: () => { const tb = (game as any).input.trackball; tb.wx = 0; tb.wy = 0; return true; },
     brake: () => ({ ok: false, warning: 'No brakes on the cabinet. Counter-spin the trackball (reverse dx/dy) to slow down.' }),
-    marble: () => { const m = game.marble; return { u: +m.u.toFixed(2), v: +m.v.toFixed(2), z: +m.z.toFixed(0), sx: Math.round((m.u - m.v) * 8), sy: Math.round((m.u + m.v) * 4 - m.z), grounded: m.grounded, phase: m.phase, sup: m.support ? m.support.s.name : null, vu: +m.vu.toFixed(2), vv: +m.vv.toFixed(2), deaths: game.deaths, stage: game.stageIdx + 1, screen: game.screen, goal: game.goalReached }; },
+    marble: () => { const m = game.marble; return { u: +m.u.toFixed(2), v: +m.v.toFixed(2), z: +m.z.toFixed(0), sx: Math.round((m.u - m.v) * 8), sy: Math.round((m.u + m.v) * 4 - m.z), grounded: m.grounded, phase: m.phase, dizzy: +m.dizzyT.toFixed(2), slide: !!m.slide, inPipe: !!m.inPipe, sup: m.support ? m.support.s.name : null, vu: +m.vu.toFixed(2), vv: +m.vv.toFixed(2), deaths: game.deaths, stage: game.stageIdx + 1, screen: game.screen, goal: game.goalReached }; },
     screen: () => game.screen,
     // setup helpers WebMCP does not expose (menu-free): jump into a 1P race, or a specific stage
     race: (stageIdx = 0) => { game.sound.init?.(); game.newGame(stageIdx); return 'loading stage ' + (stageIdx + 1); },
     go: (screen: string) => { game.go(screen as never); return game.screen; },
     setMode: (m: string) => { game.mode = m as never; return game.mode; },
     teleport: (mx: number, my: number) => { const pk = game.pickAtPixel(mx, my)[0]; if (!pk) return null; game.marble.place(pk.u, pk.v, pk.z); game.marble.vu = 0; game.marble.vv = 0; return { u: +pk.u.toFixed(2), v: +pk.v.toFixed(2), z: Math.round(pk.z), name: pk.name }; },
+    /** what floor is drawn at a map pixel: [{u,v,z,name}] front-most first (no side effects) */
+    pick: (mx: number, my: number) => game.pickAtPixel(mx, my).map((p) => ({ u: +p.u.toFixed(2), v: +p.v.toFixed(2), z: Math.round(p.z), name: p.name })),
     tp: (u: number, v: number, z: number) => { game.marble.place(u, v, z); game.marble.vu = 0; game.marble.vv = 0; return (window as any).mmDebug.marble(); },
     surfaces: () => game.stage.surfaces.map((s) => ({ n: s.name, k: s.kind, z0: Math.round(s.z0) })),
     // ---- instrumentation: what the physics saw and why ------------------------------------------------
