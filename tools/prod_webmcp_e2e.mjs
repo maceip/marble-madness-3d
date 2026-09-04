@@ -23,48 +23,89 @@ async function captureAnimatedCard(page, file) {
   // so this works for both long clips and sub-second knockoff clips without
   // relying on nondeterministic GIF load timing.
   const image = page.locator('.card img');
-  const heading = page.locator('.card h1');
-  const caption = page.locator('.card .caption');
-  const url = page.locator('.card .url');
-  const headingPng = await heading.screenshot({ type: 'png' });
-  const captionPng = await caption.count() ? await caption.screenshot({ type: 'png' }) : null;
-  const urlPng = await url.screenshot({ type: 'png' });
+  await page.evaluate(() => document.fonts.ready);
+  const geometry = await page.evaluate(() => {
+    const root = document.querySelector('.card');
+    if (!(root instanceof HTMLElement)) throw new Error('share card missing');
+    const cardRect = root.getBoundingClientRect();
+    const relative = (selector) => {
+      const element = root.querySelector(selector);
+      if (!(element instanceof HTMLElement)) return null;
+      const rect = element.getBoundingClientRect();
+      const computed = getComputedStyle(element);
+      return {
+        x: rect.x - cardRect.x, y: rect.y - cardRect.y,
+        width: rect.width, height: rect.height,
+        text: element.textContent || '', font: computed.font,
+        color: computed.color, letterSpacing: computed.letterSpacing,
+        textTransform: computed.textTransform,
+      };
+    };
+    const style = getComputedStyle(root);
+    return {
+      width: cardRect.width, height: cardRect.height,
+      background: style.backgroundColor, border: style.borderTopColor,
+      borderWidth: parseFloat(style.borderTopWidth) || 0,
+      heading: relative('h1'), image: relative('img'),
+      caption: relative('.caption'), url: relative('.url'),
+    };
+  });
   let frame = Buffer.alloc(0);
   for (let i = 0; i < 18; i++) {
     await page.waitForTimeout(100);
     const sample = await image.screenshot({ type: 'png' });
     if (sample.length > frame.length) frame = sample;
   }
-  // Chromium can omit non-animated sibling layers from a full-page screenshot
-  // while an animated GIF is compositing. Freeze the selected frame, then
-  // capture the self-contained card element with all branded chrome and URL.
-  await image.evaluate(async (element, src) => {
-    element.src = src;
-    await element.decode();
-  }, `data:image/png;base64,${frame.toString('base64')}`);
-  // Browser screenshots occasionally drop separately painted text layers next
-  // to an animated image. Rasterize the production-rendered heading/caption/
-  // URL into ordinary image elements so the saved card is deterministic.
-  await heading.evaluate((element, src) => {
-    const raster = document.createElement('img');
-    raster.src = src;
-    raster.style.cssText = 'display:block;width:100%;height:32px;object-fit:contain;margin:0 0 14px;background:#050814';
-    element.replaceWith(raster);
-  }, `data:image/png;base64,${headingPng.toString('base64')}`);
-  if (captionPng) await caption.evaluate((element, src) => {
-    const raster = document.createElement('img');
-    raster.src = src;
-    raster.style.cssText = 'display:block;width:100%;height:15px;object-fit:contain;margin:13px 0 0;background:#050814';
-    element.replaceWith(raster);
-  }, `data:image/png;base64,${captionPng.toString('base64')}`);
-  await url.evaluate((element, src) => {
-    const raster = document.createElement('img');
-    raster.src = src;
-    raster.style.cssText = 'display:block;width:100%;height:23px;object-fit:contain;margin-top:14px;background:#050814';
-    element.replaceWith(raster);
-  }, `data:image/png;base64,${urlPng.toString('base64')}`);
+  // Chromium can omit sibling text layers when it captures a page containing
+  // an actively composited GIF. Assemble one deterministic canvas from
+  // screenshots of the live production elements, preserving their measured
+  // positions rather than recreating the typography or gameplay.
+  const parts = { image: frame.toString('base64') };
+  await page.evaluate(async ({ geometry, parts }) => {
+    const canvas = document.createElement('canvas');
+    canvas.id = 'captured-share-card';
+    canvas.width = Math.round(geometry.width);
+    canvas.height = Math.round(geometry.height);
+    canvas.style.cssText = 'display:block;width:auto;height:auto';
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('2D canvas unavailable');
+    context.fillStyle = geometry.border;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = geometry.background;
+    context.fillRect(
+      geometry.borderWidth, geometry.borderWidth,
+      canvas.width - geometry.borderWidth * 2,
+      canvas.height - geometry.borderWidth * 2,
+    );
+    const drawImage = async (key) => {
+      const rect = geometry[key];
+      const source = parts[key];
+      if (!rect || !source) return;
+      const element = new Image();
+      element.src = `data:image/png;base64,${source}`;
+      await element.decode();
+      context.drawImage(element, rect.x, rect.y, rect.width, rect.height);
+    };
+    const drawText = (key) => {
+      const rect = geometry[key];
+      if (!rect?.text) return;
+      const text = rect.textTransform === 'uppercase' ? rect.text.toUpperCase() : rect.text;
+      context.font = rect.font;
+      context.fillStyle = rect.color;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      if ('letterSpacing' in context) context.letterSpacing = rect.letterSpacing === 'normal' ? '0px' : rect.letterSpacing;
+      context.fillText(text, rect.x + rect.width / 2, rect.y + rect.height / 2);
+    };
+    drawText('heading');
+    await drawImage('image');
+    drawText('caption');
+    drawText('url');
+    document.body.replaceChildren(canvas);
+    document.body.style.cssText = 'margin:0;background:#000';
+  }, { geometry, parts });
   await page.waitForTimeout(100);
-  await page.locator('.card').screenshot({ path: file });
+  await page.locator('#captured-share-card').screenshot({ path: file });
 }
 
 await human.goto(BASE + '/');
