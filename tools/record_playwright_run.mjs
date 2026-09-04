@@ -90,8 +90,11 @@ const WAYPOINTS = {
     { name: 'chute_lower', sx: 145, sy: 432, r: 10, speed: 50 },
     { name: 'chute_exit', sx: 172, sy: 452, r: 10, speed: 40, brake: 2.5 },
     { name: 'ledge', sx: 166, sy: 470, r: 8, speed: 35, brake: 2.5 },
-    { name: 'corridor_entry', sx: 158, sy: 503, r: 12, speed: 45 },   // drop off the pipe's front lip
-    { name: 'corridor_mid', sx: 110, sy: 505 },
+    // drop off the pipe's front lip onto a diagonal corridor ~14 px wide: wall (pipe block) on its upper side, void on its lower side.
+    // Centreline runs (160,508) -> (146,516) -> (126,524); land slow and follow it.
+    { name: 'corridor_entry', sx: 160, sy: 508, r: 10, speed: 35, brake: 2 },
+    { name: 'corridor_in', sx: 146, sy: 516, r: 8, speed: 35, brake: 2.5 },
+    { name: 'corridor_mid', sx: 116, sy: 522, r: 10 },
     { name: 'goal', sx: 45, sy: 535 },
   ],
   2: [
