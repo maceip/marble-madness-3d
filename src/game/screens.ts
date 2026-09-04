@@ -375,7 +375,9 @@ Use the page's WebMCP tools to join as Player 2 and race me.`;
   private pctx(): CanvasRenderingContext2D { const c = this.g.r.screenCtx; c.fillStyle = '#0a0c16'; c.fillRect(0, 0, this.g.r.canvas.width, this.g.r.canvas.height); return c; }
   private pline(c: CanvasRenderingContext2D, text: string, cx: number, y: number, px: number, color: string, _weight = 'bold'): void {
     const font = this.g.r.font;
-    const scale = Math.max(1, Math.round(px / font.meta.cell));
+    const wanted = Math.max(1, Math.round(px / font.meta.cell));
+    const fits = Math.max(1, Math.floor((this.g.r.canvas.width - 24) / Math.max(1, font.width(text))));
+    const scale = Math.min(wanted, fits);
     font.drawCentered(c, text, cx, Math.round(y - (font.meta.cell * scale) / 2), colorVariant(color), scale);
   }
 
