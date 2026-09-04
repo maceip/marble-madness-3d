@@ -2,7 +2,7 @@
  * Audio: stage BGM via HTMLAudioElement, SFX via WebAudio buffers.
  * Menus are silent (as in the NES original); music starts with the race intro.
  */
-export type SfxName = 'roll' | 'bounce' | 'fall' | 'shatter' | 'muncher' | 'checkpoint' | 'goal' | 'springboard' | 'item' | 'tick' | 'vacuum';
+export type SfxName = 'roll' | 'bounce' | 'fall' | 'shatter' | 'muncher' | 'checkpoint' | 'goal' | 'springboard' | 'item' | 'tick' | 'vacuum' | 'chirp';
 
 export const BGM: Record<string, string> = {
   practice: 'bgm/practice-race.mp3',
@@ -14,7 +14,7 @@ export const BGM: Record<string, string> = {
   ending: 'marble-056.mp3',
 };
 
-const SFX: Record<SfxName, string> = {
+const SFX: Record<Exclude<SfxName, 'chirp'>, string> = {   // chirp (the sign-in bird fly-by) is synthesized
   roll: 'marble-049.mp3',
   bounce: 'marble-050.mp3',
   fall: 'marble-051.mp3',
@@ -175,6 +175,17 @@ export class Sound {
 
   private synth(name: string, vol: number): void {
     const ctx = this.ctx!; const t = ctx.currentTime;
+    if (name === 'chirp') {
+      // bird fly-by: three quick rising tweets, each a fast 1.7k -> 2.9k sweep, slightly detuned per tweet
+      for (let i = 0; i < 3; i++) {
+        const o = ctx.createOscillator(); const g = ctx.createGain(); const t0 = t + i * 0.11;
+        o.type = 'sine'; o.frequency.setValueAtTime(1700 + i * 120, t0); o.frequency.exponentialRampToValueAtTime(2900 + i * 150, t0 + 0.06);
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(clamp01(vol * this.sfxVolume * 0.25), t0 + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.085);
+        o.connect(g).connect(ctx.destination); o.start(t0); o.stop(t0 + 0.09);
+      }
+      return;
+    }
     const o = ctx.createOscillator(); const g = ctx.createGain();
     g.gain.value = clamp01(vol * this.sfxVolume * 0.3);
     o.connect(g).connect(ctx.destination);

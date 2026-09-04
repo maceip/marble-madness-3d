@@ -4,6 +4,7 @@ import { fmtScore } from '../engine/font';
 import { FRAMES } from '../engine/assets';
 import { pxCanvas, pxFill, pxSpread, uiScale, flashPress } from './pixel';
 import { MarbleRain } from './confetti';
+import { AuthCelebration } from './auth_fx';
 
 const LETTERS = ['ABCDEFG', 'HIJKLMN', 'OPQRSTU', 'VWXYZ'];
 const HTML_SCREENS = new Set(['title', 'menu', 'name', 'connect', 'congrats', 'rematch']);
@@ -23,16 +24,31 @@ export class HtmlMenus {
   private agentChooserOpen = false;
   private agentTeaserDismissed = false;
   readonly rain = new MarbleRain();
+  readonly authFx = new AuthCelebration();
   private fx: HTMLCanvasElement | null = null;
 
   constructor(private readonly game: Game) {}
 
   private font(): BitmapFont { return this.game.assets.font; }
 
+  /** sign-in verdict on the name screen: bird fly-by + sparkles + speech bubble over the menu. Returns how long it
+   *  runs so the caller can hold the screen that long (a tap on the overlay skips ahead on success). */
+  celebrateAuth(kind: 'ok' | 'error', lines: string[]): number {
+    this.bind();
+    this.authFx.start(kind, lines, window.innerWidth, window.innerHeight, uiScale() + 1);
+    this.game.sound.sfx('chirp');
+    return this.authFx.duration;
+  }
+
   bind(): void {
     if (this.bound) return;
     this.bound = true;
     this.fx = document.getElementById('ui-fx') as HTMLCanvasElement | null;
+    this.authFx.onFlock = () => this.game.sound.sfx('chirp', 0.8, 1.15);
+    // while the verdict plays the overlay sits over the buttons: a tap moves on instead of re-firing a sign-in
+    this.fx?.addEventListener('click', () => {
+      if (this.authFx.active && this.authFx.kind === 'ok' && this.game.screens.authSuccessTimer > 0) this.game.screens.finishName();
+    });
 
     const goMenu = (el?: HTMLElement | null) => {
       flashPress(el ?? null);
@@ -150,7 +166,13 @@ export class HtmlMenus {
     // id is ui-title → title after slice(3). ui-menu → menu. Good.
     // ui-name → name, ui-connect → connect, ui-congrats → congrats, ui-rematch → rematch.
     this.game.r.canvas.style.pointerEvents = humanHtml ? 'none' : '';
-    if (this.fx) this.fx.hidden = screen !== 'congrats';
+    if (this.authFx.active && screen !== 'name') this.authFx.stop();
+    if (this.fx) {
+      this.fx.hidden = !(screen === 'congrats' || this.authFx.active);
+      // the verdict draws over the name screen (and swallows taps on success); the tally rain stays underneath
+      this.fx.classList.toggle('ui-fx-front', this.authFx.active);
+      this.fx.classList.toggle('ui-fx-catch', this.authFx.active && this.authFx.kind === 'ok');
+    }
     if (screen !== this.lastScreen) {
       if (screen === 'connect') {
         this.agentChooserOpen = false;
@@ -166,7 +188,8 @@ export class HtmlMenus {
   }
 
   tick(dt: number): void {
-    if (this.game.screen !== 'congrats' || !this.fx) return;
+    const rain = this.game.screen === 'congrats';
+    if ((!rain && !this.authFx.active) || !this.fx) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const w = window.innerWidth, h = window.innerHeight;
     if (this.fx.width !== Math.round(w * dpr) || this.fx.height !== Math.round(h * dpr)) {
@@ -175,12 +198,14 @@ export class HtmlMenus {
       this.fx.style.width = w + 'px';
       this.fx.style.height = h + 'px';
     }
-    this.rain.update(dt, w, h);
+    if (rain) this.rain.update(dt, w, h);
+    this.authFx.update(dt, w, h);
     const ctx = this.fx.getContext('2d');
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    this.rain.draw(ctx);
+    if (rain) this.rain.draw(ctx);
+    this.authFx.draw(ctx, this.game.assets);
   }
 
   private paintStatic(screen: string): void {

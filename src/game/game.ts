@@ -280,13 +280,15 @@ export class Game {
       this.playerName = (window as any).__MM__.user;
     }
     // Back from a web OAuth round trip (triggerAuth parked the mode before leaving the page): resume on the
-    // name screen with the handle applied and let the same 0.5 s confirmation the Android flow uses carry the
-    // player on to the race / lobby. A declined login lands back on the name screen, never on the title.
+    // name screen with the handle applied and play the same verdict the Android flow shows (birds + speech
+    // bubble), then carry the player on to the race / lobby. A declined login lands back on the name screen
+    // with the error verdict, never on the title.
     const resume = this.takeAuthResume();
     if (resume && (userParam || q.has('auth_error'))) {
       this.mode = resume.mode;
       this.go('name');
       if (userParam) this.screens.onAuthSuccess(userParam);
+      else this.screens.onAuthError(q.get('auth_error') || 'error');
       return;
     }
     this.go('title');

@@ -50,9 +50,18 @@ export class Screens {
     this.g.playerName = handle;
     this.g.sound.sfx('item');
     if (this.g.screen === 'name') {
-      // Show prefilled handle and proceed to game after brief 500ms confirmation
-      this.authSuccessTimer = 0.5;
+      // handle shown in the name card; birds + SUCCESS speech bubble play over the screen, then on to the
+      // race / lobby (any tap or key skips ahead)
+      this.authSuccessTimer = this.html.celebrateAuth('ok', ['SUCCESS', handle.replace(/^@/, '').slice(0, 15)]);   // font has no '@'
     }
+  }
+
+  /** a declined / failed sign-in (web: /?auth_error=.., app: NativeBridge result): same fly-by, error verdict, stay here */
+  onAuthError(reason: string): void {
+    this.clearAuthPending();
+    if (this.g.screen !== 'name') return;
+    const why = reason.replace(/[_-]+/g, ' ').replace(/[^a-z0-9 ]/gi, '').trim().toUpperCase().slice(0, 14) || 'TRY AGAIN';
+    this.html.celebrateAuth('error', ['LOGIN FAILED', why]);
   }
 
   enter(screen: Screen): void {

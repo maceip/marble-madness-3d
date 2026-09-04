@@ -204,6 +204,9 @@
       width: 100vw; height: 100dvh;
     }
     #ui-fx[hidden] { display: none !important; }
+    /* sign-in verdict (birds + speech bubble) plays over the name screen; on success it also catches the tap that skips ahead */
+    #ui-fx.ui-fx-front { z-index: 40; }
+    #ui-fx.ui-fx-catch { pointer-events: auto; }
     .ui-screen, #ui-title, #ui-menu, #ui-name, #ui-connect, #ui-congrats, #ui-rematch {
       pointer-events: auto;
       position: absolute; inset: 0;

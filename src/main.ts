@@ -349,7 +349,7 @@ async function boot(): Promise<void> {
         localStorage.removeItem('mm_auth_nonce');
         if (r.error || !r.user) {
           console.warn('[auth] login failed:', r.error);
-          game.screens.clearAuthPending();
+          game.screens.onAuthError(r.error || 'no_user');
           return;
         }
         // same display cookie the web flow sets, so the server injects __MM__.user next time too
