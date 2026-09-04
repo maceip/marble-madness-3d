@@ -279,7 +279,29 @@ export class Game {
     } else if ((window as any).__MM__?.user) {
       this.playerName = (window as any).__MM__.user;
     }
+    // Back from a web OAuth round trip (triggerAuth parked the mode before leaving the page): resume on the
+    // name screen with the handle applied and let the same 0.5 s confirmation the Android flow uses carry the
+    // player on to the race / lobby. A declined login lands back on the name screen, never on the title.
+    const resume = this.takeAuthResume();
+    if (resume && (userParam || q.has('auth_error'))) {
+      this.mode = resume.mode;
+      this.go('name');
+      if (userParam) this.screens.onAuthSuccess(userParam);
+      return;
+    }
     this.go('title');
+  }
+
+  /** one-shot menu state parked by triggerAuth (main.ts) before the web OAuth redirect; ignored after 10 min */
+  private takeAuthResume(): { mode: Mode } | null {
+    try {
+      const raw = sessionStorage.getItem('mm_auth_resume');
+      if (!raw) return null;
+      sessionStorage.removeItem('mm_auth_resume');
+      const r = JSON.parse(raw) as { mode?: string; t?: number };
+      if (typeof r?.t !== 'number' || Date.now() - r.t > 600_000) return null;
+      return { mode: r.mode === 'ai' || r.mode === 'multi' ? r.mode : '1p' };
+    } catch { return null; }
   }
 
   async submitScore(): Promise<void> {

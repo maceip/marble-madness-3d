@@ -312,6 +312,10 @@ async function boot(): Promise<void> {
         game.screens.clearAuthPending();
       }
     } else {
+      // The web flow leaves the page for the provider and comes back as a cold load of /?user=.. (or
+      // /?auth_error=..). Park the in-memory menu state so start() resumes on the name screen and carries the
+      // player on, instead of dropping them on the title screen (read as "login did nothing" -> retry loop).
+      try { sessionStorage.setItem('mm_auth_resume', JSON.stringify({ mode: game.mode, t: Date.now() })); } catch { /* storage blocked */ }
       window.location.href = `/auth/${provider}`;
     }
   };
