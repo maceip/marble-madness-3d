@@ -288,6 +288,25 @@ if (agentCollision.ok) {
     for (const event of events) game['onMarbleEvent'](event);
   });
 }
+const cameraBefore = await human.evaluate(() => game.r.cam.y);
+const spectatorTarget = agentCollision.ok ? await agent.evaluate(() => {
+  for (const y of [420, 380, 340, 300]) {
+    const point = game.pickAtPixel(150, y)[0] || game.pickAtPixel(144, y)[0];
+    if (point) {
+      game.marble.place(point.u, point.v, point.z);
+      return (game.marble.u + game.marble.v) * 4 - game.marble.z;
+    }
+  }
+  return null;
+}) : null;
+const cameraFollowed = spectatorTarget !== null && await human.waitForFunction((before) => {
+  const opponent = game.others[0];
+  if (!opponent || game.marble.phase === 'alive') return false;
+  const opponentY = (opponent.u + opponent.v) * 4 - opponent.z;
+  const expected = Math.max(0, Math.min(game.stage.height - game.r.viewH, opponentY - 112));
+  return Math.abs((game.camOverride ?? -9999) - expected) < 3 && Math.abs(game.r.cam.y - before) > 15;
+}, cameraBefore, { timeout: 1800 }).then(() => true).catch(() => false);
+check('human camera follows the live agent marble after human death', cameraFollowed, `camera=${cameraBefore.toFixed(1)} target=${spectatorTarget}`);
 check('AI collision followed by human death is attributed to AI', agentCollision.ok && await agent.waitForFunction(
   (beforeDestroyed) => game.aiDestroyed > beforeDestroyed && game.magicRecorder.moments?.some((moment) => moment.type === 'ai_knocked_human'),
   agentCollision.before?.destroyed ?? 0,

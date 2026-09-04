@@ -12,6 +12,13 @@ const lobby = crypto.randomUUID();
 
 const agentContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const agent = await agentContext.newPage();
+await agent.addInitScript(() => {
+  window.__registeredSiteTools = [];
+  Object.defineProperty(document, 'modelContext', {
+    configurable: true,
+    value: { registerTool(tool) { window.__registeredSiteTools.push(tool); }, registerResource() {} },
+  });
+});
 const errors = [];
 agent.on('pageerror', (error) => errors.push(error.message));
 agent.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
@@ -33,13 +40,17 @@ await agent.evaluate(() => {
   const host = document.getElementById('agent-console');
   new MutationObserver(() => window.__agentClassHistory.push(host.className)).observe(host, { attributes: true, attributeFilter: ['class'] });
 });
+const trackballBefore = await agent.locator('#trackball').screenshot();
 await agent.evaluate(async () => {
-  await window.webmcp.callTool('set_name', { name: 'VANITY' });
-  await window.webmcp.callTool('spin_trackball', { dx: 1, dy: -0.25, speed: 72 });
-  await window.webmcp.callTool('get_game_state', {});
+  const call = (name, args = {}) => window.__registeredSiteTools.find((tool) => tool.name === name).execute(args);
+  await call('set_name', { name: 'VANITY' });
+  await call('spin_trackball', { dx: 1, dy: -0.25, speed: 72 });
+  await call('get_game_state', {});
   await window.webmcp.readResource('game://state');
   try { await window.webmcp.callTool('not_a_tool', {}); } catch { /* expected terminal error traffic */ }
 });
+await agent.waitForTimeout(250);
+const trackballAfter = await agent.locator('#trackball').screenshot();
 const traffic = await agent.evaluate(() => ({
   lines: [...document.querySelectorAll('.agent-log-line')].map((el) => el.getAttribute('aria-label') || ''),
   classes: window.__agentClassHistory,
@@ -52,6 +63,7 @@ check('terminal renders real calls, results, resources, and errors',
     && traffic.lines.some((x) => x.includes('! ERROR NOT_A_TOOL')), traffic.lines.join(' | '));
 check('directional call pulses through flux both ways', traffic.classes.some((x) => x.includes('pulse-to-ball') && x.includes('pulse-spin')) && traffic.classes.some((x) => x.includes('pulse-to-terminal') && x.includes('pulse-spin')), traffic.classes.join(' | '));
 check('directional MCP traffic spins the rendered trackball', traffic.speed > 0, String(traffic.speed));
+check('site-tool spin visibly moves the trackball canvas', !trackballBefore.equals(trackballAfter));
 
 // A human starts the race, but the agent's visible surface must not switch to any human/race screen.
 const humanContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
