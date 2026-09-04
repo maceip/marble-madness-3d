@@ -261,6 +261,25 @@ await agent.waitForFunction(() => window.__rapidShareCandidates?.length >= 2, nu
 const lastRapidId = await agent.evaluate(() => window.__rapidShareCandidates?.at(-1)?.id || '');
 if (lastRapidId) await agent.evaluate((candidateId) => window.webmcp.callTool('share', { candidateId, worthSharing: false }), lastRapidId);
 
+await human.waitForFunction(() => game.screen === 'rematch', null, { timeout: 5000 });
+await human.evaluate(() => game.rematch());
+check('fifth race starts for recorder fault cleanup', await Promise.all([
+  human.waitForFunction(() => game.screen === 'race', null, { timeout: 25000 }),
+  agent.waitForFunction(() => game.screen === 'race' && game.magicRecorder.recorder?.state === 'recording', null, { timeout: 25000 }),
+]).then(() => true).catch(() => false));
+await agent.evaluate(() => {
+  window.__faultStream = game.magicRecorder.stream;
+  game.magicRecorder.recorder.stop();
+});
+const faultCleanup = await agent.waitForFunction(() => game.magicRecorder.candidate.status === 'error' && game.magicRecorder.recorder === null, null, { timeout: 4000 }).then(() => agent.evaluate(() => ({
+  candidate: game.magicRecorder.candidate,
+  tracks: [...(window.__faultStream?.getTracks() || [])].map((track) => track.readyState),
+  event: game.webmcp.lastEvent,
+}))).catch(() => null);
+check('unexpected MediaRecorder stop ends tracks and notifies WebMCP', !!faultCleanup && /stopped unexpectedly/i.test(faultCleanup.candidate?.error || '') && faultCleanup.tracks.length > 0 && faultCleanup.tracks.every((state) => state === 'ended') && faultCleanup.event?.event === 'share_error', JSON.stringify(faultCleanup));
+await agent.evaluate(() => game.gameOver());
+await human.waitForFunction(() => game.screen === 'rematch', null, { timeout: 5000 });
+
 // If the opponent is truly gone, PLAY AGAIN must not launch a solo race under a 2P label.
 await agent.evaluate(() => game.net.leave());
 await human.waitForFunction(() => !game.net.opponent('ai'), null, { timeout: 5000 });

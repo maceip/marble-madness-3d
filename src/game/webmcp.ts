@@ -117,7 +117,7 @@ export class WebMCP {
       },
       {
         name: 'wait_for_race_event',
-        description: 'Block until the next race event (race_start, death, checkpoint, goal, race_end, share_candidate) or the timeout, then return that event plus the full game state. A share_candidate asks you to inspect a recorded 2P race and decide whether/where to clip it. Use this instead of polling get_game_state in a loop.',
+        description: 'Block until the next race event (race_start, death, checkpoint, goal, race_end, share_candidate, share_error) or the timeout, then return that event plus the full game state. A share_candidate asks you to inspect a recorded 2P race and decide whether/where to clip it. Use this instead of polling get_game_state in a loop.',
         inputSchema: { type: 'object', properties: { timeout_ms: { type: 'number', minimum: 20, maximum: 5000, default: 2000 } } },
         execute: (a) => this.waitForEvent(Number(a.timeout_ms ?? 2000)),
       },
