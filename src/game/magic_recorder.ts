@@ -89,7 +89,8 @@ export class MagicMomentRecorder {
 
   private mark(type: MagicMomentMark['type'], detail?: string): void {
     if (!this.startedAt || this.moments.length >= 64) return;
-    this.moments.push({ at: Math.max(0, (performance.now() - this.startedAt) / 1000), type, ...(detail ? { detail } : {}) });
+    const at = Math.round(Math.max(0, (performance.now() - this.startedAt) / 1000) * 1000) / 1000;
+    this.moments.push({ at, type, ...(detail ? { detail } : {}) });
   }
 
   private reason(): string {
@@ -156,13 +157,24 @@ export class MagicMomentRecorder {
   async share(args: Record<string, unknown>): Promise<unknown> {
     if (this.candidate.status !== 'ready' || !this.candidate.id) return { ok: false, ...this.review() };
     const worthSharing = args.worthSharing === true;
+    const start = Number(args.start);
+    const end = Number(args.end);
+    const where = String(args.where || '').trim();
+    if (worthSharing && (!Number.isFinite(start) || !Number.isFinite(end) || end - start < 0.5 || end - start > 8 || !where)) {
+      return {
+        ok: false,
+        error: 'A shareable moment requires an exact 0.5-8 second start/end window and destination.',
+        moments: this.candidate.moments || [],
+        instruction: 'Inspect previewUrl around the timestamp hints, then retry with worthSharing=true, start, end, and where.',
+      };
+    }
     const response = await fetch(`/api/shares/${this.candidate.id}/render`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         worthSharing,
-        start: Number(args.start) || 0,
-        end: Number(args.end) || Math.min(6, this.candidate.duration || 6),
-        where: String(args.where || 'copy link'),
+        start: worthSharing ? start : 0,
+        end: worthSharing ? end : 0.5,
+        where: worthSharing ? where : 'declined',
         caption: String(args.caption || ''),
       }),
     });

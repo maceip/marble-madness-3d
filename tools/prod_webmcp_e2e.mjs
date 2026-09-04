@@ -17,6 +17,26 @@ for (const [who, page] of [['human', human], ['agent', agent]]) {
 }
 let failed = 0;
 const check = (name, pass, detail = '') => { console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? `  ${detail}` : ''}`); if (!pass) failed++; };
+async function captureAnimatedCard(page, file) {
+  await page.waitForTimeout(1400); // title lead-in is 0.9 s; capture the gameplay segment
+  // Chromium can omit non-animated sibling layers from a screenshot while an
+  // animated GIF is compositing. Snapshot the visible GIF frame, freeze that
+  // exact frame in the loaded production card, then capture all card chrome.
+  const image = page.locator('.card img');
+  const frame = await image.screenshot({ type: 'png' });
+  await image.evaluate((element, src) => { element.src = src; }, `data:image/png;base64,${frame.toString('base64')}`);
+  await page.evaluate(async () => {
+    const card = document.querySelector('.card');
+    if (card instanceof HTMLElement) {
+      card.style.transform = 'translateZ(0) scale(0.9999)';
+      card.style.filter = 'brightness(1)';
+      void card.offsetHeight;
+      card.style.transform = 'translateZ(0) scale(1)';
+    }
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+  await page.screenshot({ path: file });
+}
 
 await human.goto(BASE + '/');
 await human.waitForFunction(() => window.game?.screens);
@@ -79,6 +99,7 @@ check('both share a non-empty race id', !!ids[0] && ids[0] === ids[1], ids.join(
 
 const death = await agent.evaluate(async () => {
   const waiting = window.webmcp.callTool('wait_for_race_event', { timeout_ms: 5000 });
+  game.net.onBump?.(6, -3, 'human');
   const events = []; game.marble.die('void', events);
   for (const event of events) game['onMarbleEvent'](event);
   return waiting;
@@ -91,6 +112,27 @@ check('ordinary death automatically respawns', await agent.waitForFunction(() =>
 await agent.evaluate(() => { game.timeLeft = 0.01; });
 check('agent loss returns agent to lobby', await agent.waitForFunction(() => game.screen === 'connect', null, { timeout: 5000 }).then(() => true).catch(() => false));
 check('agent loss opens human rematch', await human.waitForFunction(() => game.screen === 'rematch' && game.wonLast, null, { timeout: 5000 }).then(() => true).catch(() => false));
+await agent.waitForFunction(() => ['ready', 'error'].includes(game.magicRecorder.review().status), null, { timeout: 12000 });
+const knockoffCandidate = await agent.evaluate(() => window.webmcp.callTool('get_share_candidate'));
+const knockoffMark = knockoffCandidate.moments?.find((moment) => moment.type === 'human_knocked_ai');
+check('received human bump plus AI death becomes a timestamped knockoff', knockoffCandidate.status === 'ready' && Number.isFinite(knockoffMark?.at), JSON.stringify(knockoffCandidate));
+if (knockoffCandidate.status === 'ready' && Number.isFinite(knockoffMark?.at)) {
+  const start = Math.max(0, knockoffMark.at - 0.5);
+  const end = Math.min(knockoffCandidate.duration, start + 3);
+  const shared = await agent.evaluate(({ start, end }) => window.webmcp.callTool('share', {
+    worthSharing: true, start, end, where: 'share card', caption: 'Human sends CODEX over the edge.',
+  }), { start, end });
+  check('timestamped human-vs-AI knockoff renders a share card', shared.ok === true && shared.gifUrl && shared.cardUrl, JSON.stringify(shared));
+  if (shared.cardUrl) {
+    console.log(`SHARE CARD  ${shared.cardUrl}`);
+    const sharePage = await agentContext.newPage();
+    sharePage.on('pageerror', (e) => errors.push(`share: ${e.message}`));
+    sharePage.on('console', (m) => { if (m.type() === 'error') errors.push(`share: ${m.text()}`); });
+    await sharePage.goto(shared.cardUrl);
+    await captureAnimatedCard(sharePage, 'artifacts/prod-human-knocks-ai-card.png');
+    await sharePage.close();
+  }
+}
 
 // Neither waiting screen may be dropped by the server's 20-second idle reap.
 await human.waitForTimeout(22000);
@@ -109,10 +151,71 @@ await agent.evaluate((oldId) => game.net.sendRaceEnd({ raceId: oldId, result: 't
 await human.waitForTimeout(400);
 check('stale race-end cannot terminate a rematch', await human.evaluate(() => game.screen === 'intro' || game.screen === 'race'));
 
+const reciprocalRace = await Promise.all([
+  human.waitForFunction(() => game.screen === 'race' && game.marble.phase === 'alive' && !game.marble.slide, null, { timeout: 25000 }),
+  agent.waitForFunction(() => {
+    const opponent = game.net.opponent('human');
+    return game.screen === 'race'
+      && game.marble.phase === 'alive'
+      && !game.marble.slide
+      && opponent?.phase === 'alive'
+      && game.remotePhase.get(opponent.id) === 'alive';
+  }, null, { timeout: 25000 }),
+]).then(() => true).catch(() => false);
+check('rematch reaches a settled live race for reciprocal collision', reciprocalRace);
+const agentCollision = reciprocalRace ? await agent.evaluate(async () => {
+  const opponent = game.net.opponent('human');
+  if (!opponent) return { ok: false, error: 'human opponent missing' };
+  const before = { destroyed: game.aiDestroyed, dizzied: game.aiDizzied };
+  game.marble.place(opponent.u - 0.5, opponent.v, opponent.z);
+  game.marble.vu = 10; game.marble.vv = -2;
+  const until = performance.now() + 2500;
+  while (performance.now() < until) {
+    if (game.bumpedIds.has(opponent.id) && game.bumpClock > 0) {
+      return { ok: true, id: opponent.id, before, dizzied: game.aiDizzied, bumpClock: game.bumpClock };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return { ok: false, id: opponent.id, before, dizzied: game.aiDizzied, bumpClock: game.bumpClock };
+}) : { ok: false, error: 'rematch never reached settled live state' };
+check('agent marble makes a real networked collision with human', agentCollision.ok, JSON.stringify(agentCollision));
+if (agentCollision.ok) {
+  await human.evaluate(() => {
+    const events = []; game.marble.die('void', events);
+    for (const event of events) game['onMarbleEvent'](event);
+  });
+}
+check('AI collision followed by human death is attributed to AI', agentCollision.ok && await agent.waitForFunction(
+  (beforeDestroyed) => game.aiDestroyed > beforeDestroyed && game.magicRecorder.moments?.some((moment) => moment.type === 'ai_knocked_human'),
+  agentCollision.before?.destroyed ?? 0,
+  { timeout: 5000 },
+).then(() => true).catch(() => false));
+
 // Human loses: the agent must be released from the race and wait for the human.
 await human.evaluate(() => game.gameOver());
 check('human loss opens rematch', await human.evaluate(() => game.screen === 'rematch' && !game.wonLast));
 check('human loss returns agent to lobby', await agent.waitForFunction(() => game.screen === 'connect', null, { timeout: 5000 }).then(() => true).catch(() => false));
+await agent.waitForFunction(() => ['ready', 'error'].includes(game.magicRecorder.review().status), null, { timeout: 12000 });
+const aiKnockoffCandidate = await agent.evaluate(() => window.webmcp.callTool('get_share_candidate'));
+const aiKnockoffMark = aiKnockoffCandidate.moments?.find((moment) => moment.type === 'ai_knocked_human');
+check('AI-on-human knockoff survives into completed-race review', aiKnockoffCandidate.status === 'ready' && Number.isFinite(aiKnockoffMark?.at) && /AI knocked the human off/i.test(aiKnockoffCandidate.reason || ''), JSON.stringify(aiKnockoffCandidate));
+if (aiKnockoffCandidate.status === 'ready' && Number.isFinite(aiKnockoffMark?.at)) {
+  const start = Math.max(0, aiKnockoffMark.at - 0.5);
+  const end = Math.min(aiKnockoffCandidate.duration, start + 3);
+  const shared = await agent.evaluate(({ start, end }) => window.webmcp.callTool('share', {
+    worthSharing: true, start, end, where: 'share card', caption: 'CODEX returns the favor.',
+  }), { start, end });
+  check('timestamped AI-vs-human knockoff renders a share card', shared.ok === true && shared.gifUrl && shared.cardUrl, JSON.stringify(shared));
+  if (shared.cardUrl) {
+    console.log(`SHARE CARD  ${shared.cardUrl}`);
+    const sharePage = await agentContext.newPage();
+    sharePage.on('pageerror', (e) => errors.push(`share: ${e.message}`));
+    sharePage.on('console', (m) => { if (m.type() === 'error') errors.push(`share: ${m.text()}`); });
+    await sharePage.goto(shared.cardUrl);
+    await captureAnimatedCard(sharePage, 'artifacts/prod-ai-knocks-human-card.png');
+    await sharePage.close();
+  }
+}
 
 // If the opponent is truly gone, PLAY AGAIN must not launch a solo race under a 2P label.
 await agent.evaluate(() => game.net.leave());
