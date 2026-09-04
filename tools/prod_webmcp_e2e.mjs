@@ -199,6 +199,8 @@ await agent.waitForFunction(() => ['ready', 'error'].includes(game.magicRecorder
 const aiKnockoffCandidate = await agent.evaluate(() => window.webmcp.callTool('get_share_candidate'));
 const aiKnockoffMark = aiKnockoffCandidate.moments?.find((moment) => moment.type === 'ai_knocked_human');
 check('AI-on-human knockoff survives into completed-race review', aiKnockoffCandidate.status === 'ready' && Number.isFinite(aiKnockoffMark?.at) && /AI knocked the human off/i.test(aiKnockoffCandidate.reason || ''), JSON.stringify(aiKnockoffCandidate));
+const attributedCollision = aiKnockoffCandidate.moments?.find((moment) => moment.type === 'hard_collision');
+check('hard collision records which side carried the impact', /^(ai|human|mutual) impact \d/i.test(attributedCollision?.detail || ''), JSON.stringify(attributedCollision));
 if (aiKnockoffCandidate.status === 'ready' && Number.isFinite(aiKnockoffMark?.at)) {
   const start = Math.max(0, aiKnockoffMark.at - 0.5);
   const end = Math.min(aiKnockoffCandidate.duration, start + 3);
@@ -216,6 +218,48 @@ if (aiKnockoffCandidate.status === 'ready' && Number.isFinite(aiKnockoffMark?.at
     await sharePage.close();
   }
 }
+
+// A human can hammer PLAY AGAIN before the prior MediaRecorder upload finishes.
+// Prove that the completed race stays addressable while the rematch records into
+// a separate session, then exercise the private decline-and-delete path.
+await human.evaluate(() => game.rematch());
+check('third race starts for rapid-rematch recorder test', await Promise.all([
+  human.waitForFunction(() => game.screen === 'race', null, { timeout: 25000 }),
+  agent.waitForFunction(() => game.screen === 'race' && game.magicRecorder.recorder?.state === 'recording', null, { timeout: 25000 }),
+]).then(() => true).catch(() => false));
+await agent.evaluate(() => {
+  window.__rapidShareCandidates = [];
+  window.webmcp.subscribe((event, data) => {
+    if (event === 'share_candidate') window.__rapidShareCandidates.push(data);
+  });
+  game.magicRecorder.noteHardCollision(7.7);
+  game.gameOver();
+});
+await Promise.all([
+  human.waitForFunction(() => game.screen === 'rematch', null, { timeout: 5000 }),
+  agent.waitForFunction(() => game.screen === 'connect', null, { timeout: 5000 }),
+]);
+await human.evaluate(() => game.rematch());
+check('immediate fourth race records while third race uploads', await Promise.all([
+  human.waitForFunction(() => game.screen === 'race', null, { timeout: 25000 }),
+  agent.waitForFunction(() => game.screen === 'race' && game.magicRecorder.recorder?.state === 'recording', null, { timeout: 25000 }),
+]).then(() => true).catch(() => false));
+const rapidCandidate = await agent.waitForFunction(() => window.__rapidShareCandidates?.[0], null, { timeout: 12000 }).then((handle) => handle.jsonValue()).catch(() => null);
+check('prior race candidate survives the live rematch recorder', !!rapidCandidate?.id && await agent.evaluate(() => game.magicRecorder.recorder?.state === 'recording'), JSON.stringify(rapidCandidate));
+if (rapidCandidate?.id) {
+  const recovered = await agent.evaluate(() => window.webmcp.callTool('get_share_candidate'));
+  check('missed push is recoverable from the unreviewed candidate queue', recovered.id === rapidCandidate.id, JSON.stringify(recovered));
+  const exact = await agent.evaluate((candidateId) => window.webmcp.callTool('get_share_candidate', { candidateId }), rapidCandidate.id);
+  check('candidate ID selects the exact overlapping race', exact.id === rapidCandidate.id && exact.raceId === rapidCandidate.raceId, JSON.stringify(exact));
+  const declined = await agent.evaluate((candidateId) => window.webmcp.callTool('share', { candidateId, worthSharing: false }), rapidCandidate.id);
+  check('agent can decline a non-magic race without rendering or posting', declined.ok === true && declined.shared === false && /deleted/i.test(declined.instruction || ''), JSON.stringify(declined));
+  const deleted = await agent.request.get(rapidCandidate.previewUrl);
+  check('declining deletes the private full-race recording', deleted.status() === 404, String(deleted.status()));
+}
+await agent.evaluate(() => game.gameOver());
+await agent.waitForFunction(() => window.__rapidShareCandidates?.length >= 2, null, { timeout: 12000 }).catch(() => null);
+const lastRapidId = await agent.evaluate(() => window.__rapidShareCandidates?.at(-1)?.id || '');
+if (lastRapidId) await agent.evaluate((candidateId) => window.webmcp.callTool('share', { candidateId, worthSharing: false }), lastRapidId);
 
 // If the opponent is truly gone, PLAY AGAIN must not launch a solo race under a 2P label.
 await agent.evaluate(() => game.net.leave());

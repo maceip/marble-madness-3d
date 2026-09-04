@@ -48,7 +48,8 @@
       transition: opacity .15s ease;
     }
     #settings:hover { opacity: 1; }
-    #settings input { width: 80px; }
+    #settings input[type="range"] { width: 80px; }
+    #settings input[type="checkbox"] { width: auto; }
 
     /* 3D Bowling Ball Trackball Dock (Bottom Right on Mobile & Desktop) */
     #trackball-container {
@@ -575,6 +576,14 @@
       #ui-title #ui-press-start { padding: 6px 14px; margin-top: 3px; }
       #ui-title .ui-foot { min-height: 30px; padding-top: 0; }
       #ui-title .ui-foot img { height: 28px; }
+      #ui-menu { gap: 6px; padding-top: 8px; padding-bottom: 64px; overflow-y: hidden; }
+      #ui-menu .ui-logo-menu {
+        width: min(55vw, 480px); max-height: 36vh; object-fit: contain;
+        margin-bottom: 8px;
+      }
+      #ui-menu .ui-modes { gap: 4px; }
+      #ui-menu-agent, #ui-menu-press { margin-top: 8px; }
+      #ui-menu-press { padding: 8px 20px; }
     }
 
     @media (max-width: 520px) {
@@ -594,6 +603,15 @@
       #ui-connect-h { position: relative; top: auto; left: auto; transform: none; margin: -4px auto 12px; }
       .ui-cradle-loader { width: min(58vw, 218px); margin-top: -8px; }
       #ui-agent-teaser { display: none !important; }
+    }
+    @media (max-width: 520px) and (orientation: portrait) {
+      #trackball-container { bottom: max(62px, calc(env(safe-area-inset-bottom) + 54px)); }
+      #settings {
+        left: max(6px, env(safe-area-inset-left));
+        right: max(6px, env(safe-area-inset-right));
+        gap: 6px; padding: 4px 6px; font-size: 9px;
+      }
+      #settings input[type="range"] { width: 54px; }
     }
     @media (pointer: coarse) { #ui-agent-teaser { display: none !important; } }
     @media (max-height: 520px) and (orientation: landscape) {

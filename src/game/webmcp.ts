@@ -123,9 +123,9 @@ export class WebMCP {
       },
       {
         name: 'get_share_candidate',
-        description: 'Inspect the current 2P race recording candidate. When ready, open previewUrl and decide whether it contains a magic moment and the exact clip window.',
-        inputSchema: { type: 'object', properties: {} },
-        execute: () => this.game.magicRecorder.review(),
+        description: 'Inspect the latest 2P race recording candidate, or a specific candidate from a share_candidate event. When ready, open previewUrl and decide whether it contains a magic moment and the exact clip window.',
+        inputSchema: { type: 'object', properties: { candidateId: { type: 'string', description: 'Optional candidate ID from a share_candidate event, useful when races rematch rapidly.' } } },
+        execute: (a) => this.game.magicRecorder.review(a.candidateId),
       },
       {
         name: 'share',
@@ -133,6 +133,7 @@ export class WebMCP {
         inputSchema: {
           type: 'object',
           properties: {
+            candidateId: { type: 'string', description: 'Candidate ID from get_share_candidate or the share_candidate event.' },
             worthSharing: { type: 'boolean', description: 'True only if the preview has a knockout, griefing, comic failure, comeback, or close finish worth clipping.' },
             start: { type: 'number', minimum: 0, description: 'Clip start in seconds from the preview.' },
             end: { type: 'number', minimum: 0.5, description: 'Clip end, no more than 8 seconds after start.' },
