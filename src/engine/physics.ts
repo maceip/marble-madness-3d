@@ -33,6 +33,7 @@ export interface TraceEntry {
   why?: string;              // block: what blocked; land: fall px; die: kind; step: dz; stall: last block
 }
 const TRACE_MAX = 4000;
+declare const __MM_DEBUG__: boolean;
 
 export class Marble {
   u = 0; v = 0; z = 0;
@@ -62,6 +63,7 @@ export class Marble {
   private sampleT = 0;
 
   private log(ev: TraceEntry['ev'], why?: string): void {
+    if (typeof __MM_DEBUG__ === 'undefined' || !__MM_DEBUG__) return;   // trace is a debug-build feature (build.mjs define)
     const e: TraceEntry = {
       t: +this.tClock.toFixed(3), ev, u: +this.u.toFixed(2), v: +this.v.toFixed(2), z: +this.z.toFixed(1),
       sx: Math.round((this.u - this.v) * 8), sy: Math.round((this.u + this.v) * 4 - this.z),

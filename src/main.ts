@@ -16,6 +16,8 @@ import * as constants from './engine/constants';
 import * as iso from './engine/iso';
 import { STAGES } from './levels';
 
+declare const __MM_DEBUG__: boolean;
+
 declare global {
   interface Window {
     game?: Game;
@@ -214,7 +216,8 @@ async function boot(): Promise<void> {
 
   // Debug driver: the same control surface Codex uses over WebMCP, callable from JS/devtools. Lets a headless
   // browser (or the console) drive deterministically. game.webmcp.callTool is exactly what the agent calls.
-  (window as any).mmDebug = {
+  // Compiled out of shipped builds (build.mjs define __MM_DEBUG__; MM_DEBUG=1 or --watch turns it on).
+  if (__MM_DEBUG__) (window as any).mmDebug = {
     call: (name: string, args: Record<string, unknown> = {}) => (window as any).webmcp.callTool(name, args),
     state: () => (window as any).webmcp.callTool('get_game_state', {}),
     steer: (dir: string | number, impulse = 0.7) => {

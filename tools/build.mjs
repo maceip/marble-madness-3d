@@ -51,7 +51,9 @@ const options = {
   minify: !watch,
   target: ['es2022'],
   logLevel: 'info',
-  define: { __MM_COLLISION_REV__: JSON.stringify(collisionRev) },
+  // __MM_DEBUG__ gates the in-page debug surface (window.mmDebug driver + physics trace ring buffer). Off in
+  // shipped builds: `MM_DEBUG=1 node tools/build.mjs` (or --watch) turns it on for harness / fuzz / scan runs.
+  define: { __MM_COLLISION_REV__: JSON.stringify(collisionRev), __MM_DEBUG__: JSON.stringify(watch || process.env.MM_DEBUG === '1') },
 };
 
 if (watch) {
