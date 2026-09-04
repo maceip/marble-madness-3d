@@ -44,6 +44,23 @@ const expectedPrompt = `Open this URL in your embedded browser: ${BASE.replace(/
 check('copy-to-Codex prompt is the exact direct instruction', copied === expectedPrompt, `${copied.split('\n').length} lines`);
 const mobileLayout = await human.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth, box: document.querySelector('.ui-connect-box')?.getBoundingClientRect().toJSON() }));
 check('mobile connect screen is contained', mobileLayout.scrollWidth <= mobileLayout.innerWidth && mobileLayout.box?.left >= 0 && mobileLayout.box?.right <= mobileLayout.innerWidth + 1, JSON.stringify(mobileLayout));
+const cradle = await human.evaluate(() => {
+  const loader = document.querySelector('.ui-cradle-loader');
+  const image = document.querySelector('.ui-cradle-loader img');
+  const left = document.querySelector('.ui-cradle-left');
+  const right = document.querySelector('.ui-cradle-right');
+  const animations = [left, right].map((part) => part?.getAnimations()[0]);
+  for (const animation of animations) if (animation) animation.currentTime = 0;
+  const releasedRight = [getComputedStyle(left).opacity, getComputedStyle(right).opacity, getComputedStyle(right).transform];
+  for (const animation of animations) if (animation) animation.currentTime = 880;
+  const releasedLeft = [getComputedStyle(left).opacity, getComputedStyle(right).opacity, getComputedStyle(left).transform];
+  return {
+    rect: loader?.getBoundingClientRect().toJSON(),
+    loaded: image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+    releasedRight, releasedLeft,
+  };
+});
+check('Newton cradle transfers motion between independently swinging outer marbles', cradle.loaded && cradle.rect?.left >= 0 && cradle.rect?.right <= 376 && cradle.releasedRight[0] === '0' && cradle.releasedRight[1] === '1' && cradle.releasedLeft[0] === '1' && cradle.releasedLeft[1] === '0' && cradle.releasedRight[2] !== cradle.releasedLeft[2], JSON.stringify(cradle));
 await human.screenshot({ path: 'artifacts/prod-webmcp-connect-375x667.png' });
 await agent.goto(`${BASE}/${lobby}`);
 await agent.waitForFunction(() => window.webmcp?.callTool);

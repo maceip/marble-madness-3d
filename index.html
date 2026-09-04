@@ -402,6 +402,60 @@
     }
     #ui-connect-marble { width: 56px; height: 56px; image-rendering: pixelated; }
     #ui-connect-wait { margin-top: 8px; }
+    .ui-cradle-loader {
+      position: relative; width: min(64vw, 280px); aspect-ratio: 640 / 409;
+      margin: -4px auto 0; overflow: visible; flex: 0 0 auto;
+      filter: drop-shadow(0 0 5px rgba(78, 196, 255, .22));
+    }
+    .ui-cradle-loader img {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+      pointer-events: none; user-select: none;
+    }
+    .ui-cradle-pendulum {
+      position: absolute; top: 14.5%; width: 8%; height: 53%;
+      transform-origin: 50% 0; z-index: 2;
+    }
+    .ui-cradle-pendulum::before, .ui-cradle-pendulum::after {
+      content: ''; position: absolute; top: 0; width: 1px; height: 88%;
+      background: linear-gradient(90deg, #333, #fff, #555);
+      transform-origin: 50% 0;
+    }
+    .ui-cradle-pendulum::before { left: 43%; transform: rotate(2deg); }
+    .ui-cradle-pendulum::after { right: 43%; transform: rotate(-2deg); }
+    .ui-cradle-ball {
+      position: absolute; left: 50%; bottom: 0; width: 94%; aspect-ratio: 1;
+      transform: translateX(-50%); border-radius: 50%; box-sizing: border-box;
+      border: 1px solid rgba(255,255,255,.85);
+    }
+    .ui-cradle-left { left: 23.3%; animation: ui-cradle-left 2.2s linear infinite; }
+    .ui-cradle-right { left: 66%; animation: ui-cradle-right 2.2s linear infinite; }
+    .ui-cradle-left .ui-cradle-ball {
+      background: radial-gradient(circle at 34% 25%, #fff 0 5%, #4ec4ff 8%, #075cff 25%, #001d92 58%, #000728 78%);
+      box-shadow: inset -4px -5px 5px #000729, 0 0 4px #168cff;
+    }
+    .ui-cradle-right .ui-cradle-ball {
+      background: radial-gradient(circle at 34% 25%, #fff 0 5%, #ff8a8a 8%, #ff001e 25%, #8f000c 58%, #210006 78%);
+      box-shadow: inset -4px -5px 5px #210006, 0 0 4px #ff1838;
+    }
+    @keyframes ui-cradle-left {
+      0%, 20% { opacity: 0; transform: rotate(0deg); }
+      20.01% { opacity: 1; transform: rotate(0deg); }
+      40% { opacity: 1; transform: rotate(-29deg); }
+      60% { opacity: 1; transform: rotate(0deg); }
+      60.01%, 100% { opacity: 0; transform: rotate(0deg); }
+    }
+    @keyframes ui-cradle-right {
+      0% { opacity: 1; transform: rotate(29deg); }
+      20% { opacity: 1; transform: rotate(0deg); }
+      20.01%, 60% { opacity: 0; transform: rotate(0deg); }
+      60.01% { opacity: 1; transform: rotate(0deg); }
+      80% { opacity: 1; transform: rotate(29deg); }
+      100% { opacity: 1; transform: rotate(0deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ui-cradle-left { animation: none; opacity: 0; }
+      .ui-cradle-right { animation: none; opacity: 1; transform: rotate(24deg); }
+    }
     #ui-chrome-ai { display: none !important; }
     #ui-agent-teaser {
       position: relative; width: min(90vw, 480px); height: 142px;
@@ -495,6 +549,7 @@
       #ui-connect { justify-content: flex-start; padding-top: 16px; }
       .ui-connect-box { margin-top: 42px; padding-top: 44px; }
       #ui-connect-h { position: relative; top: auto; left: auto; transform: none; margin: -4px auto 12px; }
+      .ui-cradle-loader { width: min(58vw, 218px); margin-top: -8px; }
       #ui-agent-teaser { display: none !important; }
     }
     @media (pointer: coarse) { #ui-agent-teaser { display: none !important; } }
@@ -637,6 +692,11 @@
         </div>
       </div>
       <div id="ui-connect-wait"></div>
+      <div class="ui-cradle-loader" role="img" aria-label="Animated Newton's cradle while waiting for the WebMCP agent">
+        <img src="/assets/screens/parts/newtons-cradle-loader.png" alt="">
+        <span class="ui-cradle-pendulum ui-cradle-left" aria-hidden="true"><span class="ui-cradle-ball"></span></span>
+        <span class="ui-cradle-pendulum ui-cradle-right" aria-hidden="true"><span class="ui-cradle-ball"></span></span>
+      </div>
       <button type="button" class="ui-tap" id="ui-chrome-ai" hidden></button>
       <div id="ui-agent-teaser" hidden>
         <button type="button" class="ui-tap" id="ui-no-codex" aria-label="Choose an agent without Codex"></button>
