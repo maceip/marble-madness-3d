@@ -272,7 +272,11 @@ export class Game {
       this.go('connect');
       return;
     }
-    const userParam = q.get('user');
+    // "@PLAYER" was the server's old stand-in for a failed profile lookup, never a real login: treat it as an error
+    const bogus = (h: string | null) => !!h && /^@?player$/i.test(h);
+    const userParam = bogus(q.get('user')) ? null : q.get('user');
+    if (bogus(q.get('user'))) q.set('auth_error', 'no_user');
+    if (bogus((window as any).__MM__?.user)) (window as any).__MM__.user = null;
     if (userParam) {
       this.playerName = userParam;
       (window as any).__MM__ = { ...((window as any).__MM__ || {}), user: userParam };

@@ -60,7 +60,10 @@ export class Screens {
   onAuthError(reason: string): void {
     this.clearAuthPending();
     if (this.g.screen !== 'name') return;
-    const why = reason.replace(/[_-]+/g, ' ').replace(/[^a-z0-9 ]/gi, '').trim().toUpperCase().slice(0, 14) || 'TRY AGAIN';
+    // server reasons: access_denied, state_mismatch, token_failed, server_error, profile_<http status> (the provider's
+    // profile lookup failed after a good token: 429 = the provider's rate limit, 401/403 = token not accepted)
+    const named: Record<string, string> = { profile_429: 'RATE LIMITED', profile_401: 'NOT AUTHORIZED', profile_403: 'NOT AUTHORIZED', profile_error: 'PROFILE FAILED', no_user: 'NO USERNAME' };
+    const why = named[reason] || reason.replace(/[_-]+/g, ' ').replace(/[^a-z0-9 ]/gi, '').trim().toUpperCase().slice(0, 14) || 'TRY AGAIN';
     this.html.celebrateAuth('error', ['LOGIN FAILED', why]);
   }
 

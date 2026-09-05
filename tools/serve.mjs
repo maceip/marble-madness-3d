@@ -125,6 +125,32 @@ function authExit(res, { app = '', handle = '', provider = '', error = '', clear
   res.end(`<!doctype html><meta name="viewport" content="width=device-width"><meta http-equiv="refresh" content="0;url=${safe}"><body style="background:#000;color:#cfd2ff;font-family:'Courier New',monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><a href="${safe}" style="color:#79a8ff;font-size:18px">Return to Marble Madness</a><script>location.replace(${JSON.stringify(target)})</script></body>`);
 }
 
+/** Fetch the signed-in user's profile once the token is in hand. One retry for transient failures; never invents a
+ *  name: a missing username becomes an auth error the client shows (profile_<status>) instead of a bogus "@PLAYER"
+ *  handle that used to be written into the 30-day mm_user cookie. Quota / auth failures are logged, not retried. */
+async function fetchProfile(provider, url, headers) {
+  let last = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const r = await fetch(url, { headers });
+      const text = await r.text();
+      let body = null; try { body = JSON.parse(text); } catch { /* HTML error page */ }
+      const username = provider === 'twitter' ? body?.data?.username : body?.login;
+      if (r.ok && username) return { username: String(username) };
+      last = r.status;
+      console.warn(`[serve] ${provider} profile lookup failed (attempt ${attempt}): HTTP ${r.status} ${text.slice(0, 300).replace(/\s+/g, ' ')}`);
+      if (r.status === 429 || r.status === 401 || r.status === 403) break;   // retrying only burns quota
+    } catch (err) {
+      last = 0;
+      console.warn(`[serve] ${provider} profile lookup threw (attempt ${attempt}):`, err);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  return { error: `profile_${last || 'error'}` };
+}
+/** a handle the old fallback could have written into the cookie; never trust it */
+function bogusHandle(h) { return !h || /^@?player$/i.test(h); }
+
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.mjs': 'application/javascript', '.map': 'application/json',
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.mp4': 'video/mp4',
@@ -225,16 +251,18 @@ function serveIndex(req, res, lobbyFromPath) {
   const cookies = parseCookies(req);
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   let lobby = lobbyFromPath || cookies.mm_lobby;
-  const user = url.searchParams.get('user') || cookies.mm_user || null;
+  let user = url.searchParams.get('user') || cookies.mm_user || null;
   const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' };
   if (!lobby || !/^[0-9a-f-]{36}$/i.test(lobby)) {
     lobby = crypto.randomUUID();
   }
   const setCookies = [];
+  // a "@PLAYER" left behind by the old profile-lookup fallback is not a login: drop it and expire the cookie
+  if (user && bogusHandle(user)) { user = null; setCookies.push('mm_user=; Path=/; Max-Age=0; SameSite=Lax'); }
   // every served page gets a session cookie (including agent /<uuid> pages) so telemetry beacons are accepted;
   // without it the agent's page 403s on /api/telemetry/event and logs a console error in its embedded browser.
   setCookies.push(`mm_lobby=${lobby}; Path=/; Max-Age=86400; SameSite=Lax`);
-  if (url.searchParams.get('user')) setCookies.push(`mm_user=${encodeURIComponent(user)}; Path=/; Max-Age=2592000; SameSite=Lax`);
+  if (user && url.searchParams.get('user')) setCookies.push(`mm_user=${encodeURIComponent(user)}; Path=/; Max-Age=2592000; SameSite=Lax`);
   if (setCookies.length) headers['Set-Cookie'] = setCookies;
   let html = readFileSync(path.join(root, 'index.html'), 'utf8');
   const origin = PUBLIC_ORIGIN || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}`;
@@ -494,7 +522,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/user') {
       const cookies = parseCookies(req);
       return sendJson(res, 200, {
-        user: cookies.mm_user ? decodeURIComponent(cookies.mm_user) : null,
+        user: cookies.mm_user && !bogusHandle(cookies.mm_user) ? cookies.mm_user : null,
         twitterConfigured: !!TWITTER_CLIENT_ID,
         githubConfigured: !!GITHUB_CLIENT_ID,
         twitterCallback: TWITTER_CALLBACK,
@@ -622,12 +650,10 @@ const server = http.createServer(async (req, res) => {
           return authExit(res, { app, provider: 'twitter', error: 'token_failed', clear: 'mm_oauth_tw' });
         }
 
-        const userRes = await fetch('https://api.twitter.com/2/users/me', {
-          headers: { 'Authorization': `Bearer ${tokenData.access_token}` },
-        });
-        const userData = await userRes.json();
-        const username = userData.data?.username || 'PLAYER';
-        const handle = `@${username}`;
+        const profile = await fetchProfile('twitter', 'https://api.twitter.com/2/users/me', { 'Authorization': `Bearer ${tokenData.access_token}` });
+        if (profile.error) return authExit(res, { app, provider: 'twitter', error: profile.error, clear: 'mm_oauth_tw' });
+        const handle = `@${profile.username}`;
+        console.log(`[serve] twitter login ok: ${handle}`);
 
         return authExit(res, { app, provider: 'twitter', handle, clear: 'mm_oauth_tw' });
       } catch (err) {
@@ -689,15 +715,14 @@ const server = http.createServer(async (req, res) => {
           return authExit(res, { app, provider: 'github', error: 'token_failed', clear: 'mm_oauth_gh' });
         }
 
-        const userRes = await fetch('https://api.github.com/user', {
-          headers: {
-            'Authorization': `Bearer ${tokenData.access_token}`,
-            'User-Agent': 'MarbleMadness-Game',
-          },
+        const profile = await fetchProfile('github', 'https://api.github.com/user', {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+          'User-Agent': 'MarbleMadness-Game',
+          'Accept': 'application/vnd.github+json',
         });
-        const userData = await userRes.json();
-        const username = userData.login || 'PLAYER';
-        const handle = `@${username}`;
+        if (profile.error) return authExit(res, { app, provider: 'github', error: profile.error, clear: 'mm_oauth_gh' });
+        const handle = `@${profile.username}`;
+        console.log(`[serve] github login ok: ${handle}`);
 
         return authExit(res, { app, provider: 'github', handle, clear: 'mm_oauth_gh' });
       } catch (err) {
