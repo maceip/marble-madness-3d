@@ -64,6 +64,7 @@ export class Sound {
     if (this.ctx) {
       if (this.ctx.state === 'suspended') void this.ctx.resume();
       this.unlockBgmElement();
+      this.retryBgm();
       return;
     }
     try {
@@ -83,6 +84,13 @@ export class Sound {
       this.onInit?.(this);
     } catch { this.ctx = null; return; }
     for (const [k, f] of Object.entries(SFX)) void this.loadBuffer(k, ROOT + f);
+    this.retryBgm();
+  }
+
+  /** a track that was assigned before any gesture (deep link straight into a race) had its play() refused; the
+   *  gesture that unlocks audio is the moment to start it */
+  private retryBgm(): void {
+    if (this.bgmEl && this.bgmKey && this.bgmEl.paused) void this.bgmEl.play().catch(() => {});
   }
 
   /** iOS suspends AudioContext in the background; call on visibilitychange / pageshow. */
@@ -103,7 +111,12 @@ export class Sound {
     const el = new Audio();
     this.prepBgmElement(el);
     el.volume = 0;
-    void el.play().then(() => { el.pause(); el.volume = this.muted ? 0 : this.musicVolume; }).catch(() => {});
+    // Chrome keeps a src-less play() pending until a source appears, so this resolves only once playBgm() has
+    // loaded the race track on the same element - pausing then killed the intro music. Silence only the still
+    // empty unlock element; playBgm() owns the volume from the moment a track is assigned.
+    void el.play().then(() => {
+      if (!this.bgmKey) { el.pause(); el.volume = this.muted ? 0 : this.musicVolume; }
+    }).catch(() => {});
     this.bgmEl = el;
   }
 
