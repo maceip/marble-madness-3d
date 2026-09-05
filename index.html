@@ -108,7 +108,7 @@
     .agent-rig { grid-area: main; display: flex; flex-direction: column; align-items: center; min-height: 0; width: min(96vw, 900px); justify-self: center; }
     .agent-conduit, .agent-flux, .agent-ball-ring, .agent-console-foot { display: none !important; }
     .agent-chamfer, .agent-chamfer-in { clip-path: polygon(var(--ch) 0, calc(100% - var(--ch)) 0, 100% var(--ch), 100% calc(100% - var(--ch)), calc(100% - var(--ch)) 100%, var(--ch) 100%, 0 calc(100% - var(--ch)), 0 var(--ch)); }
-    .agent-terminal { --ch: 16px; width: 100%; height: 100%; min-height: 220px; padding: 3px; box-sizing: border-box; background: #2a5a94; }   /* narrow: fills the row like the portrait ref */
+    .agent-terminal { --ch: 16px; position: relative; width: 100%; height: 100%; min-height: 220px; padding: 3px; box-sizing: border-box; background: #2a5a94; }   /* narrow: fills the row like the portrait ref */
     .agent-terminal-in { --ch: 14px; width: 100%; height: 100%; box-sizing: border-box; display: grid; grid-template-rows: auto 1fr; overflow: hidden; background: #000; }
     .agent-terminal-bar {
       min-height: 36px; padding: 0 14px; display: flex; align-items: center; gap: 8px;
@@ -121,6 +121,8 @@
       gap: 6px; scrollbar-color: var(--ui-frame) #020407;
     }
     .agent-log-line { min-height: 16px; flex: 0 0 auto; white-space: nowrap; }
+    .agent-terminal-tab { position: absolute; left: 50%; bottom: -3px; transform: translateX(-50%); display: flex; gap: 4px; padding: 3px 8px; background: #04101e; border: 2px solid var(--agent-line); border-bottom: 0; }
+    .agent-terminal-tab span { width: 5px; height: 8px; background: var(--agent-val); }
     .agent-log-line canvas { display: block; max-width: 100%; }
     .agent-ball-bay { grid-area: dock; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; justify-self: center; }
     .agent-ball-caption { display: flex; }
@@ -135,10 +137,10 @@
     .agent-tube-shell { fill: none; stroke: #0a1424; stroke-width: 30; stroke-linecap: round; }
     .agent-tube-bore { fill: none; stroke: #182c4e; stroke-width: 22; stroke-linecap: round; }
     .agent-tube-core {
-      fill: none; stroke: #2f7fff; stroke-width: 8; stroke-linecap: round; opacity: .95;
-      stroke-dasharray: 18 30; animation: agent-flow 1.1s linear infinite; filter: url(#agent-glow);
+      fill: none; stroke: #2f7fff; stroke-width: 12; stroke-linecap: round; opacity: .9;
+      stroke-dasharray: 34 14; animation: agent-flow 1.1s linear infinite; filter: url(#agent-glow);
     }
-    .agent-tube-spark { fill: none; stroke: #d8f3ff; stroke-width: 2; stroke-dasharray: 4 44; animation: agent-flow .55s linear infinite; }
+    .agent-tube-spark { fill: none; stroke: #d8f3ff; stroke-width: 3; stroke-dasharray: 6 42; animation: agent-flow .55s linear infinite; filter: url(#agent-glow); }
     @keyframes agent-flow { from { stroke-dashoffset: 48; } to { stroke-dashoffset: 0; } }
     .agent-coupling { fill: #0f1d34; stroke: #2c4f85; stroke-width: 3; }
     .agent-plinth { fill: #0b1526; stroke: #22406e; stroke-width: 3; shape-rendering: crispEdges; }
@@ -191,6 +193,7 @@
       .agent-rig { width: 100%; max-width: none; }
       .agent-side { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
       .agent-terminal { height: min(40vh, 480px); }
+      #agent-terminal-log { gap: 12px; padding: 22px 24px; }
       .agent-side-left { grid-area: left; } .agent-side-right { grid-area: right; }
       .agent-caption { display: flex; }
     }
@@ -703,6 +706,7 @@
           </div>
           <div id="agent-terminal-log" role="log" aria-live="polite"></div>
         </div>
+        <div class="agent-terminal-tab" aria-hidden="true"><span></span><span></span><span></span></div>
       </div>
     </div>
     <aside class="agent-side agent-side-right" aria-label="Agent core and connections">

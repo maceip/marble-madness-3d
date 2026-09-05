@@ -103,13 +103,13 @@ function buildDock(svg: SVGSVGElement): { layout(ball: HTMLElement | null): void
         const mx = px + (ex - px) * 0.5;
         const d = `M ${px} ${py} C ${mx} ${py}, ${mx} ${ey}, ${ex} ${ey}`;
         for (const path of [t.shell, t.bore, t.core, t.spark]) path.setAttribute('d', d);
-        t.shell.style.strokeWidth = `${30 * gauge}`; t.bore.style.strokeWidth = `${22 * gauge}`; t.core.style.strokeWidth = `${8 * gauge}`;
+        t.shell.style.strokeWidth = `${44 * gauge}`; t.bore.style.strokeWidth = `${34 * gauge}`; t.core.style.strokeWidth = `${12 * gauge}`; t.spark.style.strokeWidth = `${3 * gauge}`;
         const len = t.shell.getTotalLength();
         t.couplings.forEach((c, i) => {
           const at = len * (i === 0 ? 0.3 : 0.72);
           const p = t.shell.getPointAtLength(at), q = t.shell.getPointAtLength(Math.min(len, at + 2));
           const ang = Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI;
-          const w = 16 * gauge, h = 40 * gauge;
+          const w = 22 * gauge, h = 56 * gauge;
           c.setAttribute('x', String(p.x - w / 2)); c.setAttribute('y', String(p.y - h / 2));
           c.setAttribute('width', String(w)); c.setAttribute('height', String(h)); c.setAttribute('rx', String(3 * gauge));
           c.setAttribute('transform', `rotate(${ang.toFixed(1)} ${p.x} ${p.y})`);
@@ -247,7 +247,7 @@ export function agentConsole(game: Game, font: BitmapFont): { active: boolean; t
     { label: 'MCP TRANSPORT', dot: true, value: () => game.webmcp.tools.length ? 'ONLINE' : 'OFFLINE' },
     { label: 'AGENT RUNTIME', dot: true, value: () => performance.now() - busy < 400 ? 'BUSY' : 'READY' },
     { label: 'TOOL REGISTRY', dot: true, value: () => String(game.webmcp.tools.length) },
-    { label: 'SESSION STATE', dot: true, value: () => game.screen === 'connect' ? 'IDLE' : game.screen.toUpperCase().slice(0, 8) },
+    { label: 'SESSION STATE', dot: true, value: () => /^(connect|intro|title|boot|menu)$/.test(game.screen) ? 'IDLE' : game.screen === 'race' ? 'RACING' : game.screen.toUpperCase().slice(0, 8) },
   ]);
   const syncNet = panel('agent-net-rows', [
     { label: 'LATENCY', value: () => latency < 0 ? '--' : `${latency} MS` },
@@ -277,11 +277,17 @@ export function agentConsole(game: Game, font: BitmapFont): { active: boolean; t
     bars('agent-net-bars', perSecond); bars('agent-core-bars', cpuHist.map((c) => c + 4));
   };
 
+  const logMetrics = () => {
+    const w = log.clientWidth || window.innerWidth - 60;
+    const scale = w >= 960 ? 3 : 2;
+    return { scale, cols: Math.max(24, Math.floor((w - 36) / (8 * scale))) };
+  };
   const add = (text: string, variant: FontVariant = 'white') => {
-    for (const part of wrap(text)) {
+    const { scale, cols } = logMetrics();
+    for (const part of wrap(text, cols)) {
       const row = document.createElement('div'); row.className = 'agent-log-line';
       row.setAttribute('aria-label', part);
-      row.appendChild(pxCanvas(font, part, variant, 2)); log.appendChild(row);
+      row.appendChild(pxCanvas(font, part, variant, scale)); log.appendChild(row);
     }
     while (log.children.length > MAX_LINES) log.firstElementChild?.remove();
     log.scrollTop = log.scrollHeight;
