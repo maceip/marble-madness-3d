@@ -124,6 +124,40 @@ await unsupported.locator('#ui-no-codex').click();
 check('unsupported Chrome keeps Codex flow and disables the unavailable runtime', await unsupported.locator('#ui-chrome-ai').isHidden() && !await unsupported.locator('#ui-agent-option-chrome').isEnabled());
 await unsupportedContext.close();
 
+// Chrome AI is desktop-only: no phone, tablet or APK context may ever be offered the local-model path — including an
+// Android tablet / DeX / APK WebView with a mouse attached, where (pointer: fine) genuinely matches. Playwright's touch
+// emulation pins pointer:coarse, so the mouse cases force the media query to prove the platform gate holds on its own.
+const mobileCases = [
+  ['Android phone', { viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36' }, '', false],
+  ['iPhone', { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' }, '', false],
+  ['Android tablet with mouse', { viewport: { width: 1280, height: 800 }, hasTouch: true, userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-X910) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36' }, '', true],
+  ['APK WebView with mouse', { viewport: { width: 1024, height: 768 }, hasTouch: true, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36' }, '?platform=android_apk', true],
+  ['iPad with trackpad (desktop UA)', { viewport: { width: 1194, height: 834 }, hasTouch: true, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15' }, '', true],
+];
+for (const [label, opts, query, forceFinePointer] of mobileCases) {
+  const mobileContext = await browser.newContext(opts);
+  await mobileContext.addInitScript(() => { try { localStorage.setItem('mm_desktop_trackball_tutorial_v1', '1'); sessionStorage.setItem('mm_android_app_prompt_dismissed', '1'); } catch { /* storage unavailable */ } });
+  if (forceFinePointer) {
+    await mobileContext.addInitScript(() => {
+      const orig = window.matchMedia.bind(window);
+      window.matchMedia = (q) => (/pointer:\s*fine/.test(q) ? { matches: true, media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false } : orig(q));
+    });
+  }
+  const mobile = await mobileContext.newPage();
+  await mobile.goto(BASE + '/' + query);
+  await mobile.waitForFunction(() => typeof window.game?.go === 'function' && window.game.screen && window.game.screen !== 'boot', null, { timeout: 20000 });
+  await mobile.evaluate(() => { window.game.mode = 'ai'; window.game.playerName = 'HUMAN'; window.game.go('connect'); });
+  await mobile.waitForTimeout(300);
+  await mobile.evaluate(() => { window.game.screens.idle = 31; });
+  await mobile.waitForTimeout(1200);
+  const offered = await mobile.evaluate(() => {
+    const shown = (id) => { const el = document.getElementById(id); if (!el || el.hidden) return false; const r = el.getBoundingClientRect(); return getComputedStyle(el).display !== 'none' && r.width > 0 && r.height > 0; };
+    return { pointerFine: matchMedia('(pointer: fine)').matches, teaser: shown('ui-agent-teaser'), bubble: shown('ui-no-codex'), picker: shown('ui-agent-picker'), button: shown('ui-chrome-ai'), option: window.game.chromeAgent.optionVisible, availability: window.game.chromeAgent.availability };
+  });
+  check(`${label} is never offered Chrome AI`, !offered.teaser && !offered.bubble && !offered.picker && !offered.button && !offered.option && offered.availability === 'unknown', JSON.stringify(offered));
+  await mobileContext.close();
+}
+
 await browser.close();
 if (failures) process.exit(1);
 console.log('\nCHROME AI WEBMCP E2E: PASS');

@@ -95,11 +95,35 @@ const edgeAgent = await edgeContext.newPage();
 await edgeAgent.goto(`${BASE}/${crypto.randomUUID()}`); await edgeAgent.waitForFunction(() => window.game?.screens);
 check('900px agent pane has no CSS/JS breakpoint split', await edgeAgent.evaluate(() => document.body.classList.contains('agent-console-active') && getComputedStyle(document.getElementById('agent-console')).display !== 'none' && getComputedStyle(document.getElementById('trackball-container')).display === 'flex'));
 
-// The vanity is intentionally desktop agent-only.
+// Phones get the agent_webpage.png composition too: two-line title, terminal and trackball housing, and live traffic.
 const mobileAgentContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 const mobileAgent = await mobileAgentContext.newPage();
-await mobileAgent.goto(`${BASE}/${crypto.randomUUID()}`); await mobileAgent.waitForFunction(() => window.game?.screens);
-check('mobile agent route does not activate desktop vanity', await mobileAgent.evaluate(() => document.getElementById('agent-console').hidden && !document.body.classList.contains('agent-console-active')));
+await mobileAgent.addInitScript(() => {
+  window.__registeredSiteTools = [];
+  Object.defineProperty(document, 'modelContext', { configurable: true, value: { registerTool(tool) { window.__registeredSiteTools.push(tool); }, registerResource() {} } });
+});
+await mobileAgent.goto(`${BASE}/${crypto.randomUUID()}`); await mobileAgent.waitForFunction(() => window.game?.screens && window.webmcp?.callTool);
+await mobileAgent.waitForSelector('#agent-console:not([hidden])');
+const mobileBefore = await mobileAgent.locator('#trackball').screenshot();
+await mobileAgent.evaluate(async () => { await window.__registeredSiteTools.find((tool) => tool.name === 'spin_trackball').execute({ dx: -1, dy: 0.5, speed: 60 }); });
+await mobileAgent.waitForTimeout(250);
+const mobileAfter = await mobileAgent.locator('#trackball').screenshot();
+const phone = await mobileAgent.evaluate(() => {
+  const title = document.getElementById('agent-console-title');
+  const fits = (el) => el.getBoundingClientRect().right <= innerWidth && el.getBoundingClientRect().left >= 0;
+  return {
+    active: document.body.classList.contains('agent-console-active'),
+    consoleVisible: getComputedStyle(document.getElementById('agent-console')).display !== 'none',
+    trackballVisible: getComputedStyle(document.getElementById('trackball-container')).display === 'flex',
+    terminalVisible: document.getElementById('agent-terminal-log').getBoundingClientRect().height > 0,
+    housingDrawn: document.querySelectorAll('#agent-dock path, #agent-dock rect').length > 4,
+    titleTwoLines: title.childElementCount === 2 && [...title.children].every(fits),
+    trafficLogged: [...document.querySelectorAll('.agent-log-line')].some((el) => (el.getAttribute('aria-label') || '').includes('> SPIN_TRACKBALL')),
+    speed: Math.hypot(game.input.trackball.wx, game.input.trackball.wy),
+  };
+});
+check('phone agent route shows the agent console with two-line title, housing and terminal', phone.active && phone.consoleVisible && phone.trackballVisible && phone.terminalVisible && phone.housingDrawn && phone.titleTwoLines, JSON.stringify(phone));
+check('phone agent console streams traffic and spins the trackball', phone.trafficLogged && phone.speed > 0 && !mobileBefore.equals(mobileAfter), `speed ${phone.speed.toFixed(2)}`);
 check('human root never activates agent vanity', await human.evaluate(() => document.getElementById('agent-console').hidden && !document.body.classList.contains('agent-console-active')));
 check('agent console has no page or console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 

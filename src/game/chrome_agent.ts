@@ -1,4 +1,5 @@
 import type { Game } from './game';
+import { chromeAiSurface } from './platform';
 import { mmTrace } from '../engine/trace';
 
 type ChromeAvailability = 'unknown' | 'checking' | 'available' | 'downloadable' | 'downloading' | 'unavailable' | 'missing';
@@ -144,7 +145,7 @@ export class ChromeLocalAgent {
   constructor(private readonly game: Game) {}
 
   get optionVisible(): boolean {
-    return !this.game.isAgentPage && matchMedia('(pointer: fine)').matches &&
+    return !this.game.isAgentPage && chromeAiSurface() &&
       this.availability !== 'missing' && this.availability !== 'unavailable';
   }
 
@@ -176,7 +177,7 @@ export class ChromeLocalAgent {
   }
 
   private async runProbe(): Promise<void> {
-    if (this.game.isAgentPage || !matchMedia('(pointer: fine)').matches) return;
+    if (this.game.isAgentPage || !chromeAiSurface()) return;
     const api = languageModel();
     if (!api) { this.availability = 'missing'; this.changed(); return; }
     this.availability = 'checking'; this.changed();

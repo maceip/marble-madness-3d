@@ -1,4 +1,5 @@
 import type { Game } from '../game/game';
+import { chromeAiSurface } from '../game/platform';
 import type { BitmapFont } from '../engine/font';
 import { fmtScore } from '../engine/font';
 import { FRAMES } from '../engine/assets';
@@ -500,7 +501,8 @@ export class HtmlMenus {
     const agent = this.game.chromeAgent;
     const picker = document.getElementById('ui-agent-picker');
     const teaser = document.getElementById('ui-agent-teaser');
-    const desktop = matchMedia('(pointer: fine)').matches && window.innerWidth >= 760;
+    // Chrome AI is desktop-Chrome-only: phones, tablets and the APK never see the teaser, mouse or not (platform.ts)
+    const desktop = chromeAiSurface() && window.innerWidth >= 760;
     // free band between the connect copy and the settings bar: 300 px fits the full mascot + bubble, 220 the compact pair
     const box = document.querySelector('#ui-connect .ui-connect-box')?.getBoundingClientRect();
     const free = box ? window.innerHeight - box.bottom - 50 : 0;
