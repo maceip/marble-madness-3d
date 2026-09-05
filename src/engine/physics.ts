@@ -81,6 +81,8 @@ export class Marble {
   inPipe = false;
   pipeT = 0;
   cornerTrip = false;
+  /** flung by a catapult: the landing is dizzy, never a shatter (the arcade's catapults are helpers, not traps) */
+  softLand = false;
   pipeExit: { u: number; v: number; z?: number; vu: number; vv: number } | null = null;
   /** scripted roll (see Slide): no control, cannot fall off */
   slide: { pts: { u: number; v: number; z: number }[]; seg: number; s: number; speed: number; delay: number } | null = null;
@@ -132,7 +134,7 @@ export class Marble {
     this.u = u; this.v = v; this.z = z;
     this.vu = this.vv = this.vz = 0;
     this.grounded = true; this.phase = 'alive'; this.deathT = 0; this.dizzyT = 0; this.frozenT = 0;
-    this.airT = 0; this.maxZ = z; this.inPipe = false; this.pipeExit = null;
+    this.airT = 0; this.maxZ = z; this.inPipe = false; this.pipeExit = null; this.softLand = false;
   }
 
   die(kind: DeathKind, events?: MarbleEvent[]): void {
@@ -284,7 +286,9 @@ export class Marble {
         this.vz = 0;
         this.vu *= 0.85; this.vv *= 0.85;
         this.log('land', `fall=${fall.toFixed(0)} on ${floor.s.name ?? floor.s.id}${this.cornerTrip ? ' cornerTrip' : ''}`);
-        if (fall > SHATTER_FALL) {
+        const soft = this.softLand;
+        this.softLand = false;
+        if (fall > SHATTER_FALL && !soft) {
           this.die('shatter', events);
           events.push({ type: 'land', fall });
           return;
@@ -321,7 +325,7 @@ export class Marble {
       const m = Math.hypot(dx, dy) || 1;
       const pu = u + (dx / m) * MARBLE_R, pv = v + (dy / m) * MARBLE_R;
       for (const [qu, qv] of [[u, v], [(u + pu) / 2, (v + pv) / 2], [pu, pv]] as const) {
-        const hb = highestBelow(level, qu, qv, zRef, undefined, here);
+        const hb = highestBelow(level, qu, qv, zRef, undefined, here, this);
         if (!hb) continue;
         const isWall = (hb.s.kind === 'wall');
         const climbLimit = isWall ? zRef : (zRef + 12);
@@ -334,6 +338,26 @@ export class Marble {
       return false;
     };
     if (!blocked(nu, nv)) { this.u = nu; this.v = nv; return true; }
+    // Embedded: the marble's own centre is inside a wall band. This happens when a drop lands at the foot of a
+    // cliff face (the face's cell is also the lower floor's first cell), and without help every move is blocked
+    // for good. Step out to the nearest free spot, preferring the direction the marble is being pushed.
+    if (blocked(this.u, this.v)) {
+      const du0 = nu - this.u, dv0 = nv - this.v;
+      for (const r of [0.25, 0.5, 0.75, 1.0, 1.4]) {
+        let best: [number, number] | null = null, bestDot = -Infinity;
+        for (let k = 0; k < 16; k++) {
+          const a = (k / 16) * Math.PI * 2, cu = Math.cos(a), cv = Math.sin(a);
+          const eu = this.u + cu * r, ev = this.v + cv * r;
+          if (blocked(eu, ev)) continue;
+          // never step off the world: the escape spot needs a floor within a short fall below the marble
+          const sup = supportAt(level, eu, ev, zRef + STEP_UP, 0);
+          if (!sup || zRef - sup.z > 24) continue;
+          const dot = cu * du0 + cv * dv0;
+          if (dot > bestDot) { bestDot = dot; best = [eu, ev]; }
+        }
+        if (best) { this.log('block', `embedded in wall at ${this.u.toFixed(2)},${this.v.toFixed(2)}: stepped out ${r}`); this.u = best[0]; this.v = best[1]; return true; }
+      }
+    }
     const sp = this.speed;
     const du = nu - this.u, dv = nv - this.v, dl = Math.hypot(du, dv) || 1e-9;
 
@@ -351,7 +375,9 @@ export class Marble {
     nx /= nl; ny /= nl;
     const vn = this.vu * nx + this.vv * ny;
     if (vn < 0) {
-      const k = sp > BOUNCE_SFX_SPEED ? 1 + BOUNCE : 1;
+      // no restitution in the air: a marble dropping past a cliff face's base band is stopped, not thrown back
+      // over the gap behind the face (stage 4 green -> mid: it bounced into the void under the overhang)
+      const k = sp > BOUNCE_SFX_SPEED && this.grounded ? 1 + BOUNCE : 1;
       this.vu -= k * vn * nx; this.vv -= k * vn * ny;
     }
     const dn = du * nx + dv * ny;

@@ -712,7 +712,9 @@ export class Game {
           break;
         }
         case 'goal':
-          if (!this.goalReached) { this.goalReached = true; this.reachGoal(); }
+          // only a marble standing on the pad finishes: falling past the goal's height band next to the pad
+          // (stage 6: off the arena edge) used to count as a win a moment before the marble died
+          if (!this.goalReached && m.grounded) { this.goalReached = true; this.reachGoal(); }
           break;
         case 'timezone': inTimezone = true; break;
         case 'kill': { const ev: MarbleEvent[] = []; m.die('void', ev); for (const e of ev) this.onMarbleEvent(e); break; }   // counted like any other death

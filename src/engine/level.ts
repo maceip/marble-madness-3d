@@ -40,6 +40,13 @@ const OCCLUSION_FILL_DZ = 12;
 const OBSTACLE_DZ = 6;
 /** height of the synthesized rim on a `path` (half-pipe) component where it borders void */
 const PATH_LIP = 14;
+/** a cliff face's wall band only has to stop a marble rolling on the lower floor (the terrain step blocks anything
+ *  higher); a band reaching to the upper floor catches a marble that just rolled off the edge above (stage 4's green
+ *  -> mid drop: 72 px face, blocked in mid-air, dumped at the foot with zero speed) */
+const CLIFF_BAND = 24;
+/** tallest painted run that can be a thing standing on the floor below it (stage 2's tents are ~55 px); taller and
+ *  it is a cliff face (stage 4's green -> mid face is 170 px) */
+const OBSTACLE_MAX_RUN = 64;
 /** cells (S4 / x) around the last path vertex left without a lip: the exit the marble rolls off */
 const PATH_END_OPEN = 14;
 
@@ -70,6 +77,7 @@ export class HeightMap {
   readonly z2: Float32Array;   // second layer under an overpass (NaN = none)
   readonly wLo: Float32Array;  // wall cell: bottom of the blocking band (NaN = no wall)
   readonly wHi: Float32Array;  // wall cell: top of the blocking band
+  readonly wCliff: Uint8Array; // 1 = the band is a cliff face's base: it only stops marbles coming from the low side
   readonly zMax: number;
 
   constructor(readonly width: number, readonly height: number, readonly labels: Uint8Array, readonly comps: HmComponent[]) {
@@ -102,6 +110,7 @@ export class HeightMap {
     const z2 = this.z2 = new Float32Array(gH * W).fill(NaN);
     const wLo = this.wLo = new Float32Array(gH * W).fill(NaN);
     const wHi = this.wHi = new Float32Array(gH * W).fill(NaN);
+    const wCliff = this.wCliff = new Uint8Array(gH * W);
 
     const isPath = new Uint8Array(gH * W);   // cells that belong to a `path` component (a half-pipe chute)
     const put = (s: number, x: number, z: number, path = 0) => {
@@ -212,12 +221,12 @@ export class HeightMap {
 
     // 4. walls from runs of wall pixels in each column
     const floorZ = (x: number, y: number): number => (y < 0 || y >= H) ? NaN : this.zpx[y * W + x];
-    const mark = (s: number, x: number, lo: number, hi: number, back = 1) => {
+    const mark = (s: number, x: number, lo: number, hi: number, back = 1, cliff = false) => {
       for (let k = s - back; k <= s + 1; k++) {
         if (k < 0 || k >= gH) continue;
         const i = k * W + x;
-        if (Number.isNaN(wLo[i])) { wLo[i] = lo; wHi[i] = hi; }
-        else { wLo[i] = Math.min(wLo[i], lo); wHi[i] = Math.max(wHi[i], hi); }
+        if (Number.isNaN(wLo[i])) { wLo[i] = lo; wHi[i] = hi; wCliff[i] = cliff ? 1 : 0; }
+        else { wLo[i] = Math.min(wLo[i], lo); wHi[i] = Math.max(wHi[i], hi); if (!cliff) wCliff[i] = 0; }
       }
     };
     for (let x = 0; x < W; x++) {
@@ -232,14 +241,19 @@ export class HeightMap {
         if (Number.isNaN(below)) continue;                   // face into void / image edge: nothing stands there
         if (run <= 2) continue;                              // 1-2 px sliver: a painted outline / edge highlight, not a rail
         if (!Number.isNaN(above) && run < 4 && Math.abs(above - below) <= OBSTACLE_DZ) continue;   // tile seam between two floors, not a rail
-        if (Number.isNaN(above) || Math.abs(above - below) <= OBSTACLE_DZ) {
+        if (Number.isNaN(above) && run > OBSTACLE_MAX_RUN) {
+          // no floor pixel right above the run, but nothing that stands on a floor is this tall: a cliff face whose
+          // top outline (painted dark, labelled void) hid the upper floor's edge. Fence its base like a cliff; as an
+          // "obstacle" its footprint would reach back under the upper floor and block marbles rolling there
+          mark(Math.round(y1 + below), x, below, below + CLIFF_BAND, 1, true);
+        } else if (Number.isNaN(above) || Math.abs(above - below) <= OBSTACLE_DZ) {
           // obstacle standing on the floor in front of it (rail, post, block): base line at the run's bottom. Its
           // painted silhouette above the base is the thing itself seen from the front, so the footprint reaches
           // back under the upper half of the run (a raised block's top is drawn there; a post is just a post)
           mark(Math.round(y1 + below), x, below, below + run, Math.max(1, Math.min(6, Math.round(run / 6))) + (run > 12 ? Math.round(run / 2) - 6 : 0));
         } else if (above > below) {
           // cliff face: the terrain already blocks from below; this catches a face taller than the labels say
-          mark(Math.round(y1 + below), x, below, above - 8);
+          mark(Math.round(y1 + below), x, below, Math.min(above - 8, below + CLIFF_BAND), 1, true);
         }
       }
     }
@@ -318,17 +332,22 @@ export class HeightMap {
    * Would a marble at height zRef be stopped entering (u,v)? Terrain higher than it can climb is a
    * cliff face (unless it fits under an overpass); explicit wall cells block within their band.
    */
-  blocks(u: number, v: number, zRef: number): boolean { return this.blockReason(u, v, zRef) !== ''; }
+  blocks(u: number, v: number, zRef: number, from?: { u: number; v: number }): boolean { return this.blockReason(u, v, zRef, from) !== ''; }
 
-  /** '' when passable, else why (u,v) stops a marble at zRef: which cell, wall band or terrain height */
-  blockReason(u: number, v: number, zRef: number): string {
+  /** '' when passable, else why (u,v) stops a marble at zRef: which cell, wall band or terrain height.
+   *  `from` is where the marble is now: a cliff face's base band is one-sided, it does not stop a marble arriving
+   *  from the cliff side (one that dropped off the edge above and landed in the strip between edge and base). */
+  blockReason(u: number, v: number, zRef: number, from?: { u: number; v: number }): string {
     const { s, x } = this.cell(u, v);
     // the course is the picture: where the art is cropped at the image border the marble meets an invisible
     // wall rather than rolling off the side of the world (fuzzing found many deaths at x<0 / x>=width)
     if (s < 0 || s >= this.gH || x < 0 || x >= this.width) return `picture edge cell(s${s},x${x})`;
     const i = s * this.width + x;
     const lo = this.wLo[i];
-    if (!Number.isNaN(lo) && zRef >= lo - 6 && zRef <= this.wHi[i]) return `wall band ${lo.toFixed(0)}-${this.wHi[i].toFixed(0)} cell(s${s},x${x})`;
+    if (!Number.isNaN(lo) && zRef >= lo - 6 && zRef <= this.wHi[i]) {
+      const behind = this.wCliff[i] && from && this.cell(from.u, from.v).s < s;
+      if (!behind) return `wall band ${lo.toFixed(0)}-${this.wHi[i].toFixed(0)} cell(s${s},x${x})`;
+    }
     const top = this.z1[i];
     if (!Number.isNaN(top) && top > zRef + STEP_UP && top <= zRef + TERRAIN_BLOCK_MAX) {
       const under = this.z2[i];
@@ -618,13 +637,13 @@ export function supportAt(level: StageDef, u: number, v: number, zRef: number, s
  * Highest surface at (u,v) below zRef + wallMax (used to detect wall faces). The heightfield answers
  * as a solid obstacle when its terrain or a wall cell blocks a marble at zRef, else as a floor.
  */
-export function highestBelow(level: StageDef, u: number, v: number, zRef: number, wallMax = WALL_MAX, ignore?: Set<number>): Support | null {
+export function highestBelow(level: StageDef, u: number, v: number, zRef: number, wallMax = WALL_MAX, ignore?: Set<number>, from?: { u: number; v: number }): Support | null {
   let best: Support | null = null;
   const lim = zRef + wallMax;
   for (const s of level.surfaces) {
     if (ignore && ignore.has(s.id)) continue;
     if (s.hm) {
-      const why = s.hm.map.blockReason(u, v, zRef);
+      const why = s.hm.map.blockReason(u, v, zRef, from);
       if (why) return { z: zRef + wallMax, s, why };
       const z = s.hm.map.supportZ(u, v, lim);
       if (!Number.isNaN(z) && (!best || z > best.z)) best = { z, s };

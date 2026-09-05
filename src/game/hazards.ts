@@ -603,6 +603,7 @@ export class Catapult extends Hazard {
           mb.vv = launch.dv;
           mb.maxZ = mb.z;
           mb.airT = 0;
+          mb.softLand = true;   // the landing floor may be a long way down (stage 4: 108 -> 36)
           ctx.onEvent({ type: 'sfx', name: 'springboard' });
         }
       }

@@ -33,7 +33,7 @@ L.checkpointPx(120, 800, { r: 8, value: 4, id: 'cp4' });            // 4: main l
 // --- goal -------------------------------------------------------------------------------------------
 // the goal is the painted GOAL pad (z40) at the bottom of the low path, not the bridge that leads onto it
 L.zonePx('bonus', 88, 972, 4, 4000, 'goalflags');
-L.zonePx('goal', 88, 972, 3.5, undefined, 'goal');
+L.zonePx('goal', 88, 972, 1.5, undefined, 'goal');   // r in tiles: 3.5 reached 30 px back up the bridge ramp
 
 // --- hazards: vacuums on the upper zigzag, riser pads on the discs, catapult, hammers, steelie ------
 for (const [x, y, f] of [[135, 330, 1], [210, 420, -1], [95, 505, 1]] as const) {
@@ -49,7 +49,9 @@ for (const [x, y, r, name] of [[162, 555, 2.6, 'discH'], [213, 555, 2.2, 'discI'
   const c = L.uv(x, y, 108);
   L.rect(c.u - r, c.v - r, c.u + r, c.v + r, 108, 0, 0, name);
 }
-L.hazardPx(130, 632, { kind: 'catapult', launch: { du: 14, dv: 6 } });
+// green (z108) -> mid_R (z36): 1.13 s of flight at vz 175, so ~1 tile back in (u+v) and ~8.7 tiles across in (u-v);
+// the landing is 108 px below the apex, softLand keeps it a dizzy landing instead of a shatter
+L.hazardPx(130, 632, { kind: 'catapult', launch: { du: 3.4, dv: -4.3 } });
 for (const [x, y, f] of [[150, 930, 1], [205, 905, -1]] as const) {
   L.hazardPx(x, y, { kind: 'hammer', period: 2.4, phase: Math.random() * 2, facing: f });
 }

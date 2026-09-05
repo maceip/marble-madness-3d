@@ -97,6 +97,49 @@ def path_z(pts, x, y) -> float:
     return z
 
 
+def path_z_world(pts, x, y) -> float:
+    """path_z levels the ramp's cross-section in *screen* space (a pixel beside the centreline copies the z of the
+    nearest centreline pixel). In world space that tilts the ramp sideways: a pixel d px up-screen of the centreline
+    lands d/4 tiles further back in (u+v) with the same z, so a wide steep ramp becomes a trough at its foot and a
+    hump at its top and the marble jitters over 5-8 px steps. Level the cross-section in world space instead:
+    project pixel and centreline into (u+v, u-v) tiles and take the nearest centreline point there. z enters the
+    pixel's own projection, so iterate from the screen estimate."""
+    z = path_z(pts, x, y)
+    wp = [((p[1] + p[2]) / 4.0, p[0] / 8.0, p[2]) for p in pts]      # (u+v, u-v, z) of the centreline
+    for _ in range(3):
+        S, X = (y + z) / 4.0, x / 8.0
+        best, zn = float('inf'), z
+        for p, q in zip(wp, wp[1:]):
+            ds, dx = q[0] - p[0], q[1] - p[1]
+            L2 = ds * ds + dx * dx or 1e-9
+            t = max(0.0, min(1.0, ((S - p[0]) * ds + (X - p[1]) * dx) / L2))
+            es, ex = p[0] + ds * t - S, p[1] + dx * t - X
+            d = es * es + ex * ex
+            if d < best:
+                best, zn = d, p[2] + (q[2] - p[2]) * t
+        if abs(zn - z) < 0.05:
+            z = zn
+            break
+        z = zn
+    return z
+
+
+def path_plane(pts):
+    """A two-point world-levelled path is a plane. With (S, X) = ((y+z)/4, x/8) the parameter along the segment is
+    t = ((S-S0)ds + (X-X0)dx)/L2 and z = z0 + dz*t; z appears in S, so solve the linear equation for z:
+    z = a + b*x + c*y. Returns (a, b, c, z0, z1)."""
+    (x0, y0, z0), (x1, y1, z1) = pts[0], pts[-1]
+    S0, X0 = (y0 + z0) / 4.0, x0 / 8.0
+    ds, dx = (y1 + z1) / 4.0 - S0, x1 / 8.0 - X0
+    L2 = ds * ds + dx * dx or 1e-9
+    dz = z1 - z0
+    denom = 1.0 - dz * ds / (4.0 * L2)
+    a = (z0 + dz * (-S0 * ds - X0 * dx) / L2) / denom
+    b = dz * dx / (8.0 * L2) / denom
+    c = dz * ds / (4.0 * L2) / denom
+    return a, b, c, z0, z1
+
+
 def assign(kind: np.ndarray, elements: list[dict]) -> np.ndarray:
     """Multi-source BFS over floor pixels. Returns element index per pixel (-1 = unassigned floor)."""
     H, W = kind.shape
@@ -151,8 +194,15 @@ def heights(kind, owner, elements) -> np.ndarray:
         m = owner == i
         if e['kind'] == 'path':
             ys, xs = np.nonzero(m)
-            for y, x in zip(ys, xs):
-                z[y, x] = path_z(e['pts'], x, y)
+            if e.get('world'):
+                if len(e['pts']) != 2:
+                    raise SystemExit(f"world path {e['name']}: exactly two points (a straight ramp), got {len(e['pts'])}")
+                a, b, c, z0, z1 = path_plane(e['pts'])
+                zz = a + b * xs + c * ys
+                z[ys, xs] = np.clip(zz, min(z0, z1), max(z0, z1))
+            else:
+                for y, x in zip(ys, xs):
+                    z[y, x] = path_z(e['pts'], x, y)
         else:
             z[m] = e['z']
     return z
@@ -224,7 +274,9 @@ def load_classification(n: int, spec: dict, source: str | None):
         m &= box
         m = _nd.binary_closing(m, structure=np.ones((5, 5), bool)) & box
         m = _nd.binary_fill_holes(m)
-        m &= ~_nd.binary_dilation(kind == WALL, iterations=1) | (kind == VOID)
+        # overrideWall: the label image mislabelled this coloured floor as wall (stage 6's orange plateaus)
+        if not fc.get('overrideWall'):
+            m &= ~_nd.binary_dilation(kind == WALL, iterations=1) | (kind == VOID)
         kind[m & (kind != FLOOR)] = FLOOR
         print(f"  floorColor {fc['color']} in {fc['box']}: {int(m.sum())} px floor")
     for poly in spec.get('floor', []):
@@ -240,8 +292,9 @@ def load_classification(n: int, spec: dict, source: str | None):
             if 0 <= y < kind.shape[0] and 0 <= x < kind.shape[1]:
                 m[y, x] = True
         m = _nd.binary_dilation(m, structure=_disc(r))
+        forced = int((m & (kind != FLOOR)).sum())
         kind[m] = FLOOR
-        print(f"  solid path {p['name']}: {int(m.sum())} px floor within {r} px of the centreline")
+        print(f"  solid path {p['name']}: {int(m.sum())} px floor within {r} px of the centreline ({forced} px were not drawn as floor)")
     for poly in spec.get('wall', []):
         kind[poly_mask(kind.shape, poly)] = WALL
     for poly in spec.get('void', []):
@@ -278,7 +331,7 @@ def build_elements(spec: dict):
         pts = [[int(a), int(b)] for a, b in s['pts']] if 'pts' in s else [[int(s['x']), int(s['y'])]]
         elements.append({'kind': 'flat', 'name': s['name'], 'pts': pts, 'x': pts[0][0], 'y': pts[0][1], 'z': float(s['z']), 'w': s.get('w'), 'color': s.get('color'), 'tol': s.get('tol', 90)})
     for p in spec.get('paths', []):
-        elements.append({'kind': 'path', 'name': p['name'], 'pts': [[float(a), float(b), float(c)] for a, b, c in p['pts']], 'w': p.get('w', 30), 'open': bool(p.get('open', False))})
+        elements.append({'kind': 'path', 'name': p['name'], 'pts': [[float(a), float(b), float(c)] for a, b, c in p['pts']], 'w': p.get('w', 30), 'open': bool(p.get('open', False)), 'world': bool(p.get('world', False)), 'sw': p.get('sw', 6)})
     return elements
 
 
@@ -411,7 +464,29 @@ def main() -> None:
     z = np.full((H, W), np.nan, np.float32)
     for i, e in enumerate(elements):
         m = owner == i
-        if e['kind'] == 'path':
+        if e['kind'] == 'path' and e.get('world'):
+            # a straight world-levelled ramp: z is the plane through its two end points (see path_plane). Its footprint
+            # is the band of world cells within `sw` (1/4-tile cells, default 6) of the ramp's depth line: the painted
+            # ribbon of a steep chute is tall on screen because of the height it loses, not because it is deep in
+            # (u+v), so ribbon pixels whose s = y + z falls outside that band are not the ramp and are released
+            # (they end up void, like any drawn floor nobody claims).
+            if len(e['pts']) != 2:
+                raise SystemExit(f"world path {e['name']}: exactly two points (a straight ramp), got {len(e['pts'])}")
+            a, b, c, z0, z1 = path_plane(e['pts'])
+            ys, xs = np.nonzero(m)
+            zz = np.clip(a + b * xs + c * ys, min(z0, z1), max(z0, z1))
+            (x0, y0, _), (x1, y1, _) = e['pts']
+            S0, S1 = y0 + z0, y1 + z1
+            t = np.clip((xs - x0) / ((x1 - x0) or 1e-9), 0, 1) if abs(x1 - x0) >= abs(S1 - S0) else np.clip((ys + zz - S0) / ((S1 - S0) or 1e-9), 0, 1)
+            off = np.abs(ys + zz - (S0 + (S1 - S0) * t))
+            keep = off <= float(e.get('sw', 6))
+            z[ys[keep], xs[keep]] = zz[keep]
+            # the rest of the painted ribbon is the slide seen from the side; give it the foot's height so a marble
+            # that leaves the ramp sideways lands on the lower floor's level instead of falling through a void gap
+            # between the ramp band and the lower floor's own cells (they are emitted as the ramp's `_foot` shelf)
+            z[ys[~keep], xs[~keep]] = min(z0, z1)
+            print(f"  world path {e['name']}: plane z = {a:.2f} + {b:.3f}x + {c:.3f}y; {int(keep.sum())} px within {e.get('sw', 6)} cells of the depth line, {int((~keep).sum())} px of ribbon at the foot level {min(z0, z1)}")
+        elif e['kind'] == 'path':
             ys, xs = np.nonzero(m)
             for y, x in zip(ys, xs):
                 z[y, x] = path_z(e['pts'], x, y)
@@ -487,6 +562,7 @@ def main() -> None:
     # R = component id; G,B = height * 16 (16-bit) for every floor pixel, read by the `raster` component
     out = np.zeros((H, W, 3), np.uint8)
     out_comps = []
+    extra_comps = []
     for i, e in enumerate(elements):
         cid = i + 2
         m = owner == i
@@ -495,7 +571,32 @@ def main() -> None:
         out[..., 0][m] = cid
         ys, xs = np.nonzero(m)
         c = {'id': cid, 'kind': e['kind'], 'a': 0.0, 'b': 0.0, 'c': 0.0, 'area': int(m.sum()), 'bbox': [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())], 'name': e['name']}
-        if e['kind'] == 'path':
+        if e['kind'] == 'path' and e.get('world'):
+            # the runtime re-derives a `path` component's z per pixel from the centreline in SCREEN space, which
+            # cannot express a steep chute (its pixels in one column all collapse into a few world cells with
+            # different heights). Ship a world-levelled path as the plane z = a + b*x + c*y fitted to the heights
+            # authored here instead; a straight steep ramp is exactly a plane.
+            a, b, cc, z0, z1 = path_plane(e['pts'])
+            lo, hi = min(z0, z1), max(z0, z1)
+            zz = z[m]                                     # authored: plane inside the band, lo/hi shelves elsewhere
+            plane = a + b * xs + cc * ys
+            on = (np.abs(zz - plane) < 0.01) & (zz > lo) & (zz < hi)
+            zz = np.where(on, plane, np.where(zz >= hi, hi + 1, lo - 1))   # route shelves below
+            c['kind'] = 'slope'
+            c['a'], c['b'], c['c'] = float(a), float(b), float(cc)
+            c['area'] = int(on.sum())
+            # pixels past either end of the ramp are level shelves at that end's height: separate flat components
+            # (ids after all the elements, before the wall id)
+            for tag, sel, zc in (('top', zz > hi, hi), ('foot', zz < lo, lo)):
+                if not sel.any():
+                    continue
+                cid2 = len(elements) + 2 + len(extra_comps)
+                out[..., 0][ys[sel], xs[sel]] = cid2
+                extra_comps.append({'id': cid2, 'kind': 'flat', 'a': float(zc), 'b': 0.0, 'c': 0.0, 'area': int(sel.sum()),
+                                    'bbox': [int(xs[sel].min()), int(ys[sel].min()), int(xs[sel].max()), int(ys[sel].max())], 'name': f"{e['name']}_{tag}"})
+            print(f"  world path {e['name']} -> plane z = {a:.2f} + {b:.3f}x + {cc:.3f}y over {int(on.sum())} px"
+                  f" (+{int((zz > hi).sum())} px level top shelf, +{int((zz < lo).sum())} px level foot)")
+        elif e['kind'] == 'path':
             c['path'] = [{'x': p[0], 'y': p[1], 'z': p[2]} for p in e['pts']]
             c['a'] = e['pts'][0][2]
             if e.get('open'):
@@ -503,6 +604,7 @@ def main() -> None:
         else:
             c['a'] = e['z']
         out_comps.append(c)
+    out_comps.extend(extra_comps)
     rm = owner == len(elements)
     if rm.any():
         out[..., 0][rm] = 1

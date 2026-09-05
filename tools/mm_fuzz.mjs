@@ -7,7 +7,7 @@
  * the map pixel, the physics-trace reason and a heightfield probe. The output is a JSONL incident log that
  * tools/mm_fuzz_report.mjs ranks into "spots to look at".
  *
- *   node tools/mm_fuzz.mjs <stage> [--episodes 40] [--seconds 8] [--seed 1] [--worker w0]
+ *   node tools/mm_fuzz.mjs <stage> [--episodes 40] [--seconds 8] [--seed 1] [--worker w0] [--route [--jitter 10]]
  *
  *   BASE=http://127.0.0.1:3300           game to test (default: production https://marbles.secure.build)
  *   PLAYWRIGHT_SERVICE_URL=wss://...     Azure Playwright Workspaces endpoint (browsers run in the cloud)
@@ -67,10 +67,30 @@ const ev = (fn, arg) => page.evaluate(fn, arg);
 const marble = () => ev(() => window.mmDebug.marble());
 const keepClock = () => ev(() => window.mmDebug.clock && window.mmDebug.clock(300));
 
+// --route: start episodes on/near the playing route (the harness waypoints for this stage, jittered by up to
+// --jitter px) instead of anywhere a floor is drawn: "a player veering off the path", not "a marble dropped on
+// a roof". The waypoints are read from record_playwright_run.mjs so the two tools cannot drift apart.
+const ROUTE = args.includes('--route');
+const JITTER = parseInt(opt('jitter', '10'), 10);
+let routePts = [];
+if (ROUTE) {
+  const src = fs.readFileSync(new URL('./record_playwright_run.mjs', import.meta.url), 'utf8');
+  const i0 = src.indexOf(`\n  ${stage}: [`), i1 = src.indexOf(`\n  ${stage + 1}: [`, i0 + 1);
+  const block = src.slice(i0, i1 > 0 ? i1 : undefined);
+  routePts = [...block.matchAll(/sx: (\d+), sy: (\d+)/g)].map((m) => ({ x: +m[1], y: +m[2] }));
+  routePts = routePts.slice(0, -2);   // not the goal pad and its approach: finishing the stage ends the fuzz
+  console.log(`route mode: ${routePts.length} waypoints, jitter ±${JITTER} px`);
+}
+
 /** a random pixel that has a floor drawn under it (front-most floor), retried */
 async function randomFloorPixel() {
   for (let i = 0; i < 400; i++) {
-    const x = Math.floor(rnd() * dims.w), y = Math.floor(rnd() * dims.h);
+    let x = Math.floor(rnd() * dims.w), y = Math.floor(rnd() * dims.h);
+    if (ROUTE && routePts.length) {
+      const w = routePts[Math.floor(rnd() * routePts.length)];
+      x = w.x + Math.round((rnd() * 2 - 1) * JITTER); y = w.y + Math.round((rnd() * 2 - 1) * JITTER);
+      if (x < 0 || y < 0 || x >= dims.w || y >= dims.h) continue;
+    }
     const p = await ev(([x, y]) => (window.mmDebug.pick(x, y)[0] || null), [x, y]);
     if (p) return { x, y, ...p };
   }
@@ -87,6 +107,10 @@ for (let ep = 0; ep < EPISODES; ep++) {
   await page.waitForTimeout(300);
   const m0 = await marble();
   if (m0.screen !== 'race') { emit({ ev: 'abort', why: `screen ${m0.screen}` }); break; }
+  // a random route that rolls onto the goal pad finishes the stage and the game moves on: every later incident
+  // would be logged against the wrong stage (this happened: z344 "stage 4" deaths that were stage 5's castle)
+  const nameNow = await ev(() => window.game.stage.name);
+  if (nameNow !== dims.name) { emit({ ev: 'abort', why: `stage changed to "${nameNow}" (goal reached during fuzzing)` }); break; }
 
   const start = await randomFloorPixel();
   if (!start) { emit({ ev: 'abort', why: 'no floor pixel found' }); break; }
