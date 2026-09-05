@@ -79,36 +79,40 @@
       display: flex; flex-direction: column;
     }
     #ui-root[hidden] { display: none !important; }
-    /* --- agent page (the AI's browser): MARBLE MADNESS // AGENT MODE, MCP terminal, optical trackball ------- */
+    /* --- agent page (the AI's browser): MARBLE MADNESS // AGENT MODE, MCP terminal, optical trackball dock ---------
+       Two compositions from the conformance refs: agent_webpage.png (narrow / portrait embedded browser: one column)
+       and desktop_agent_browser.png (>= 1100 px: side panels with live telemetry either side of the terminal).
+       Chamfered frames are two nested clip-paths (frame colour outside, panel fill inside). */
     #agent-console {
-      --ui-blue: #46a0ff; --ui-frame: #32a0f4;
+      --ui-blue: #46a0ff; --ui-frame: #32a0f4; --agent-line: #22467a; --agent-fill: #050c19; --agent-dim: #6f9bd6; --agent-val: #39e9ff;
       position: fixed; inset: 0; z-index: 200; overflow: auto;
-      box-sizing: border-box; padding: clamp(14px, 3vh, 40px) clamp(14px, 4vw, 60px) 24px;
+      box-sizing: border-box; padding: clamp(12px, 2.5vh, 28px) clamp(14px, 3vw, 40px) 12px;
       background:
         linear-gradient(rgba(25, 103, 196, .07) 1px, transparent 1px),
         linear-gradient(90deg, rgba(25, 103, 196, .07) 1px, transparent 1px), #020407;
       background-size: 24px 24px, 24px 24px, auto;
-      display: flex; flex-direction: column; align-items: center; gap: clamp(14px, 2.6vh, 30px);
+      display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+      grid-template-areas: "head" "main" "dock"; row-gap: clamp(10px, 2vh, 22px);
       color: #8fd8ff;
     }
     #agent-console[hidden] { display: none !important; }
-    .agent-console-head { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(96vw, 900px); }
-    #agent-console-title { display: flex; }
+    .agent-console-head { grid-area: head; display: flex; flex-direction: column; align-items: center; gap: 8px; width: min(96vw, 900px); justify-self: center; }
+    #agent-console-title { display: flex; flex-direction: column; align-items: center; gap: 6px; }
     #agent-console-link { display: none; }
     .agent-head-rule { position: relative; width: 100%; height: 3px; background: var(--ui-frame); border-radius: 2px; }
     .agent-head-rule::after {
       content: ''; position: absolute; left: 50%; top: 3px; transform: translateX(-50%);
       border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 9px solid var(--ui-frame);
     }
-    .agent-rig { display: flex; flex-direction: column; align-items: center; gap: clamp(14px, 3vh, 30px); width: min(96vw, 900px); }
+    .agent-side { display: none; }
+    .agent-rig { grid-area: main; display: flex; flex-direction: column; align-items: center; min-height: 0; width: min(96vw, 900px); justify-self: center; }
     .agent-conduit, .agent-flux, .agent-ball-ring, .agent-console-foot { display: none !important; }
-    .agent-terminal {
-      width: 100%; height: min(44vh, 520px); min-height: 260px; display: grid; grid-template-rows: auto 1fr;
-      overflow: hidden; background: #000; border: 4px double var(--ui-frame); border-radius: 10px;
-    }
+    .agent-chamfer, .agent-chamfer-in { clip-path: polygon(var(--ch) 0, calc(100% - var(--ch)) 0, 100% var(--ch), 100% calc(100% - var(--ch)), calc(100% - var(--ch)) 100%, var(--ch) 100%, 0 calc(100% - var(--ch)), 0 var(--ch)); }
+    .agent-terminal { --ch: 16px; width: 100%; height: 100%; min-height: 220px; padding: 3px; box-sizing: border-box; background: #2a5a94; }   /* narrow: fills the row like the portrait ref */
+    .agent-terminal-in { --ch: 14px; width: 100%; height: 100%; box-sizing: border-box; display: grid; grid-template-rows: auto 1fr; overflow: hidden; background: #000; }
     .agent-terminal-bar {
       min-height: 36px; padding: 0 14px; display: flex; align-items: center; gap: 8px;
-      background: #04101e; border-bottom: 2px solid var(--ui-frame);
+      background: #04101e; border-bottom: 2px solid var(--agent-line);
     }
     .agent-terminal-title { display: flex; margin-right: auto; }
     .agent-led { width: 8px; height: 8px; border-radius: 50%; background: var(--ui-frame); }
@@ -118,30 +122,84 @@
     }
     .agent-log-line { min-height: 16px; flex: 0 0 auto; white-space: nowrap; }
     .agent-log-line canvas { display: block; max-width: 100%; }
-    .agent-ball-bay { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(96vw, 900px); }
+    .agent-ball-bay { grid-area: dock; display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; justify-self: center; }
     .agent-ball-caption { display: flex; }
     .agent-ball-rule { position: relative; width: min(60vw, 420px); height: 2px; background: var(--ui-frame); }
     .agent-ball-rule::after {
       content: ''; position: absolute; left: 50%; top: 2px; transform: translateX(-50%);
       border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 8px solid var(--ui-frame);
     }
-    .agent-ball-dock { height: min(36vh, 330px); }   /* room for the fixed trackball below the caption */
+    .agent-ball-dock { position: relative; width: 100%; height: calc(var(--tb) * 1.7 + 12px); }   /* the fixed trackball + housing live here */
+    /* the trackball housing + four energy tubes (agent_webpage.png), laid out by agent_console.ts from the trackball's rect */
+    .agent-dock { position: absolute; left: 50%; top: 0; width: 100vw; height: 100%; transform: translateX(-50%); overflow: visible; pointer-events: none; }
+    .agent-tube-shell { fill: none; stroke: #0a1424; stroke-width: 30; stroke-linecap: round; }
+    .agent-tube-bore { fill: none; stroke: #182c4e; stroke-width: 22; stroke-linecap: round; }
+    .agent-tube-core {
+      fill: none; stroke: #2f7fff; stroke-width: 8; stroke-linecap: round; opacity: .95;
+      stroke-dasharray: 18 30; animation: agent-flow 1.1s linear infinite; filter: url(#agent-glow);
+    }
+    .agent-tube-spark { fill: none; stroke: #d8f3ff; stroke-width: 2; stroke-dasharray: 4 44; animation: agent-flow .55s linear infinite; }
+    @keyframes agent-flow { from { stroke-dashoffset: 48; } to { stroke-dashoffset: 0; } }
+    .agent-coupling { fill: #0f1d34; stroke: #2c4f85; stroke-width: 3; }
+    .agent-plinth { fill: #0b1526; stroke: #22406e; stroke-width: 3; shape-rendering: crispEdges; }
+    .agent-base { fill: #101d33; stroke: #2c4f85; stroke-width: 3; shape-rendering: crispEdges; }
+    .agent-front { fill: #08111f; stroke: #22406e; stroke-width: 2; shape-rendering: crispEdges; }
+    .agent-bezel { fill: #0d1a30; stroke: #33578f; stroke-width: 8; }
+    .agent-housing-led { fill: #38d5ff; filter: url(#agent-glow); }
+    #agent-console.pulse-to-ball .agent-tube-core, #agent-console.pulse-to-terminal .agent-tube-core { animation-duration: .28s; stroke: #7cc4ff; }
+    #agent-console.pulse-to-ball .agent-tube-spark, #agent-console.pulse-to-terminal .agent-tube-spark { animation-duration: .16s; }
+    #agent-console.pulse-to-terminal .agent-tube-core, #agent-console.pulse-to-terminal .agent-tube-spark { animation-direction: reverse; }
+    #agent-console.pulse-spin .agent-bezel { stroke: #fff; }
+    #agent-console.pulse-spin .agent-housing-led { fill: #fff; }
+    /* side panels (desktop composition) */
+    .agent-panel { --ch: 12px; padding: 2px; background: var(--agent-line); }
+    .agent-panel-in { --ch: 11px; background: var(--agent-fill); padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .agent-panel-title { display: flex; padding-bottom: 8px; border-bottom: 2px solid var(--agent-line); }
+    .agent-rows { display: flex; flex-direction: column; gap: 6px; }
+    .agent-row { display: flex; align-items: center; gap: 8px; min-height: 14px; }
+    .agent-row .agent-val { margin-left: auto; display: flex; }
+    .agent-dot { width: 6px; height: 6px; background: #3a8bff; flex-shrink: 0; }
+    .agent-dot.on { background: var(--agent-val); box-shadow: 0 0 6px var(--agent-val); }
+    .agent-bars { display: flex; align-items: flex-end; gap: 3px; height: 24px; padding: 3px 6px; border: 1px dashed var(--agent-line); }
+    .agent-bar { width: 6px; min-height: 2px; background: #3a8bff; }
+    .agent-caption { display: none; position: absolute; flex-direction: column; gap: 3px; pointer-events: none; }
+    .agent-caption.tl { top: 18px; left: 26px; } .agent-caption.tr { top: 18px; right: 26px; align-items: flex-end; }
+    .agent-caption.ml { top: 61%; left: 26px; } .agent-caption.mr { top: 63%; right: 26px; align-items: flex-end; }
+    .agent-caption.bl { bottom: 22px; left: 26px; } .agent-caption.br { bottom: 22px; right: 26px; align-items: flex-end; }
+    .agent-caption.tl::before, .agent-caption.tr::before {
+      content: ''; position: absolute; top: -10px; width: 22px; height: 22px; border: 3px solid var(--ui-frame);
+    }
+    .agent-caption.tl::before { left: -12px; border-right: 0; border-bottom: 0; }
+    .agent-caption.tr::before { right: -12px; border-left: 0; border-bottom: 0; }
+    body.agent-console-active { --tb: min(30vw, 300px, 28vh); }   /* trackball size: shared by the dock band and the fixed ball */
     body.agent-console-active #game, body.agent-console-active #ui-root,
     body.agent-console-active #ui-fx, body.agent-console-active #settings,
     body.agent-console-active #android-app-prompt, body.agent-console-active #desktop-controls-help { display: none !important; }
     body.agent-console-active #trackball-container {
       display: flex !important; z-index: 220; left: 50%; right: auto; top: auto;
-      bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+      bottom: calc(var(--tb) * .5 + 14px); transform: translateX(-50%);
     }
-    body.agent-console-active #trackball { width: min(30vw, 300px, 32vh); height: min(30vw, 300px, 32vh); cursor: default; }
+    body.agent-console-active #trackball { width: var(--tb); height: var(--tb); cursor: default; }
     body.agent-console-active #trackball-label { display: none; }
+    @media (min-width: 1100px) {
+      #agent-console {
+        grid-template-columns: clamp(180px, 14vw, 230px) minmax(0, 1fr) clamp(180px, 14vw, 230px);
+        grid-template-areas: "head head head" "left main right" "dock dock dock";
+        column-gap: clamp(16px, 2.5vw, 48px); padding-left: clamp(24px, 5vw, 90px); padding-right: clamp(24px, 5vw, 90px);
+      }
+      .agent-console-head { width: 100%; max-width: none; }
+      .agent-rig { width: 100%; max-width: none; }
+      .agent-side { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+      .agent-terminal { height: min(40vh, 480px); }
+      .agent-side-left { grid-area: left; } .agent-side-right { grid-area: right; }
+      .agent-caption { display: flex; }
+    }
     @media (max-width: 620px) {
-      #agent-console { padding: 10px 12px 16px; gap: 10px; }
-      .agent-terminal { height: min(40vh, 420px); min-height: 200px; }
+      #agent-console { padding: 10px 12px 12px; row-gap: 10px; }
+      .agent-terminal { height: min(38vh, 420px); min-height: 200px; }
       .agent-terminal-bar { min-height: 30px; padding: 0 8px; }
       #agent-terminal-log { padding: 10px 8px; gap: 3px; }
-      .agent-ball-dock { height: min(30vh, 240px); }
-      body.agent-console-active #trackball { width: min(42vw, 200px); height: min(42vw, 200px); }
+      body.agent-console-active { --tb: min(42vw, 200px); }
     }
     #ui-fx {
       /* Celebration marbles remain visible around the tally, but never paint over
@@ -326,8 +384,8 @@
     #ui-menu-press { margin-top: clamp(22px, 6vh, 70px); margin-bottom: clamp(6px, 3vh, 32px); }
 
     /* --- enter your name ------------------------------------------------------------------------------ */
-    #ui-name { justify-content: center; gap: 0; }
-    .ui-name-head { display: flex; flex-direction: column; align-items: center; gap: calc(var(--glyph) * .5); }
+    #ui-name { justify-content: flex-start; gap: 0; }
+    .ui-name-head { display: flex; flex-direction: column; align-items: center; gap: calc(var(--glyph) * .5); margin-top: auto; }
     #ui-name-val { display: flex; justify-content: center; align-items: center; min-height: var(--hglyph); margin: clamp(14px, 3.5vh, 40px) 0 clamp(18px, 4vh, 48px); }
     .ui-keys-wrap { position: relative; }
     #ui-keys {
@@ -339,8 +397,8 @@
       position: relative; background: transparent; border: 0; border-radius: 8px; padding: 0;
       display: flex; align-items: center; justify-content: center; color: #fff;
     }
-    .ui-key:hover { filter: none; background: rgba(70, 160, 255, .12); }
-    .ui-key:active, .ui-key.pressed { transform: none; filter: none; background: rgba(70, 160, 255, .25); }
+    .ui-key:hover { filter: none; }
+    .ui-key:active, .ui-key.pressed { transform: none; filter: brightness(1.25); }
     .ui-key canvas { position: relative; z-index: 2; }
     #ui-name-marble {
       position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none;
@@ -360,23 +418,23 @@
     .ui-oauth:active, .ui-oauth.pressed { transform: none; filter: none; background: var(--ui-cyan); border-color: var(--ui-cyan); box-shadow: none; }
     .ui-oauth:active svg, .ui-oauth.pressed svg { fill: #041018; }
     .ui-oauth.on { border-color: var(--ui-yellow); box-shadow: 0 0 0 3px rgba(255, 238, 51, .35); }
-    #ui-oauth-hint { display: flex; margin-top: calc(var(--glyph) * .9); }
+    #ui-oauth-hint { display: flex; margin-top: calc(var(--glyph) * .9); margin-bottom: auto; }
     #ui-name-start { display: none !important; }
 
     /* --- connect your agent --------------------------------------------------------------------------- */
-    #ui-connect { justify-content: center; gap: 0; padding-bottom: 150px; }
+    #ui-connect { justify-content: flex-start; gap: 0; padding-top: clamp(10px, 3vh, 28px); }
     .ui-connect-logo {
-      width: min(56vw, 320px); height: auto; image-rendering: pixelated; flex-shrink: 0;
-      margin: 0 0 clamp(14px, 3.5vh, 40px);
+      width: min(40vw, 260px); height: auto; image-rendering: pixelated; flex-shrink: 0;
+      margin: 0 0 clamp(10px, 2.5vh, 24px);
     }
     .ui-connect-box { display: flex; flex-direction: column; align-items: center; width: min(94vw, 900px); text-align: center; position: relative; }
-    #ui-connect-h { display: flex; margin-bottom: clamp(14px, 3.5vh, 40px); }
-    #ui-connect-body { display: flex; flex-direction: column; align-items: center; gap: calc(var(--glyph) * .75); width: 100%; }
+    #ui-connect-h { display: flex; margin-bottom: clamp(10px, 2.5vh, 24px); }
+    #ui-connect-body { display: flex; flex-direction: column; align-items: center; gap: calc(var(--glyph) * .6); width: 100%; }
     .ui-connect-line { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--glyph); }
-    .ui-marble-row { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3vw, 28px); margin-top: clamp(22px, 5.5vh, 64px); }
+    .ui-marble-row { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3vw, 28px); margin-top: clamp(16px, 4vh, 40px); }
     .ui-marble-row > span { display: flex; }
     #ui-connect-marble { width: calc(var(--hglyph) * 2.2); height: calc(var(--hglyph) * 2.2); image-rendering: pixelated; }
-    #ui-connect-wait { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(var(--glyph) * .5) var(--glyph); margin-top: clamp(18px, 4.5vh, 52px); }
+    #ui-connect-wait { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(var(--glyph) * .5) var(--glyph); margin-top: clamp(12px, 3vh, 30px); }
     #ui-copy {
       position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(64px, calc(env(safe-area-inset-bottom) + 58px));
       display: flex; flex-direction: column; align-items: flex-end; gap: 4px; z-index: 5;
@@ -391,10 +449,12 @@
     .ui-copy-icon { width: clamp(48px, 7vw, 68px); height: clamp(48px, 7vw, 68px); display: block; object-fit: contain; image-rendering: pixelated; pointer-events: none; }
     #ui-chrome-ai { display: none !important; }
 
-    /* the "no Codex?" moment: the marble mascot springs in and asks (desktop, after 30 s idle) */
+    /* the "no Codex?" moment: the marble mascot springs in and asks (desktop, after 30 s idle). The bubble is
+       mirrored so its tail is on the left, over the ball (ballCentre x = 170/351); menus.ts picks .compact or
+       hides the teaser when the band under the connect copy is too short for it. */
     #ui-agent-teaser {
-      position: absolute; left: clamp(8px, 4vw, 70px); bottom: max(60px, calc(env(safe-area-inset-bottom) + 56px));
-      width: 300px; height: 330px; pointer-events: none;
+      position: absolute; left: clamp(8px, 3vw, 48px); bottom: max(60px, calc(env(safe-area-inset-bottom) + 56px));
+      width: 320px; height: 300px; pointer-events: none;
     }
     #ui-agent-teaser[hidden] { display: none !important; }
     .ui-mascot {
@@ -407,25 +467,28 @@
       image-rendering: pixelated;
     }
     .ui-mascot.hidden { transform: translateX(-50%) scale(0); opacity: 0; }
+    #ui-agent-teaser.compact .ui-mascot { --scale: .38; }
     @keyframes mascot-spin { to { background-position-x: calc(var(--fw) * -1 * var(--frames)); } }
     #ui-no-codex {
       --px: 3px;
-      position: absolute; left: 50%; bottom: 186px; pointer-events: auto;
-      box-sizing: border-box; max-width: 280px; white-space: nowrap;
+      position: absolute; left: 124px; bottom: 176px; pointer-events: auto;
+      box-sizing: border-box; white-space: nowrap;
       padding: calc(1 * var(--px)) calc(2 * var(--px)) calc(2 * var(--px));
       border-style: solid; border-width: calc(3 * var(--px)) calc(5 * var(--px)) calc(4 * var(--px)) calc(5 * var(--px));
       border-image: url(/assets/ui/bubble_body.png) 3 5 4 5 fill / calc(3 * var(--px)) calc(5 * var(--px)) calc(4 * var(--px)) calc(5 * var(--px)) stretch;
       background: transparent; color: #000; image-rendering: pixelated;
-      transform-origin: 85% 100%; transform: translateX(-38%);
+      transform-origin: 50% 100%; transform: scaleX(-1);
       transition: transform .3s cubic-bezier(.2, 1.4, .4, 1), opacity .2s;
     }
+    #ui-no-codex > canvas { display: block; transform: scaleX(-1); }
     #ui-no-codex::after {
       content: ''; position: absolute; right: calc(6 * var(--px)); bottom: calc(-6 * var(--px));
       width: calc(10 * var(--px)); height: calc(8 * var(--px));
       background: url(/assets/ui/bubble_tail.png) 0 0 / 100% 100% no-repeat; image-rendering: pixelated;
     }
-    #ui-no-codex:hover { filter: none; } #ui-no-codex:active, #ui-no-codex.pressed { filter: brightness(.9); transform: translateX(-38%) scale(.97); }
-    #ui-no-codex.hidden { transform: translateX(-38%) scale(0); opacity: 0; }
+    #ui-no-codex:hover { filter: none; } #ui-no-codex:active, #ui-no-codex.pressed { filter: brightness(.9); transform: scaleX(-1) scale(.97); }
+    #ui-no-codex.hidden { transform: scaleX(-1) scale(0); opacity: 0; }
+    #ui-agent-teaser.compact #ui-no-codex { --px: 2px; left: 136px; bottom: 132px; }
 
     /* --- select local model provider (modal) ----------------------------------------------------------- */
     #ui-agent-picker {
@@ -487,15 +550,15 @@
     #ui-win-final { margin-top: 12px; }
 
     /* --- challenge the AI again (modal) --------------------------------------------------------------- */
-    #ui-rematch { justify-content: center; gap: 0; }
+    #ui-rematch { justify-content: flex-start; gap: 0; }
     .ui-modal {
-      position: relative; width: min(92vw, 900px); box-sizing: border-box;
+      position: relative; width: min(92vw, 900px); box-sizing: border-box; margin: auto 0;
       padding: clamp(18px, 3.5vh, 34px) clamp(16px, 3vw, 34px);
       background: #000; border: 4px double var(--ui-frame); border-radius: 12px;
       display: flex; flex-direction: column; align-items: center; gap: clamp(12px, 2.6vh, 26px);
     }
-    .ui-flags { display: flex; justify-content: center; align-items: flex-end; height: calc(var(--hglyph) * 3.1); }
-    .ui-flags canvas { width: calc(var(--hglyph) * 4.5); height: calc(var(--hglyph) * 3.1); image-rendering: pixelated; }
+    .ui-flags { display: flex; justify-content: center; align-items: flex-end; height: calc(var(--hglyph) * 4.2); }
+    .ui-flags canvas { width: calc(var(--hglyph) * 6); height: calc(var(--hglyph) * 4.2); image-rendering: pixelated; }
     #ui-rematch-h { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(var(--glyph) * .5) var(--glyph); max-width: 100%; }
     .ui-rematch-btns { display: flex; gap: clamp(14px, 3vw, 44px); }
     .ui-big {
@@ -531,8 +594,7 @@
       #ui-menu .ui-logo-menu { width: min(60vw, 520px); max-height: 38vh; object-fit: contain; margin-bottom: clamp(20px, 6vh, 60px); }
       #ui-menu-sub, #ui-menu-press { margin-top: clamp(12px, 4vh, 40px); }
     }
-    @media (min-width: 701px) and (max-height: 760px) {
-      #ui-connect { padding-bottom: 120px; }
+    @media (min-width: 701px) and (max-height: 820px) {
       .ui-connect-logo { width: min(30vw, 220px); margin-bottom: 10px; }
       #ui-connect-h { margin-bottom: 10px; }
       #ui-connect-body { gap: calc(var(--glyph) * .4); }
@@ -556,7 +618,6 @@
       #ui-menu-sub { margin-top: clamp(24px, 11vh, 130px); }
       #ui-menu-press { margin-top: auto; }
       .ui-oauth-row { width: 88vw; }
-      #ui-connect { justify-content: flex-start; padding-bottom: 72px; }
       .ui-connect-logo { width: min(66vw, 320px); margin: 3vh 0 7vh; }
       #ui-connect-h { margin-bottom: 6vh; }
       .ui-marble-row { margin-top: 11vh; }
@@ -622,20 +683,54 @@
       <div class="agent-head-rule" aria-hidden="true"></div>
       <div id="agent-console-link"></div>
     </header>
+    <aside class="agent-side agent-side-left" aria-label="System status and network">
+      <div class="agent-panel agent-chamfer"><div class="agent-panel-in agent-chamfer-in">
+        <div class="agent-panel-title" id="agent-status-title"></div>
+        <div class="agent-rows" id="agent-status-rows"></div>
+      </div></div>
+      <div class="agent-panel agent-chamfer"><div class="agent-panel-in agent-chamfer-in">
+        <div class="agent-panel-title" id="agent-net-title"></div>
+        <div class="agent-bars" id="agent-net-bars" aria-hidden="true"></div>
+        <div class="agent-rows" id="agent-net-rows"></div>
+      </div></div>
+    </aside>
     <div class="agent-rig">
-      <div class="agent-terminal">
-        <div class="agent-terminal-bar">
-          <span class="agent-terminal-title" id="agent-terminal-title"></span>
-          <span class="agent-led"></span><span class="agent-led"></span><span class="agent-led"></span>
+      <div class="agent-terminal agent-chamfer">
+        <div class="agent-terminal-in agent-chamfer-in">
+          <div class="agent-terminal-bar">
+            <span class="agent-terminal-title" id="agent-terminal-title"></span>
+            <span class="agent-led"></span><span class="agent-led"></span><span class="agent-led"></span>
+          </div>
+          <div id="agent-terminal-log" role="log" aria-live="polite"></div>
         </div>
-        <div id="agent-terminal-log" role="log" aria-live="polite"></div>
-      </div>
-      <div class="agent-ball-bay">
-        <div class="agent-ball-caption" id="agent-ball-caption"></div>
-        <div class="agent-ball-rule" aria-hidden="true"></div>
-        <div class="agent-ball-dock" aria-hidden="true"></div>
       </div>
     </div>
+    <aside class="agent-side agent-side-right" aria-label="Agent core and connections">
+      <div class="agent-panel agent-chamfer"><div class="agent-panel-in agent-chamfer-in">
+        <div class="agent-panel-title" id="agent-core-title"></div>
+        <div class="agent-bars" id="agent-core-bars" aria-hidden="true"></div>
+        <div class="agent-rows" id="agent-core-rows"></div>
+      </div></div>
+      <div class="agent-panel agent-chamfer"><div class="agent-panel-in agent-chamfer-in">
+        <div class="agent-panel-title" id="agent-conn-title"></div>
+        <div class="agent-rows" id="agent-conn-rows"></div>
+      </div></div>
+    </aside>
+    <div class="agent-ball-bay">
+      <div class="agent-ball-caption" id="agent-ball-caption"></div>
+      <div class="agent-ball-rule" aria-hidden="true"></div>
+      <div class="agent-ball-dock" aria-hidden="true">
+        <svg class="agent-dock" id="agent-dock" xmlns="http://www.w3.org/2000/svg">
+          <defs><filter id="agent-glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5" /></filter></defs>
+        </svg>
+      </div>
+    </div>
+    <div class="agent-caption tl" id="agent-cap-tl" aria-hidden="true"></div>
+    <div class="agent-caption tr" id="agent-cap-tr" aria-hidden="true"></div>
+    <div class="agent-caption ml" id="agent-cap-ml" aria-hidden="true"></div>
+    <div class="agent-caption mr" id="agent-cap-mr" aria-hidden="true"></div>
+    <div class="agent-caption bl" id="agent-cap-bl" aria-hidden="true"></div>
+    <div class="agent-caption br" id="agent-cap-br" aria-hidden="true"></div>
     <footer class="agent-console-foot">
       <div id="agent-console-status"></div>
       <div id="agent-console-tools"></div>

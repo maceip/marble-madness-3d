@@ -53,7 +53,7 @@ await page.evaluate(() => {
 
 check('old standalone Chrome download button stays hidden', await page.locator('#ui-chrome-ai').isHidden());
 check('local-agent teaser waits 30 seconds', await page.locator('#ui-agent-teaser').isHidden());
-check('clipboard callout uses the supplied icon', await page.locator('#ui-copy .ui-copy-icon').getAttribute('src') === '/assets/screens/parts/copybutton.png');
+check('clipboard callout uses the supplied icon', await page.locator('#ui-copy .ui-copy-icon').getAttribute('src') === '/assets/screens/parts/copybutton_yellow.png');
 await page.locator('#ui-copy').click();
 const copied = await page.evaluate(() => navigator.clipboard.readText());
 check('clipboard copy is a direct built-in-browser instruction', /^Open this URL in your built-in browser: https?:\/\//.test(copied) && /site tools to race me as Player 2 and stay for rematches/.test(copied));

@@ -484,7 +484,7 @@ export class HtmlMenus {
     frame.className = 'ui-copy-frame';
     const icon = document.createElement('img');
     icon.className = 'ui-copy-icon';
-    icon.src = '/assets/screens/parts/copybutton.png';
+    icon.src = '/assets/screens/parts/copybutton_yellow.png';   // the supplied clipboard recoloured to the reference yellow
     icon.alt = '';
     frame.appendChild(icon);
     btn.replaceChildren(label, frame);
@@ -501,9 +501,13 @@ export class HtmlMenus {
     const picker = document.getElementById('ui-agent-picker');
     const teaser = document.getElementById('ui-agent-teaser');
     const desktop = matchMedia('(pointer: fine)').matches && window.innerWidth >= 760;
-    const showTeaser = desktop && this.game.screens.idle >= 30 && !this.agentTeaserDismissed &&
+    // free band between the connect copy and the settings bar: 300 px fits the full mascot + bubble, 220 the compact pair
+    const box = document.querySelector('#ui-connect .ui-connect-box')?.getBoundingClientRect();
+    const free = box ? window.innerHeight - box.bottom - 50 : 0;
+    const size = free >= 250 ? 'full' : free >= 190 ? 'compact' : 'none';
+    const showTeaser = desktop && size !== 'none' && this.game.screens.idle >= 30 && !this.agentTeaserDismissed &&
       !this.agentChooserOpen && !agent.active && !this.game.agentJoined;
-    if (teaser) teaser.hidden = !showTeaser;
+    if (teaser) { teaser.hidden = !showTeaser; teaser.classList.toggle('compact', size === 'compact'); }
     if (picker) picker.hidden = !this.agentChooserOpen;
 
     // REMOVE_SLIPPY: the marble mascot springs in, then (0.6 s later) asks in its speech bubble; the bubble is the button
@@ -630,11 +634,11 @@ export class HtmlMenus {
     // field (6x4 cells of 3px, 1px wave on the free columns) hangs outward from the top of the pole
     const flag = (mirror: boolean) => {
       const px = (x: number, y: number, c: string) => { ctx.fillStyle = c; ctx.fillRect(mirror ? W - 1 - x : x, y, 1, 1); };
-      for (let i = 0; i < 40; i++) { const x = 27 + Math.round(i * 0.4), y = 2 + i; px(x, y, '#cfe6ff'); px(x + 1, y, '#5b8ad6'); }
+      for (let i = 0; i < 40; i++) { const x = 27 + Math.round(i * 0.4), y = 2 + i; px(x, y, '#ffffff'); px(x + 1, y, '#8fc4ff'); }
       for (let cy = 0; cy < 4; cy++) for (let cx = 0; cx < 6; cx++) {
         const wave = cx <= 1 ? 1 : 0;
         for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) {
-          px(8 + cx * 3 + dx, 3 + cy * 3 + dy + wave, (cx + cy) % 2 ? UI.frame : '#ffffff');
+          px(8 + cx * 3 + dx, 3 + cy * 3 + dy + wave, (cx + cy) % 2 ? '#5ab4ff' : '#ffffff');
         }
       }
       for (let y = 4; y < 16; y++) px(7, y, '#0b2a55');   // free edge outline so it reads against black
