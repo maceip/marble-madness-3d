@@ -458,11 +458,11 @@
     .ui-copy-icon { width: clamp(48px, 7vw, 68px); height: clamp(48px, 7vw, 68px); display: block; object-fit: contain; image-rendering: pixelated; pointer-events: none; }
     #ui-chrome-ai { display: none !important; }
 
-    /* the "no Codex?" moment (REMOVE_SLIPPY.md): the 12-frame marble mascot strip springs in and spins, then asks in
-       its speech bubble (desktop, after 30 s idle). Bubble geometry follows bubble.json: the tail's top overlaps the
-       body's outline + bevel rows and its right edge sits 6 cells in from the body's outer right edge; CSS offsets are
-       relative to the padding box, hence the border widths (4 cells bottom, 5 right) folded into them. The tail tip
-       points at the top of the ball (ballCentre (170,142), r 112 in the 351x338 frame). menus.ts picks .compact or
+    /* the "no Codex?" moment: the static mascot render (mascotfront.png, background keyed to alpha 0) springs in and
+       asks in its speech bubble (desktop, after 30 s idle). Bubble geometry follows bubble.json: the tail's top overlaps
+       the body's outline + bevel rows and its right edge sits 6 cells in from the body's outer right edge; CSS offsets
+       are relative to the padding box, hence the border widths (4 cells bottom, 5 right) folded into them. The tail tip
+       points at the top of the ball (ball centre (219,188), top y 71 in the 400 px image). menus.ts picks .compact or
        hides the teaser when the band under the connect copy is too short. */
     #ui-agent-teaser {
       position: absolute; left: clamp(130px, 10vw, 170px); bottom: max(60px, calc(env(safe-area-inset-bottom) + 56px));
@@ -470,20 +470,18 @@
     }
     #ui-agent-teaser[hidden] { display: none !important; }
     .ui-mascot {
-      --frames: 12; --fw: 351px; --fh: 338px; --period: 1s; --scale: .5;
-      position: absolute; left: 50%; bottom: 0; width: var(--fw); height: var(--fh); z-index: 1;
-      background: url(/assets/sprites/mascot.png) 0 0 / auto 100% no-repeat;
+      --scale: .5;
+      position: absolute; left: 50%; bottom: 0; width: 400px; height: 400px; z-index: 1;
+      background: url(/assets/sprites/mascotfront.png) center / contain no-repeat;
       transform-origin: 50% 100%; transform: translateX(-50%) scale(var(--scale));
-      animation: mascot-spin var(--period) steps(var(--frames)) infinite;
       transition: transform .35s cubic-bezier(.2, 1.4, .4, 1), opacity .25s;
-      image-rendering: pixelated;
+      filter: drop-shadow(0 0 14px rgba(40, 120, 255, .45));
     }
     .ui-mascot.hidden { transform: translateX(-50%) scale(0); opacity: 0; }
-    @keyframes mascot-spin { to { background-position-x: calc(var(--fw) * -1 * var(--frames)); } }
     #ui-agent-teaser.compact .ui-mascot { --scale: .38; }
     #ui-no-codex {
       --px: 3px;
-      position: absolute; left: -122px; bottom: 178px; pointer-events: auto; z-index: 2;   /* tail tip over the ball */
+      position: absolute; left: -118px; bottom: 188px; pointer-events: auto; z-index: 2;   /* tail tip over the ball, above its glow */
       box-sizing: border-box; white-space: nowrap;
       padding: calc(1 * var(--px)) calc(2 * var(--px)) calc(2 * var(--px));
       border-style: solid; border-width: calc(3 * var(--px)) calc(5 * var(--px)) calc(4 * var(--px)) calc(5 * var(--px));
@@ -500,7 +498,7 @@
     }
     #ui-no-codex:hover { filter: none; } #ui-no-codex:active, #ui-no-codex.pressed { filter: brightness(.9); transform: scale(.97); }
     #ui-no-codex.hidden { transform: scale(0); opacity: 0; }
-    #ui-agent-teaser.compact #ui-no-codex { --px: 2px; left: -117px; bottom: 135px; }
+    #ui-agent-teaser.compact #ui-no-codex { --px: 2px; left: -115px; bottom: 143px; }
 
     /* --- select local model provider (modal) ----------------------------------------------------------- */
     #ui-agent-picker {
