@@ -59,18 +59,27 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 /** The trackball housing and its four energy tubes (agent_webpage.png). Geometry follows the trackball's on-screen
  *  rect so the ball always sits in the bezel; the tubes leave the housing shoulders and run off the left/right edges
  *  (upper pair rising, lower pair falling) with two couplings each. Called on every tick (cheap: 4 paths, 8 rects). */
-function buildDock(svg: SVGSVGElement): { layout(ball: HTMLElement | null): void } {
+const BOLT_POOL = 3;          // concurrent sparks per tube before the oldest is recycled (agents spin many times a second)
+const BOLT_LEN = 0.22;        // spark length as a fraction of the tube, white-hot head = the leading 0.09
+const BOLT_MS = 380;
+
+function buildDock(svg: SVGSVGElement): { layout(ball: HTMLElement | null): void; spark(onArrive: () => void): void } {
   const el = <T extends SVGElement>(name: string, cls: string): T => {
     const n = document.createElementNS(SVG_NS, name) as T; n.setAttribute('class', cls); svg.appendChild(n); return n;
   };
   const tubes = [-1, 1].flatMap((side) => [true, false].map((up) => ({
-    side: side as -1 | 1, up,
+    side: side as -1 | 1, up, len: 0, next: 0,
     shell: el<SVGPathElement>('path', 'agent-tube-shell'),
     bore: el<SVGPathElement>('path', 'agent-tube-bore'),
     core: el<SVGPathElement>('path', 'agent-tube-core'),
     spark: el<SVGPathElement>('path', 'agent-tube-spark'),
     couplings: [el<SVGRectElement>('rect', 'agent-coupling'), el<SVGRectElement>('rect', 'agent-coupling')],
+    bolts: [] as { glow: SVGPathElement; head: SVGPathElement; anims: Animation[] }[],
   })));
+  // per-call sparks ride above the couplings: a wide electric-blue glow with a thin white-hot head at its leading edge
+  for (const t of tubes) {
+    for (let i = 0; i < BOLT_POOL; i++) t.bolts.push({ glow: el<SVGPathElement>('path', 'agent-tube-bolt'), head: el<SVGPathElement>('path', 'agent-tube-bolt-head'), anims: [] });
+  }
   const plinth = el<SVGPolygonElement>('polygon', 'agent-plinth');
   const front = el<SVGRectElement>('rect', 'agent-front');
   const base = el<SVGPolygonElement>('polygon', 'agent-base');
@@ -105,6 +114,13 @@ function buildDock(svg: SVGSVGElement): { layout(ball: HTMLElement | null): void
         for (const path of [t.shell, t.bore, t.core, t.spark]) path.setAttribute('d', d);
         t.shell.style.strokeWidth = `${44 * gauge}`; t.bore.style.strokeWidth = `${34 * gauge}`; t.core.style.strokeWidth = `${12 * gauge}`; t.spark.style.strokeWidth = `${3 * gauge}`;
         const len = t.shell.getTotalLength();
+        t.len = len;
+        for (const bolt of t.bolts) {
+          for (const path of [bolt.glow, bolt.head]) path.setAttribute('d', d);
+          // one dash per path: dash + gap >= tube length, so exactly one spark is ever visible per bolt
+          bolt.glow.style.strokeDasharray = `${len * BOLT_LEN} ${len}`; bolt.glow.style.strokeWidth = `${16 * gauge}`;
+          bolt.head.style.strokeDasharray = `${len * 0.09} ${len}`; bolt.head.style.strokeWidth = `${5 * gauge}`;
+        }
         t.couplings.forEach((c, i) => {
           const at = len * (i === 0 ? 0.3 : 0.72);
           const p = t.shell.getPointAtLength(at), q = t.shell.getPointAtLength(Math.min(len, at + 2));
@@ -127,6 +143,27 @@ function buildDock(svg: SVGSVGElement): { layout(ball: HTMLElement | null): void
         led.setAttribute('x', String(cx - size * 2.2 + i * size * 1.8)); led.setAttribute('y', String(cy + R * 1.31));
         led.setAttribute('width', String(size)); led.setAttribute('height', String(size));
       });
+    },
+    /** A trackball command arrived from the agent: fire one bright spark down every tube, page edge -> housing.
+     *  The dash starts fully off the far end (offset -len) and leaves through the housing end (offset +dash). */
+    spark(onArrive) {
+      if (typeof Element.prototype.animate !== 'function') { onArrive(); return; }
+      let arrived = false;
+      for (const t of tubes) {
+        if (!t.len) continue;
+        const bolt = t.bolts[t.next]; t.next = (t.next + 1) % BOLT_POOL;
+        for (const a of bolt.anims) a.cancel();
+        bolt.anims = [];
+        const from = -t.len, to = t.len * BOLT_LEN;
+        const duration = BOLT_MS + (t.up ? 0 : 40) + (t.side < 0 ? 0 : 25);   // the four bolts land a beat apart
+        for (const path of [bolt.glow, bolt.head]) {
+          path.style.visibility = 'visible';
+          const anim = path.animate([{ strokeDashoffset: from, opacity: 0.55 }, { strokeDashoffset: from * 0.4 + to * 0.6, opacity: 1, offset: 0.6 }, { strokeDashoffset: to, opacity: 1 }],
+            { duration, easing: 'cubic-bezier(.45, 0, .9, .6)', fill: 'forwards' });
+          anim.onfinish = () => { path.style.visibility = 'hidden'; anim.cancel(); if (!arrived) { arrived = true; onArrive(); } };
+          bolt.anims.push(anim);
+        }
+      }
     },
   };
 }
@@ -297,6 +334,12 @@ export function agentConsole(game: Game, font: BitmapFont): { active: boolean; t
   add(`[READY] ${game.webmcp.tools.length} TOOLS REGISTERED`, 'orange');
   add('> WAITING FOR AGENT TRAFFIC_', 'white');
 
+  let arriveId = 0;
+  const sparkArrive = () => {
+    const id = ++arriveId;
+    host.classList.add('spark-arrive');
+    window.setTimeout(() => { if (id === arriveId) host.classList.remove('spark-arrive'); }, 180);
+  };
   let pulseId = 0;
   const pulse = (toward: 'ball' | 'terminal', strong: boolean) => {
     const id = ++pulseId;
@@ -309,7 +352,11 @@ export function agentConsole(game: Game, font: BitmapFont): { active: boolean; t
 
   window.addEventListener('mm:mcp-traffic', ((event: CustomEvent<TrafficDetail>) => {
     const d = event.detail; const strong = d.name === 'spin_trackball';
-    if (d.phase === 'call') { add(`> ${d.name.toUpperCase()}  ${summarize(d.name, d.payload)}`, strong ? 'orange' : 'white'); pulse('ball', strong); }
+    if (d.phase === 'call') {
+      add(`> ${d.name.toUpperCase()}  ${summarize(d.name, d.payload)}`, strong ? 'orange' : 'white');
+      pulse('ball', strong);
+      if (strong) dock?.spark(sparkArrive);   // every trackball command: electric-blue spark down all four tubes
+    }
     else if (d.phase === 'result') { add(`< ${d.name.toUpperCase()}  ${summarize(d.name, d.payload)}`, 'cyan'); pulse('terminal', strong); }
     else if (d.phase === 'event') { add(`! EVENT ${d.name.toUpperCase()}  ${summarize(d.name, d.payload)}`, 'orange'); pulse('terminal', false); }
     else if (d.phase === 'resource') { add(`@ READ ${d.name.toUpperCase()}`, 'lavender'); pulse('terminal', false); }

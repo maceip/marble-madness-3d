@@ -143,6 +143,12 @@
     .agent-tube-spark { fill: none; stroke: #d8f3ff; stroke-width: 3; stroke-dasharray: 6 42; animation: agent-flow .55s linear infinite; filter: url(#agent-glow); }
     @keyframes agent-flow { from { stroke-dashoffset: 48; } to { stroke-dashoffset: 0; } }
     .agent-coupling { fill: #0f1d34; stroke: #2c4f85; stroke-width: 3; }
+    /* per-call sparks (agent_console.ts spark()): electric-blue glow with a white-hot head, hidden until animated */
+    .agent-tube-bolt { fill: none; stroke: #1ec8ff; stroke-width: 16; stroke-linecap: round; visibility: hidden; filter: url(#agent-spark-glow); mix-blend-mode: screen; }
+    .agent-tube-bolt-head { fill: none; stroke: #f2fdff; stroke-width: 5; stroke-linecap: round; visibility: hidden; }
+    #agent-console.spark-arrive .agent-bezel { stroke: #bdf3ff; filter: url(#agent-spark-glow); }
+    #agent-console.spark-arrive .agent-housing-led { fill: #ffffff; }
+    #agent-console.spark-arrive .agent-tube-core { stroke: #9fdcff; }
     .agent-plinth { fill: #0b1526; stroke: #22406e; stroke-width: 3; shape-rendering: crispEdges; }
     .agent-base { fill: #101d33; stroke: #2c4f85; stroke-width: 3; shape-rendering: crispEdges; }
     .agent-front { fill: #08111f; stroke: #22406e; stroke-width: 2; shape-rendering: crispEdges; }
@@ -726,7 +732,10 @@
       <div class="agent-ball-rule" aria-hidden="true"></div>
       <div class="agent-ball-dock" aria-hidden="true">
         <svg class="agent-dock" id="agent-dock" xmlns="http://www.w3.org/2000/svg">
-          <defs><filter id="agent-glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5" /></filter></defs>
+          <defs>
+            <filter id="agent-glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5" /></filter>
+            <filter id="agent-spark-glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          </defs>
         </svg>
       </div>
     </div>

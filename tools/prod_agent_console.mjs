@@ -65,6 +65,25 @@ check('directional call pulses through flux both ways', traffic.classes.some((x)
 check('directional MCP traffic spins the rendered trackball', traffic.speed > 0, String(traffic.speed));
 check('site-tool spin visibly moves the trackball canvas', !trackballBefore.equals(trackballAfter));
 
+// Every trackball command fires one electric-blue spark down each of the four tubes (page edge -> housing), then
+// flashes the bezel/LEDs on arrival; nothing may stay lit afterwards.
+await agent.waitForTimeout(900);
+const sparks = await agent.evaluate(async () => {
+  const bolts = () => [...document.querySelectorAll('.agent-tube-bolt')];
+  const before = bolts().filter((p) => getComputedStyle(p).visibility === 'visible').length;
+  window.__registeredSiteTools.find((tool) => tool.name === 'spin_trackball').execute({ dx: -0.6, dy: 0.8, speed: 55 });
+  const running = document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.target?.classList?.contains('agent-tube-bolt')).length;
+  const lit = bolts().filter((p) => getComputedStyle(p).visibility === 'visible').length;
+  let arrived = false;
+  const host = document.getElementById('agent-console');
+  const seen = new MutationObserver(() => { if (host.classList.contains('spark-arrive')) arrived = true; });
+  seen.observe(host, { attributes: true, attributeFilter: ['class'] });
+  await new Promise((r) => setTimeout(r, 900));
+  seen.disconnect();
+  return { poolPaths: bolts().length, before, running, lit, arrived, after: bolts().filter((p) => getComputedStyle(p).visibility === 'visible').length };
+});
+check('trackball command sparks all four tubes and flashes the housing on arrival', sparks.poolPaths === 12 && sparks.before === 0 && sparks.running === 4 && sparks.lit === 4 && sparks.arrived && sparks.after === 0, JSON.stringify(sparks));
+
 // A human starts the race, but the agent's visible surface must not switch to any human/race screen.
 const humanContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 const human = await humanContext.newPage();
