@@ -45,8 +45,8 @@ check('mobile settings and support link stay inside the viewport', !!dockLayout.
 await human.waitForFunction(() => game.aiTrackerDebug.size === 1, null, { timeout: 6000 });
 const first = await human.evaluate(() => [...game.aiTrackerDebug.values()][0]);
 check('AI callout uses game-space coordinates', first.targetX >= -40 && first.targetX <= 328 && first.targetY >= -80 && first.targetY <= 320, JSON.stringify(first));
-check('AI callout is visibly tethered to marble', Math.hypot(first.tagX - first.targetX, first.tagY - first.targetY) <= 85, JSON.stringify(first));
-check('AI callout stays inside the 288x240 playfield', first.tagX >= 31 && first.tagX <= 257 && first.tagY >= 41 && first.tagY <= 224, JSON.stringify(first));
+check('AI tag hugs the marble (low-profile callout)', Math.hypot(first.tagX - first.targetX, first.tagY - first.targetY) <= 40, JSON.stringify(first));
+check('AI tag stays inside the 288x240 playfield', first.tagX >= 12 && first.tagX <= 276 && first.tagY >= 6 && first.tagY <= 234, JSON.stringify(first));
 
 await agent.evaluate(() => window.webmcp.callTool('spin_trackball', { dx: 0.8, dy: 0.55, speed: 70 }));
 await human.waitForTimeout(900);
@@ -79,7 +79,7 @@ await human.waitForFunction(() => {
   return state?.offscreen === true && state.targetX > game.r.viewW;
 }, null, { timeout: 4000 });
 const edge = await human.evaluate(() => [...game.aiTrackerDebug.values()][0]);
-check('offscreen AI gets a clamped edge pointer', edge.offscreen && edge.tagX >= 31 && edge.tagX <= 257 && edge.tagY >= 41 && edge.tagY <= 224, JSON.stringify(edge));
+check('offscreen AI gets a clamped edge tag', edge.offscreen && edge.tagX >= 12 && edge.tagX <= 276 && edge.tagY >= 6 && edge.tagY <= 234, JSON.stringify(edge));
 
 await human.screenshot({ path: EDGE_OUT, fullPage: true });
 check('no browser errors', errors.length === 0, errors.slice(0, 4).join(' | '));

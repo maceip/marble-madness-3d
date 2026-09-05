@@ -54,62 +54,46 @@ export class AITrackerOverlay {
     const targetX = target.screenX;
     const targetY = target.screenY;
     const offscreen = targetX < -4 || targetX > viewW + 4 || targetY < -4 || targetY > viewH + 4;
-    const label = offscreen ? 'AI >' : 'THIS IS AI';
-    const w = Math.max(offscreen ? 46 : 70, font.width(label) + 10);
-    const halfWidth = w / 2 + 2;
-    const edgeMargin = Math.max(33, halfWidth);
-    const tagX = Math.max(edgeMargin, Math.min(viewW - edgeMargin, this.x));
-    const labelBelow = !offscreen && this.y < 64;
-    const tagY = offscreen
-      ? Math.max(43, Math.min(viewH - 18, this.y))
-      : Math.max(43, Math.min(viewH - 18, this.y + (labelBelow ? 30 : -30)));
+
+    // Low-profile tag (MANDATORY_CONFORMANCE/AI_CALLOUT_REDO.png): a two-glyph pill with a small pointer that hugs
+    // the marble - above it by default, on its upper shoulder when the ball is near the top edge. No ring, no glow,
+    // no leader line. Off screen, the pill clamps to the edge and the label gains a chevron toward the ball.
+    const label = offscreen ? (targetX > viewW ? 'AI>' : targetX < 0 ? '<AI' : 'AI') : 'AI';
+    const w = font.width(label) + 8, h = 12;            // 24x12 in the 288x240 space
+    const ballR = 7, gap = 4;                            // marble radius; pointer height between pill and ball
+    const cx = offscreen ? Math.max(w / 2 + 2, Math.min(viewW - w / 2 - 2, this.x)) : this.x;
+    const cy = offscreen ? Math.max(h / 2 + 2, Math.min(viewH - h / 2 - 2, this.y)) : this.y;
+    let side: 'above' | 'right' | 'left' | 'none' = offscreen ? 'none' : 'above';
+    if (side === 'above' && cy - ballR - gap - h < 2) side = cx + ballR + gap + w > viewW - 2 ? 'left' : 'right';
+    let tagX = cx, tagY = cy - ballR - gap - h / 2;
+    if (side === 'right') { tagX = cx + ballR + gap + w / 2 - 2; tagY = cy - ballR + 1; }
+    if (side === 'left') { tagX = cx - ballR - gap - w / 2 + 2; tagY = cy - ballR + 1; }
+    if (side === 'none') { tagX = cx; tagY = cy; }
+    tagX = Math.max(w / 2 + 1, Math.min(viewW - w / 2 - 1, tagX));
+    tagY = Math.max(h / 2 + 1, Math.min(viewH - h / 2 - 1, tagY));
 
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.lineJoin = 'miter';
     ctx.lineCap = 'square';
 
-    if (target.visible && !offscreen) {
-      const pulse = 10.5 + Math.sin(time * 9) * 1.2;
-      const glow = ctx.createRadialGradient(targetX, targetY, 5, targetX, targetY, 18);
-      glow.addColorStop(0, 'rgba(64,240,255,0)');
-      glow.addColorStop(0.48, 'rgba(64,240,255,0.10)');
-      glow.addColorStop(0.72, 'rgba(32,126,255,0.34)');
-      glow.addColorStop(1, 'rgba(32,126,255,0)');
-      ctx.fillStyle = glow;
-      ctx.fillRect(targetX - 19, targetY - 19, 38, 38);
-
-      ctx.strokeStyle = '#030611';
-      ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.arc(targetX + 1, targetY + 1, pulse, 0, Math.PI * 2); ctx.stroke();
-      ctx.strokeStyle = '#5af4ff';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(targetX, targetY, pulse, 0.18, Math.PI * 1.62); ctx.stroke();
-      ctx.strokeStyle = '#3478ff';
-      ctx.beginPath(); ctx.arc(targetX, targetY, pulse, Math.PI * 1.62, Math.PI * 2.18); ctx.stroke();
-    }
-
-    const anchorY = offscreen ? targetY : targetY + (labelBelow ? 11 : -11);
-    ctx.strokeStyle = '#030611'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(tagX, tagY + 9); ctx.lineTo(targetX, anchorY); ctx.stroke();
-    ctx.strokeStyle = offscreen ? '#ffd634' : '#5af4ff'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(tagX, tagY + 9); ctx.lineTo(targetX, anchorY); ctx.stroke();
-
-    const h = 18, x = Math.round(tagX - w / 2), y = Math.round(tagY - h / 2);
-    const cut = 4;
-    const bubble = () => {
+    const x = Math.round(tagX - w / 2), y = Math.round(tagY - h / 2);
+    const ink = offscreen ? '#ffd634' : '#5af4ff', fill = offscreen ? '#5e2900' : '#07304a';
+    const pointer = () => {
+      if (side === 'none') return;
       ctx.beginPath();
-      ctx.moveTo(x + cut, y); ctx.lineTo(x + w - cut, y); ctx.lineTo(x + w, y + cut);
-      ctx.lineTo(x + w, y + h - cut); ctx.lineTo(x + w - cut, y + h);
-      ctx.lineTo(x + cut, y + h); ctx.lineTo(x, y + h - cut); ctx.lineTo(x, y + cut); ctx.closePath();
+      if (side === 'above') { ctx.moveTo(tagX - 3, y + h); ctx.lineTo(tagX + 3, y + h); ctx.lineTo(tagX, y + h + gap); }
+      else if (side === 'right') { ctx.moveTo(x + 1, y + h - 3); ctx.lineTo(x + 6, y + h); ctx.lineTo(x - 2, y + h + gap - 1); }
+      else { ctx.moveTo(x + w - 1, y + h - 3); ctx.lineTo(x + w - 6, y + h); ctx.lineTo(x + w + 2, y + h + gap - 1); }
+      ctx.closePath();
     };
-    bubble(); ctx.fillStyle = '#030611'; ctx.fill(); ctx.strokeStyle = '#030611'; ctx.lineWidth = 5; ctx.stroke();
-    bubble(); ctx.fillStyle = offscreen ? '#5e2900' : '#07304a'; ctx.fill(); ctx.strokeStyle = offscreen ? '#ffd634' : '#5af4ff'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = offscreen ? '#ff8a18' : '#1679d2';
-    ctx.fillRect(x + 4, y + 3, w - 8, 2);
-    ctx.fillStyle = '#010208';
-    ctx.fillRect(x + 4, y + h - 5, w - 8, 2);
-    font.drawCentered(ctx, label, tagX, y + 6, offscreen ? 'orange' : 'cyan');
+    const pill = () => { ctx.beginPath(); ctx.roundRect(x, y, w, h, 2); };
+    // dark outline under everything so the tag reads on the light checker floors, then the cyan pill + pointer
+    ctx.strokeStyle = '#030611'; ctx.lineWidth = 3;
+    pill(); ctx.stroke(); pointer(); ctx.stroke();
+    pointer(); ctx.fillStyle = ink; ctx.fill();
+    pill(); ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.stroke();
+    font.drawCentered(ctx, label, tagX, y + 2, offscreen ? 'orange' : 'cyan');
 
     ctx.restore();
     return { targetX, targetY, tagX, tagY, offscreen };
